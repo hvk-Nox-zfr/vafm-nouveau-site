@@ -1,0 +1,599 @@
+/* ==========================================================================
+   1. VARIABLES & RESET GLOBALS
+   ========================================================================== */
+:root {
+    --accent: #E61E2A;
+    --accent-hover: #b8141e;
+    --bg-white: #ffffff;
+    --text-dark: #121212;
+    --text-muted: #6e6e73;
+    --light-gray: #f5f5f7;
+    --border-color: #e5e5ea;
+    --radius-premium: 16px;
+    --transition-smooth: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background-color: var(--bg-white);
+    color: var(--text-dark);
+    overflow-x: hidden;
+    padding-bottom: 120px;
+}
+
+/* Désactive le clic sur les éléments du carrousel si la classe .is-admin est absente du body */
+body:not(.is-admin) .carousel-item {
+    pointer-events: none;
+    cursor: default;
+}
+
+/* ==========================================================================
+   2. CHARGEMENT (LOADER SCREEN)
+   ========================================================================== */
+#loader {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #fff;
+    z-index: 9999999 !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+
+.loader-logo {
+    width: 130px;
+    margin-bottom: 25px;
+    animation: pulseLogo 1.5s infinite var(--transition-smooth);
+}
+
+@keyframes pulseLogo {
+    0% { transform: scale(0.95); opacity: 0.8; }
+    50% { transform: scale(1.05); opacity: 1; }
+    100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+.loader-bar-container {
+    width: 240px;
+    height: 3px;
+    background: var(--light-gray);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.loader-bar {
+    width: 0%;
+    height: 100%;
+    background: var(--accent);
+}
+
+/* ==========================================================================
+   3. PANNEAU & BARRE TECHNIQUE ADMIN
+   ========================================================================== */
+.admin-top-bar {
+    display: none;
+    background: #121212;
+    color: #fff;
+    padding: 12px 5%;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 600;
+    border-bottom: 2px solid var(--accent);
+}
+
+body.admin-logged-in .admin-top-bar { 
+    display: flex; 
+}
+
+.admin-actions { 
+    display: flex; 
+    align-items: center; 
+    gap: 12px; 
+}
+
+.switch { 
+    position: relative; 
+    display: inline-block; 
+    width: 50px; 
+    height: 26px; 
+}
+
+.switch input { 
+    opacity: 0; 
+    width: 0; 
+    height: 0; 
+}
+
+.slider { 
+    position: absolute; 
+    cursor: pointer; 
+    top: 0; left: 0; right: 0; bottom: 0; 
+    background-color: #3a3a3c; 
+    transition: .4s; 
+}
+
+.slider:before { 
+    position: absolute; 
+    content: ""; 
+    height: 18px; width: 18px; 
+    left: 4px; bottom: 4px; 
+    background-color: white; 
+    transition: .4s; 
+}
+
+input:checked + .slider { 
+    background-color: #34c759; 
+}
+
+input:checked + .slider:before { 
+    transform: translateX(24px); 
+}
+
+.slider.round { 
+    border-radius: 34px; 
+}
+
+.slider.round:before { 
+    border-radius: 50%; 
+}
+
+.admin-editable-ui { 
+    display: none !important; 
+}
+
+body.edit-mode-active .admin-editable-ui { 
+    display: block !important; 
+}
+
+body.edit-mode-active [contenteditable="true"] { 
+    border: 2px dashed var(--accent) !important; 
+    background: rgba(230, 30, 42, 0.02); 
+    padding: 4px; 
+}
+
+.add-btn { 
+    background: #000; 
+    color: #fff; 
+    border: none; 
+    padding: 10px 20px; 
+    border-radius: 8px; 
+    cursor: pointer; 
+    font-weight: 700; 
+    font-size: 13px; 
+}
+
+.hero-add { 
+    position: absolute; 
+    bottom: 30px; 
+    right: 5%; 
+    z-index: 10; 
+}
+
+.delete-card-btn { 
+    position: absolute; 
+    top: 15px; right: 15px; 
+    background: rgba(255,255,255,0.9); 
+    border: none; 
+    width: 32px; height: 32px; 
+    border-radius: 50%; 
+    color: var(--accent); 
+    font-weight: bold; 
+    cursor: pointer; 
+    z-index: 5; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+}
+
+/* ==========================================================================
+   4. NAVIGATION BARRE (HEADER)
+   ========================================================================== */
+.navbar {
+    position: fixed;
+    top: 0; width: 100%; height: 80px;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0 5%; background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(20px); z-index: 999;
+    border-bottom: 1px solid var(--border-color);
+    transition: top 0.3s var(--transition-smooth);
+}
+
+body.admin-logged-in .navbar { 
+    top: 50px; 
+}
+
+.nav-logo { 
+    height: 100px; 
+    object-fit: contain; 
+}
+
+.nav-links a {
+    text-decoration: none; 
+    color: var(--text-dark);
+    font-weight: 600; 
+    margin-left: 30px; 
+    font-size: 14px;
+    position: relative; 
+    padding: 6px 0;
+}
+
+.nav-links a.active::after {
+    content: ""; 
+    position: absolute; 
+    bottom: 0; left: 0; 
+    width: 100%; height: 2px; 
+    background: var(--accent);
+}
+
+.nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.user-badge-container { 
+    display: flex; 
+    align-items: center; 
+    gap: 10px; 
+    background: var(--light-gray); 
+    padding: 6px 16px; 
+    border-radius: 50px; 
+    border: 1px solid var(--border-color); 
+    cursor: pointer; 
+    height: 42px; 
+}
+
+.user-avatar { 
+    width: 24px; height: 24px; 
+    background: var(--accent); 
+    border-radius: 50%; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    color: #fff; 
+    font-size: 11px; 
+    font-weight: 700; 
+}
+
+.user-name-label { 
+    font-size: 13px; 
+    font-weight: 600; 
+}
+
+.btn-live {
+    background: var(--accent); color: #fff; border: none; padding: 12px 24px;
+    border-radius: 50px; font-weight: 700; cursor: pointer;
+    box-shadow: 0 4px 15px rgba(230, 30, 42, 0.2); transition: all 0.3s var(--transition-smooth);
+}
+
+.btn-live:hover { 
+    background: var(--accent-hover); transform: translateY(-1px); 
+}
+
+.btn-secondary {
+    background: var(--light-gray); color: var(--text-dark); border: 1px solid var(--border-color);
+    padding: 12px 24px; border-radius: 50px; font-weight: 600; cursor: pointer; transition: all 0.3s;
+}
+
+.btn-secondary:hover { 
+    background: #e5e5ea; 
+}
+
+/* ==========================================================================
+   5. CONTENUS (HERO CARROUSEL & GRILLES)
+   ========================================================================== */
+.hero-section { 
+    width: 100%; height: 75vh; 
+    margin-top: 80px; 
+    background: #000; 
+    position: relative; 
+}
+
+body.admin-logged-in .hero-section { 
+    margin-top: 130px; 
+}
+
+.swiper { 
+    width: 100%; height: 100%; 
+}
+
+.swiper-slide { 
+    position: relative; 
+    width: 100%; height: 100%; 
+    overflow: hidden; 
+    display: flex; 
+    align-items: center; 
+    padding: 0 8%; color: #fff; 
+}
+
+.slide-bg { 
+    position: absolute; 
+    top:0; left:0; width:100%; height:100%; 
+    object-fit: cover; opacity: 0.55; z-index: 1; 
+    transition: transform 6s ease; 
+}
+
+.swiper-slide-active .slide-bg { 
+    transform: scale(1.04); 
+}
+
+.slide-content { 
+    position: relative; z-index: 2; 
+    max-width: 650px; 
+}
+
+.slide-content h1 { 
+    font-size: 3.5rem; font-weight: 800; line-height: 1.1; margin-bottom: 20px; 
+    letter-spacing: -1px; text-transform: lowercase; 
+}
+
+.slide-content p { 
+    font-size: 1.15rem; opacity: 0.9; margin-bottom: 30px; line-height: 1.5; 
+}
+
+.btn-more {
+    background: #fff; color: #000; padding: 14px 28px; text-decoration: none;
+    border-radius: 8px; font-weight: 700; display: inline-block; border: none; cursor: pointer; transition: all 0.3s;
+}
+
+.section { 
+    padding: 80px 5%; 
+    position: relative; 
+}
+
+.alt-bg { 
+    background: var(--light-gray); 
+}
+
+.section-header { 
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; 
+}
+
+.section-header h2 { 
+    font-size: 2rem; font-weight: 800; letter-spacing: -0.5px; 
+}
+
+.grid { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); 
+    gap: 30px; 
+}
+
+.team-grid { 
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); 
+}
+
+.card {
+    background: #fff; border-radius: var(--radius-premium); overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.04); border: 1px solid var(--border-color);
+    transition: all 0.4s var(--transition-smooth); position: relative; cursor: pointer;
+}
+
+.card:hover { 
+    transform: translateY(-8px); box-shadow: 0 15px 35px rgba(0,0,0,0.08); 
+}
+
+.card-img { 
+    width: 100%; height: 220px; object-fit: cover; 
+}
+
+.card-body { 
+    padding: 25px; 
+}
+
+.card-body h3 { 
+    font-size: 20px; font-weight: 700; margin-bottom: 10px; 
+}
+
+.card-body p { 
+    color: var(--text-muted); font-size: 14px; line-height: 1.6; 
+}
+
+/* ==========================================================================
+   6. FENÊTRES MODALES & FORMULAIRES
+   ========================================================================== */
+.modal {
+    display: none; position: fixed; top:0; left:0; width:100%; height:100%;
+    background: rgba(0,0,0,0.4); backdrop-filter: blur(15px); z-index: 10000;
+    justify-content: center; align-items: center; padding: 20px;
+}
+
+.modal-content {
+    background: #fff; padding: 40px; border-radius: 24px; width: 100%; max-width: 440px;
+    position: relative; box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+    animation: modalPop 0.4s var(--transition-smooth);
+}
+
+@keyframes modalPop { 
+    from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } 
+}
+
+.close-btn { 
+    position: absolute; top: 20px; right: 20px; background: none; border:none; 
+    font-size: 20px; cursor: pointer; color: var(--text-muted); z-index: 100; 
+}
+
+.modal-content.article-view { max-width: 700px; padding: 0; overflow-y: auto; max-height: 90vh; border-radius: 24px; }
+.article-hero-img { width: 100%; height: 350px; object-fit: cover; }
+.article-main-body { padding: 40px; }
+.article-main-body h2 { font-size: 2.2rem; font-weight: 800; margin-bottom: 20px; letter-spacing: -0.5px; }
+.article-text-content { font-size: 1.1rem; line-height: 1.7; color: #333; }
+
+.input-group { margin-bottom: 20px; }
+.input-group label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+.input-group input { width: 100%; padding: 14px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 15px; outline: none; }
+.input-group input:focus { border-color: var(--accent); }
+.btn-submit { width: 100%; background: #000; color:#fff; border:none; padding: 14px; border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 10px; }
+.auth-switch { margin-top: 20px; font-size: 13px; text-align: center; }
+.auth-switch a { color: var(--accent); text-decoration: none; font-weight: 600; }
+
+/* ==========================================================================
+   LECTEUR FLOATING ULTRA-PREMIUM
+   ========================================================================== */
+.vafm-player-premium {
+    position: fixed !important;
+    bottom: 20px !important;
+    left: 20px !important;
+    right: 20px !important;
+    height: 75px !important;
+    background: #131316 !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 25px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 0 40px !important;
+    z-index: 99999 !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    overflow: visible !important;
+}
+
+.player-watermark {
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%;
+    background-image: url('vafm-logo.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0.15;
+    pointer-events: none; 
+    z-index: 1;
+    border-radius: 16px;
+}
+
+.player-left { 
+    display: flex !important; 
+    align-items: center !important; 
+    width: 40% !important;
+    overflow: visible !important; 
+    z-index: 2; 
+}
+
+.cover-container {
+    width: 160px !important; 
+    height: 160px !important;
+    margin-top: -60px !important; 
+    display: flex !important; 
+    align-items: center !important; 
+    justify-content: center !important;
+    filter: drop-shadow(0 5px 15px rgba(0, 0, 0, 0.5));
+    overflow: visible !important;
+    z-index: 10;
+}
+
+#track-cover { 
+    width: 100% !important; 
+    height: 100% !important; 
+    object-fit: contain !important; 
+}
+
+.metadata-block { display: flex; flex-direction: column; justify-content: center; color: #ffffff; margin-left: 15px; }
+
+.liquid-container-fx {
+    position: fixed;
+    bottom: 95px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 300px;
+    height: 200px;
+    pointer-events: none;
+    z-index: 99998;
+    filter: contrast(25) cubic-bezier(0, 0, 1, 1);
+    display: none;
+}
+
+.liquid-drop {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    background: #131316;
+    border-radius: 50%;
+    filter: blur(10px);
+    transform: translateX(-50%) scale(0);
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease;
+}
+
+.vafm-apple-page {
+    position: fixed !important;
+    top: 0 !important; bottom: 0 !important; 
+    left: 0 !important; right: 0 !important; 
+    width: 100vw !important; height: 100vh !important;
+    background: #131316 !important;
+    z-index: 99998 !important;
+    overflow-y: auto;
+    display: none;
+    opacity: 0;
+    transform: scale(0.96);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease !important;
+}
+
+.vafm-apple-page.is-open {
+    display: block !important;
+    opacity: 1 !important;
+    transform: scale(1) !important;
+}
+
+.article-scroll-zone {
+    padding: 60px 20px;
+    max-width: 800px;
+    margin: 0 auto;
+    color: white;
+}
+
+.player-center { 
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    z-index: 3;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.control-play-btn { 
+    background: transparent !important; 
+    border: none !important; 
+    cursor: pointer !important; 
+    padding: 0 !important; 
+    width: 45px !important;
+    height: 45px !important;
+    display: flex !important; 
+    align-items: center !important; 
+    justify-content: center !important;
+}
+
+.icon-play, .icon-pause { 
+    width: 45px !important; 
+    height: 45px !important; 
+    fill: #ffffff !important; 
+    position: absolute !important;
+}
+
+.control-play-btn .icon-pause { display: none !important; }
+.control-play-btn.playing .icon-play { display: none !important; }
+.control-play-btn.playing .icon-pause { display: block !important; }
+
+.player-right { 
+    width: 40% !important; 
+    display: flex !important; 
+    justify-content: flex-end !important; 
+    align-items: center !important; 
+    z-index: 2; 
+}
+
+.style-selector { display: flex !important; gap: 6px !important; cursor: pointer !important; }
+.style-bar { width: 10px !important; height: 25px !important; background: #333339 !important; border-radius: 2px !important; transition: background 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important; }
+.style-bar:hover { background: var(--accent) !important; }

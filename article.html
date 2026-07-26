@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VAFM | Article</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body style="background: #0d0d0f; color: #fff; font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; padding: 0;">
+
+    <!-- BARRE ADMIN SUPÉRIEURE (Pour modifier l'article en cours) -->
+    <div id="admin-top-bar" class="admin-top-bar" style="display:none;">
+        <span class="admin-status">Mode Édition Actif - Page Article</span>
+        <div class="admin-actions">
+            <button onclick="saveArticleChanges()" style="background: #ff0033; color: white; border: none; padding: 6px 16px; border-radius: 20px; font-weight: bold; cursor: pointer;">Sauvegarder les modifications</button>
+        </div>
+    </div>
+
+    <header class="navbar" style="position: relative; background: #131316; border-bottom: 1px solid rgba(255,255,255,0.08);">
+        <div class="logo-container">
+            <img src="VAFM logo rouge.png" alt="VAFM" class="nav-logo" onclick="window.location.href='index.html'" style="cursor: pointer;">
+        </div>
+        <nav class="nav-links">
+            <a href="index.html">← Retour à l'accueil</a>
+        </nav>
+    </header>
+
+    <main style="max-width: 800px; margin: 60px auto; padding: 0 20px;">
+        <!-- Image de l'article (Cliquable en mode admin pour changer l'URL) -->
+        <div style="position: relative; display: inline-block; width: 100%;">
+            <img id="article-img" src="" alt="Illustration" style="width: 100%; height: 45vh; object-fit: cover; border-radius: 16px; margin-bottom: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+            <button id="change-img-btn" onclick="changeArticleImage()" style="display:none; position: absolute; bottom: 45px; right: 15px; background: rgba(0,0,0,0.8); color: white; border: 1px solid rgba(255,255,255,0.3); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: bold;">Changer l'image</button>
+        </div>
+
+        <!-- Titre modifiable -->
+        <h1 id="article-title" style="font-size: 2.5rem; font-weight: 800; margin-bottom: 20px; line-height: 1.2;" spellcheck="false"></h1>
+        
+        <!-- Texte modifiable -->
+        <p id="article-text" style="font-size: 1.1rem; line-height: 1.8; color: #d0d0d5; white-space: pre-line;" spellcheck="false"></p>
+        
+        <button onclick="window.location.href='index.html'" style="margin-top: 50px; padding: 15px 32px; background: #ff0033; color: white; border: none; border-radius: 30px; font-weight: bold; cursor: pointer; font-family: 'Plus Jakarta Sans'; transition: background 0.2s;">
+            ← Retour à l'accueil
+        </button>
+    </main>
+
+    <script>
+        const appState = JSON.parse(localStorage.getItem('vafm_premium_state')) || {};
+        let currentArticle = JSON.parse(localStorage.getItem('vafm_current_article'));
+        const isEdit = appState.editMode && appState.currentUser && appState.currentUser.role === 'admin';
+
+        const titleEl = document.getElementById('article-title');
+        const textEl = document.getElementById('article-text');
+        const imgEl = document.getElementById('article-img');
+        const adminBar = document.getElementById('admin-top-bar');
+        const changeImgBtn = document.getElementById('change-img-btn');
+
+        if (currentArticle) {
+            titleEl.innerText = currentArticle.title;
+            textEl.innerText = currentArticle.text;
+            imgEl.src = currentArticle.img;
+            document.title = "VAFM | " + currentArticle.title;
+        } else {
+            titleEl.innerText = "Article introuvable";
+            textEl.innerText = "Désolé, cet article n'existe pas.";
+        }
+
+        // Activation de l'interface d'administration sur la page article
+        if (isEdit) {
+            adminBar.style.display = "flex";
+            changeImgBtn.style.display = "block";
+            titleEl.setAttribute("contenteditable", "true");
+            textEl.setAttribute("contenteditable", "true");
+            titleEl.style.borderBottom = "2px dashed #ff0033";
+            textEl.style.border = "1px dashed rgba(255,255,255,0.2)";
+            textEl.style.padding = "10px";
+        }
+
+        function changeArticleImage() {
+            const newUrl = prompt("Entrez la nouvelle URL de l'image :", currentArticle.img);
+            if (newUrl) {
+                currentArticle.img = newUrl;
+                imgEl.src = newUrl;
+            }
+        }
+
+        function saveArticleChanges() {
+            currentArticle.title = titleEl.innerText;
+            currentArticle.text = textEl.innerText;
+
+            // Mise à jour dans l'état global (dans la catégorie d'origine : hero, news, shows ou team)
+            for (let cat in appState) {
+                if (Array.isArray(appState[cat])) {
+                    const index = appState[cat].findIndex(x => x.id === currentArticle.id);
+                    if (index !== -1) {
+                        appState[cat][index] = currentArticle;
+                    }
+                }
+            }
+
+            localStorage.setItem('vafm_premium_state', JSON.stringify(appState));
+            localStorage.setItem('vafm_current_article', JSON.stringify(currentArticle));
+            alert("Modifications enregistrées avec succès !");
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

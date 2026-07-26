@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VAFM | La Radio Nouvelle Génération</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <!-- LOADER GLOBAL -->
+    <div id="loader">
+        <img src="VAFM logo rouge.png" alt="Logo VAFM" class="loader-logo">
+        <div class="loader-bar-container">
+            <div class="loader-bar"></div>
+        </div>
+    </div>
+
+    <!-- LECTEUR AUDIO OPTIMISÉ -->
+    <audio id="radio-audio" preload="auto">
+        <source src="https://manager10.streamradio.fr:1555/stream" type="audio/mpeg">
+        Votre navigateur ne supporte pas l'audio.
+    </audio>
+
+    <div id="auth-modal" class="modal">
+        <div class="modal-content">
+            <h2 id="auth-title">Connexion Club VAFM</h2>
+            <p id="auth-subtitle">Accédez à votre espace ou gérez la station</p>
+            
+            <form id="auth-form" onsubmit="handleAuthSubmit(event)">
+                <div class="input-group">
+                    <label>Adresse Email</label>
+                    <input type="email" id="auth-email" placeholder="exemple@vafm.fr" required>
+                </div>
+                <div class="input-group">
+                    <label>Mot de passe</label>
+                    <input type="password" id="auth-password" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn-submit">Valider</button>
+            </form>
+
+            <div class="auth-switch">
+                <a href="#" id="auth-switch-link" onclick="toggleAuthMode()">Pas encore membre ? S'inscrire avec mon email</a>
+            </div>
+            <button class="close-btn" onclick="closeModal('auth-modal')">✕</button>
+        </div>
+    </div>
+
+    <div id="admin-top-bar" class="admin-top-bar">
+        <span class="admin-status">Espace Administrateur Connecté</span>
+        <div class="admin-actions">
+            <label class="switch">
+                <input type="checkbox" id="admin-mode-toggle" onchange="toggleAdminMode(this.checked)">
+                <span class="slider round"></span>
+            </label>
+            <span class="switch-label">Activer l'édition en direct</span>
+        </div>
+    </div>
+
+    <header class="navbar" id="main-navbar">
+        <div class="logo-container">
+            <img src="VAFM logo rouge.png" alt="VAFM" class="nav-logo">
+        </div>
+        <nav class="nav-links">
+            <a href="#home" class="active">Accueil</a>
+            <a href="#actus">Actualités</a>
+            <a href="#emissions">Émissions</a>
+            <a href="#animateurs">Animateurs</a>
+        </nav>
+        <div class="nav-actions">
+            <div id="user-profile-zone">
+                <button class="btn-secondary" onclick="openAuthModal()">Se connecter</button>
+    </header>
+
+    <main id="content">
+        <section class="hero-section" id="home">
+            <div class="swiper mainSwiper">
+                <div class="swiper-wrapper" id="hero-wrapper"></div>
+                <div class="swiper-pagination"></div>
+                <button class="admin-editable-ui add-btn hero-add" onclick="addNewSlide()">+ Ajouter une slide</button>
+            </div>
+        </section>
+
+        <section class="section" id="actus">
+            <div class="section-header">
+                <h2>Toutes les actualités</h2>
+                <button class="admin-editable-ui add-btn" onclick="addNewCard('news')">+ Ajouter un article</button>
+            </div>
+            <div class="grid" id="news-grid"></div>
+        </section>
+
+        <section class="section alt-bg" id="emissions">
+            <div class="section-header">
+                <h2>Grille des Émissions</h2>
+                <button class="admin-editable-ui add-btn" onclick="addNewCard('shows')">+ Ajouter une émission</button>
+            </div>
+            <div class="grid" id="shows-grid"></div>
+        </section>
+
+        <section class="section" id="animateurs">
+            <div class="section-header">
+                <h2>L'Équipe VAFM</h2>
+                <button class="admin-editable-ui add-btn" onclick="addNewCard('team')">+ Ajouter un membre</button>
+            </div>
+            <div class="grid team-grid" id="team-grid"></div>
+        </section>
+    </main>
+
+    <!-- PAGE DÉDIÉE ARTICLE -->
+    <div id="article-modal" class="vafm-apple-page"></div>
+
+    <!-- CONTENEUR GOUTTES LIQUIDES -->
+    <div class="liquid-container-fx">
+        <div class="liquid-drop" id="drop-1"></div>
+        <div class="liquid-drop" id="drop-2"></div>
+    </div>
+
+    <!-- LECTEUR FLOATING PREMIUM -->
+    <footer class="vafm-player-premium">
+        <div class="player-watermark"></div>
+
+        <div class="player-left">
+            <div class="cover-container">
+                <img src="VAFM logo rouge.png" id="track-cover" alt="VAFM">
+            </div>
+            <div class="metadata-block">
+                <div id="marquee" style="overflow: hidden; white-space: nowrap; width: 100%; max-width: 220px;">
+                    <span id="current-track" style="font-weight: 700; display: inline-block;">Chargement du live...</span>
+                </div>
+                <span class="track-artist" style="font-size: 0.8rem; color: #b0b0b5;">VAFM – Le meilleur son</span>
+            </div>
+        </div>
+
+        <div class="player-center">
+            <button class="control-play-btn" id="playBtn">
+                <svg class="icon-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                <svg class="icon-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            </button>
+        </div>
+
+        <div class="player-right">
+            <div class="style-selector">
+                <div class="style-bar" onclick="changeStyle('minimal')"></div>
+                <div class="style-bar" onclick="changeStyle('classic')"></div>
+                <div class="style-bar" onclick="changeStyle('modern')"></div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
