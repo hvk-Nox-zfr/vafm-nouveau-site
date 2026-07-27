@@ -126,28 +126,38 @@ function renderAll() {
     const isEdit = Boolean(appState.editMode && appState.currentUser);
     document.getElementById('admin-top-bar').style.display = isEdit ? 'block' : 'none';
 
-    // Rendu Hero
-    // Rendu Hero (Carrousel)
+// Rendu Hero (Carrousel)
 if (heroWrapper) {
-    heroWrapper.innerHTML = appState.hero.map((slide) => `
-        <div class="swiper-slide ${!slide.is_published ? 'draft-card' : ''}">
-            <img src="${slide.img}" class="slide-bg">
-            <div class="slide-content">
-                <h1>${slide.title} ${!slide.is_published ? '<small style="color:#ff9900; font-size: 0.4em;">(Brouillon)</small>' : ''}</h1>
-                <p>${slide.text}</p>
-                <div style="display: flex; gap: 10px; align-items: center; justify-content: center; margin-top: 15px;">
-                    <button class="btn-more" onclick="openArticleView('hero', '${slide.id}')">Voir plus</button>
-                    ${isEdit ? `
-                        <button class="btn-admin-action ${slide.is_published ? 'btn-unpublish' : 'btn-publish'}" onclick="togglePublish('hero', '${slide.id}', ${slide.is_published}); event.stopPropagation();">
-                            ${slide.is_published ? '📥 Dépublier' : '🚀 Publier'}
-                        </button>
-                        <button class="btn-admin-action" onclick="openEditorModal('hero', '${slide.id}'); event.stopPropagation();">✏️ Modifier</button>
-                        <button class="btn-admin-action" onclick="deleteItem('hero', '${slide.id}'); event.stopPropagation();">✕</button>
-                    ` : ''}
+    if (appState.hero.length === 0) {
+        heroWrapper.innerHTML = `
+            <div class="swiper-slide hero-slide">
+                <div class="slide-content">
+                    <h2>Aucune diapositive</h2>
+                    <p>Ajoutez un élément depuis le panneau d'administration.</p>
+                </div>
+            </div>`;
+    } else {
+        heroWrapper.innerHTML = appState.hero.map((slide) => `
+            <div class="swiper-slide hero-slide ${!slide.is_published ? 'draft-card' : ''}">
+                <img src="${slide.img}" class="slide-bg" alt="${slide.title}">
+                <div class="slide-overlay"></div>
+                <div class="slide-content">
+                    <h1>${slide.title} ${!slide.is_published ? '<small class="draft-badge">(Brouillon)</small>' : ''}</h1>
+                    <p>${slide.text}</p>
+                    <div class="slide-actions">
+                        <button class="btn-more" onclick="openArticleView('hero', '${slide.id}')">Voir plus</button>
+                        ${isEdit ? `
+                            <button class="btn-admin-action ${slide.is_published ? 'btn-unpublish' : 'btn-publish'}" onclick="togglePublish('hero', '${slide.id}', ${slide.is_published}); event.stopPropagation();">
+                                ${slide.is_published ? '📥 Dépublier' : '🚀 Publier'}
+                            </button>
+                            <button class="btn-admin-action" onclick="openEditorModal('hero', '${slide.id}'); event.stopPropagation();">✏️ Modifier</button>
+                            <button class="btn-admin-action btn-delete" onclick="deleteItem('hero', '${slide.id}'); event.stopPropagation();">✕</button>
+                        ` : ''}
+                    </div>
                 </div>
             </div>
-        </div>
-    `).join('');
+        `).join('');
+    }
 }
 
 // Réinitialisation propre & forcée de Swiper
