@@ -178,30 +178,30 @@ if (document.querySelector('.mainSwiper') && appState.hero.length > 0) {
 }
 
     // Helper pour générer le HTML d'une grille
-    const renderGrid = (gridElement, dataArray, category, tableName) => {
-        if (!gridElement) return;
-        gridElement.innerHTML = dataArray.map((item) => `
-            <div class="card ${!item.is_published ? 'draft-card' : ''}" onclick="if(!appState.editMode) openArticleView('${category}', '${item.id}')">
-                ${isEdit ? `
-                    <span class="card-status-tag ${item.is_published ? 'tag-published' : 'tag-draft'}">
-                        ${item.is_published ? 'Publié' : 'Brouillon'}
-                    </span>
-                    <div class="card-admin-actions">
-                        <button class="btn-admin-action ${item.is_published ? 'btn-unpublish' : 'btn-publish'}" onclick="togglePublish('${tableName}', '${item.id}', ${item.is_published}); event.stopPropagation();">
-                            ${item.is_published ? 'Dépublier' : 'Publier'}
-                        </button>
-                        <button class="btn-admin-action" onclick="openEditorModal('${category}', '${item.id}'); event.stopPropagation();">✏️</button>
-                        <button class="btn-admin-action" onclick="deleteItem('${tableName}', '${item.id}'); event.stopPropagation();">✕</button>
-                    </div>
-                ` : ''}
-                <img src="${item.img}" class="card-img">
-                <div class="card-body">
-                    <h3>${item.title}</h3>
-                    <p>${item.text}</p>
+const renderGrid = (gridElement, dataArray, category, tableName) => {
+    if (!gridElement) return;
+    gridElement.innerHTML = dataArray.map((item) => `
+        <div class="card ${!item.is_published ? 'draft-card' : ''}" onclick="openArticleView('${category}', '${item.id}')">
+            ${isEdit ? `
+                <span class="card-status-tag ${item.is_published ? 'tag-published' : 'tag-draft'}">
+                    ${item.is_published ? 'Publié' : 'Brouillon'}
+                </span>
+                <div class="card-admin-actions" onclick="event.stopPropagation();">
+                    <button class="btn-admin-action ${item.is_published ? 'btn-unpublish' : 'btn-publish'}" onclick="togglePublish('${tableName}', '${item.id}', ${item.is_published}); event.stopPropagation();">
+                        ${item.is_published ? 'Dépublier' : 'Publier'}
+                    </button>
+                    <button class="btn-admin-action" onclick="openEditorModal('${category}', '${item.id}'); event.stopPropagation();">✏️</button>
+                    <button class="btn-admin-action" onclick="deleteItem('${tableName}', '${item.id}'); event.stopPropagation();">✕</button>
                 </div>
+            ` : ''}
+            <img src="${item.img}" class="card-img" onerror="this.src='https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600'">
+            <div class="card-body">
+                <h3>${item.title}</h3>
+                <p>${item.text}</p>
             </div>
-        `).join('');
-    };
+        </div>
+    `).join('');
+};
 
     renderGrid(newsGrid, appState.news, 'news', 'actus');
     renderGrid(showsGrid, appState.shows, 'shows', 'emissions');
@@ -461,21 +461,95 @@ function updateAuthUI() {
     }
 }
 
-function openArticleView(sourceCategory, id) {
-    const item = appState[sourceCategory].find(x => String(x.id) === String(id));
-    if (!item) return;
+/* ==========================================================================
+   NAVIGATION ARTICLE SANS COUPURE AUDIO
+   ========================================================================== */
+async function openArticleView(category, id) {
+    const tableMap = { hero: 'hero', news: 'actus', shows: 'emissions', team: 'animateurs' };
+    const tableName = tableMap[category] || 'actus';
 
-    const modal = document.getElementById('article-modal');
-    modal.className = "vafm-apple-page is-open";
-    modal.innerHTML = `
-        <div class="article-scroll-zone" style="padding: 60px 20px; max-width: 800px; margin: 0 auto; color: white;">
-            <img src="${item.img}" style="width:100%; height:45vh; object-fit:cover; border-radius:16px; margin-bottom:30px;">
-            <h2 style="font-size: 2.5rem; font-weight:800; margin-bottom:20px;">${item.title}</h2>
-            <p style="font-size: 1.1rem; line-height: 1.8; color: #d0d0d5;">${item.text}</p>
-            <button onclick="closeArticle()" style="margin-top: 40px; padding: 15px 32px; background: #ff0033; color: white; border: none; border-radius: 30px; font-weight: bold; cursor: pointer;">✕ Fermer</button>
+    // 1. Récupération des données depuis Supabase
+    const { data, error } = await supabaseClient
+        .from(tableName)
+        .select('*')
+        .eq('id', id)
+        .single();
+
+    if (error || !data) {
+        alert("Impossible de charger l'article.");
+        return;
+    }
+
+    // Normalisation des champs
+    const title = data.titre || data.title || data.nom || 'Sans titre';
+    const text = data.texte || data.description || data.contenu || '';
+    const img = data.imageUrl || data.image_url || data.img_url || '';
+    const date = data.created_at ? new Date(data.created_at).toLocaleDateString('fr-FR') : '';
+
+    // 2. Injection du contenu dans le conteneur #article-modal
+    const articleContainer = document.getElementById('article-modal');
+    if (!articleContainer) return;
+
+    const isAdmin = Boolean(appState.editMode && appState.currentUser);
+
+    articleContainer.innerHTML = `
+        <div class="article-page-container">
+            <button class="btn-back" onclick="closeArticleView()">← Retour à l'accueil</button>
+            <article class="article-wrapper">
+                <header class="article-header">
+                    <span class="article-category-badge">${category}</span>
+                    <h1 class="article-title">${title}</h1>
+                    ${date ? `<div class="article-meta">Publié le ${date}</div>` : ''}
+                </header>
+
+                ${img ? `
+                    <div class="article-hero-media">
+                        <img src="${img}" alt="${title}">
+                    </div>
+                ` : ''}
+
+                <div class="article-content">
+                    ${text.split('\n').map(p => `<p>${p}</p>`).join('')}
+                </div>
+
+                ${isAdmin ? `
+                    <div class="article-admin-controls">
+                        <button class="btn-admin-action" onclick="openEditorModal('${category}', '${id}')">✏️ Modifier cet article</button>
+                        <button class="btn-admin-action btn-delete" onclick="deleteItem('${tableName}', '${id}'); closeArticleView();">✕ Supprimer</button>
+                    </div>
+                ` : ''}
+            </article>
         </div>
     `;
+
+    // 3. Masquer le contenu principal et afficher la vue article
+    document.getElementById('content').style.display = 'none';
+    articleContainer.style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // 4. Modifier l'URL sans recharger la page (préserve la musique !)
+    history.pushState({ page: 'article', category, id }, title, `?article=${category}&id=${id}`);
 }
+
+// Fonction pour fermer la vue article et revenir à l'accueil sans couper la musique
+function closeArticleView() {
+    const articleContainer = document.getElementById('article-modal');
+    if (articleContainer) articleContainer.style.display = 'none';
+    
+    document.getElementById('content').style.display = 'block';
+    
+    // Remet l'URL d'origine
+    history.pushState({ page: 'home' }, '', window.location.pathname);
+}
+
+// Gestion des boutons Retour / Suivant du navigateur
+window.addEventListener('popstate', (e) => {
+    if (e.state && e.state.page === 'article') {
+        openArticleView(e.state.category, e.state.id);
+    } else {
+        closeArticleView();
+    }
+});
 
 function closeArticle() { document.getElementById('article-modal').classList.remove('is-open'); }
 
