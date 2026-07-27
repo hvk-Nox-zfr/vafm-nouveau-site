@@ -279,41 +279,44 @@ function toggleAuthMode() {
 
 async function handleAuthSubmit(e) {
     e.preventDefault();
-    const email = document.getElementById('auth-email').value;
+    const email = document.getElementById('auth-email').value.trim();
     const password = document.getElementById('auth-password').value;
 
     if (currentAuthMode === "login") {
-        // --- CONNEXION ---
+        // TENTATIVE DE CONNEXION
         const { data, error } = await supabaseClient.auth.signInWithPassword({
             email: email,
-            password: password
+            password: password,
         });
 
         if (error) {
-            alert("Erreur de connexion : " + error.message);
+            console.error("Erreur Connexion:", error);
+            alert("Impossible de se connecter : " + error.message);
         } else {
+            alert("Connexion réussie !");
             appState.currentUser = data.user;
             checkAdminRights(data.user);
             closeModal('auth-modal');
             updateAuthUI();
-            renderAll();
+            if (typeof renderAll === 'function') renderAll();
         }
     } else {
-        // --- INSCRIPTION ---
+        // TENTATIVE D'INSCRIPTION
         const { data, error } = await supabaseClient.auth.signUp({
             email: email,
-            password: password
+            password: password,
         });
 
         if (error) {
-            alert("Erreur lors de la création du compte : " + error.message);
+            console.error("Erreur Inscription:", error);
+            alert("Erreur d'inscription : " + error.message);
         } else {
-            alert("Compte créé avec succès ! Tu es maintenant connecté.");
+            alert("Compte créé avec succès !");
             appState.currentUser = data.user;
             checkAdminRights(data.user);
             closeModal('auth-modal');
             updateAuthUI();
-            renderAll();
+            if (typeof renderAll === 'function') renderAll();
         }
     }
 }
