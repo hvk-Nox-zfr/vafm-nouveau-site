@@ -333,7 +333,7 @@ async function handleCardFormSubmit(e) {
             return;
         }
 
-        const { data: urlData } = supabaseClient.storage.from('vafm-media').getPublicUrl(filePath);
+        const { data: urlData } = supabaseClient.storage.from('uploads').getPublicUrl(filePath);
         imageUrl = urlData.publicUrl;
     }
 
