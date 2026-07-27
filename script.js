@@ -36,15 +36,28 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     });
 
-    // 1. Restauration de la session utilisateur Supabase
-    // Dans DOMContentLoaded :
+    // 1. Écouter les changements d'état d'authentification
+    supabaseClient.auth.onAuthStateChange((event, session) => {
+        if (session) {
+            appState.currentUser = session.user;
+            checkAdminRights(session.user);
+        } else {
+            appState.currentUser = null;
+            appState.editMode = false;
+            document.body.classList.remove('admin-logged-in', 'edit-mode-active');
+        }
+        updateAuthUI();
+        renderAll();
+    });
+
+    // 2. Restauration de la session initiale
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (session) {
         appState.currentUser = session.user;
         checkAdminRights(session.user);
     }
 
-    // 2. Charger toutes les données depuis Supabase
+    // 3. Charger toutes les données depuis Supabase
     await fetchAllFromSupabase();
 
     updateAuthUI();
@@ -338,20 +351,49 @@ function toggleAdminMode(isActive) {
     renderAll();
 }
 
+function checkAdminRights(user) {
+    if (!user) {
+        appState.editMode = false;
+        return;
+    }
+
+    // Remplace cette adresse par ton e-mail exact d'administration Supabase
+    const adminEmails = ['hudoboss.star59@gmail.com'];
+
+    if (adminEmails.includes(user.email)) {
+        appState.editMode = true; // Active automatiquement le mode édition pour l'admin
+        document.body.classList.add('admin-logged-in', 'edit-mode-active');
+        console.log("Connecté en tant qu'administrateur !");
+    } else {
+        appState.editMode = false;
+        document.body.classList.remove('admin-logged-in', 'edit-mode-active');
+    }
+}
+
 function updateAuthUI() {
     const profileZone = document.getElementById('user-profile-zone');
-    if (!profileZone) return;
+    const adminToggle = document.getElementById('admin-mode-toggle'); // Si tu as un switch/checkbox admin
     
     if (appState.currentUser) {
         const initial = appState.currentUser.email[0].toUpperCase();
-        profileZone.innerHTML = `
-            <div class="user-badge-container" onclick="logout()">
-                <div class="user-avatar">${initial}</div>
-                <span class="user-name-label">Admin</span>
-            </div>
-        `;
+        
+        if (profileZone) {
+            profileZone.innerHTML = `
+                <div class="user-badge-container" onclick="logout()" style="cursor:pointer;" title="Cliquez pour vous déconnecter">
+                    <div class="user-avatar">${initial}</div>
+                    <span class="user-name-label">${appState.editMode ? 'Admin' : 'Membre'}</span>
+                </div>
+            `;
+        }
+
+        if (adminToggle) {
+            adminToggle.checked = appState.editMode;
+        }
+
     } else {
-        profileZone.innerHTML = `<button class="btn-secondary" onclick="openAuthModal()">Se connecter</button>`;
+        if (profileZone) {
+            profileZone.innerHTML = `<button class="btn-secondary" onclick="openAuthModal()">Se connecter</button>`;
+        }
     }
 }
 
