@@ -13,6 +13,17 @@
     --transition-smooth: cubic-bezier(0.25, 1, 0.5, 1);
 }
 
+/* Surlignement exact à la couleur du logo VAFM */
+::selection {
+    background-color: #dd0000f7; /* Le rouge bordeaux de la vague */
+    color: #ffffff;            /* Texte blanc lisible */
+}
+
+::-moz-selection {
+    background-color: #dd0000f7;
+    color: #ffffff;
+}
+
 * {
     margin: 0;
     padding: 0;

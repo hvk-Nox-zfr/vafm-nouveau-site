@@ -96,3 +96,160 @@ body.admin-logged-in .article-page-container {
     display: flex;
     gap: 12px;
 }
+
+/* ==========================================================================
+   STYLE SIDEBAR & STUDIO CANVA (CORRECTION D'AFFICHAGE)
+   ========================================================================== */
+
+.canva-layout {
+    display: flex;
+    width: 100%;
+    min-height: calc(100vh - 80px);
+    background: #f4f5f7;
+    position: relative;
+}
+
+/* SIDEBAR CANVA FIXÉE À GAUCHE */
+.canva-sidebar {
+    width: 280px;
+    background: #1e1e24 !important;
+    color: #ffffff !important;
+    padding: 25px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: fixed;
+    top: 50px; /* S'aligne sous le bandeau rose Mode Édition */
+    left: 0;
+    bottom: 0;
+    z-index: 9999;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 5px 0 25px rgba(0, 0, 0, 0.15);
+    box-sizing: border-box;
+}
+
+.canva-sidebar-header h3 {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #ffffff !important;
+    margin: 5px 0 0 0;
+}
+
+.canva-badge {
+    background: #e63946; /* Ou ta variable --accent */
+    color: #ffffff;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    display: inline-block;
+}
+
+.canva-tools-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.canva-tool-label {
+    font-size: 0.75rem;
+    color: #8e8e93;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.canva-tool-btn {
+    background: #2a2a32;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #ffffff !important;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    text-align: left;
+    width: 100%;
+}
+
+.canva-tool-btn:hover {
+    background: #3a3a45;
+    transform: translateX(3px);
+}
+
+.canva-sidebar-footer {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 20px;
+}
+
+.canva-btn-save {
+    background: #34c759;
+    color: #ffffff;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+    width: 100%;
+}
+
+.canva-btn-save:hover {
+    background: #2fb34f;
+}
+
+.canva-btn-delete {
+    background: rgba(255, 59, 48, 0.15);
+    color: #ff3b30;
+    border: 1px solid #ff3b30;
+    padding: 10px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+}
+
+.canva-btn-delete:hover {
+    background: #ff3b30;
+    color: #ffffff;
+}
+
+/* DECALAGE DU CONTENU DU DOCUMENT EN MODE ADMIN */
+.canva-workspace {
+    flex: 1;
+    padding: 40px;
+    transition: margin-left 0.3s ease;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.canva-admin-active .canva-workspace {
+    margin-left: 280px; /* Décale le document pour ne pas qu'il soit sous la sidebar */
+}
+
+.canva-document {
+    max-width: 800px;
+    margin: 0 auto;
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 40px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+    border: 1px solid #e5e5ea;
+}
+
+/* Cadre pointillé de sélection style Canva au survol/clic */
+.canva-admin-active [contenteditable="true"]:hover,
+.canva-admin-active [contenteditable="true"]:focus {
+    outline: 2px dashed #e63946 !important;
+    outline-offset: 4px;
+    border-radius: 4px;
+}

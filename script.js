@@ -462,16 +462,13 @@ function updateAuthUI() {
 }
 
 /* ==========================================================================
-   NAVIGATION ARTICLE SANS COUPURE AUDIO
+   NAVIGATION & ÉDITION ARTICLE - STYLE CANVA STUDIO
    ========================================================================== */
-/* ==========================================================================
-   NAVIGATION & EDITION ARTICLE (SANS COUPURE AUDIO)
-   ========================================================================== */
+
 async function openArticleView(category, id) {
     const tableMap = { hero: 'hero', news: 'actus', shows: 'emissions', team: 'animateurs' };
     const tableName = tableMap[category] || 'actus';
 
-    // 1. Récupération des données depuis Supabase
     const { data, error } = await supabaseClient
         .from(tableName)
         .select('*')
@@ -483,76 +480,317 @@ async function openArticleView(category, id) {
         return;
     }
 
-    // Normalisation des champs
     const title = data.titre || data.title || data.nom || 'Sans titre';
-    const text = data.texte || data.description || data.contenu || '';
+    const rawText = data.texte || data.description || data.contenu || '';
     const img = data.imageUrl || data.image_url || data.img_url || '';
     const isPublished = Boolean(data.is_published);
     const date = data.created_at ? new Date(data.created_at).toLocaleDateString('fr-FR') : '';
 
-    // 2. Vérification de l'état Admin
-    const isAdmin = Boolean(appState.editMode && appState.currentUser);
+    const isAdmin = Boolean(appState && appState.editMode && appState.currentUser);
 
-    // 3. Injection du HTML dans #article-modal
     const articleContainer = document.getElementById('article-modal');
     if (!articleContainer) return;
 
     articleContainer.innerHTML = `
-        <div class="article-page-container">
-            <button class="btn-back" onclick="closeArticleView()">← Retour à l'accueil</button>
+       <style>
+    /* BARRE D'ÉDITION INTERCONNECTED AU PLAYER AUDIO */
+    .vafm-player-toolbar {
+        position: fixed !important;
+        bottom: 92px !important; /* 🛑 Remonté pour sortir de sous le lecteur */
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        background: #18181c !important;
+        border: 1px solid rgba(255, 255, 255, 0.18) !important;
+        border-bottom: none !important;
+        border-radius: 12px 12px 0 0 !important;
+        padding: 8px 16px !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        z-index: 100000 !important; /* 🛑 Passe OBLIGATOIREMENT au-dessus du player */
+        box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    .vafm-tb-label {
+        font-size: 0.7rem !important;
+        font-weight: 800 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.8px !important;
+        color: #e63946 !important;
+        margin-right: 6px !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 5px !important;
+    }
+
+    .vafm-tb-divider {
+        width: 1px !important;
+        height: 18px !important;
+        background: rgba(255, 255, 255, 0.15) !important;
+        margin: 0 4px !important;
+    }
+
+    /* BOUTONS AVEC ICÔNES SVG */
+    .vafm-tb-btn {
+        position: relative !important;
+        background: rgba(255, 255, 255, 0.06) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        color: #b0b0bb !important;
+        width: 34px !important;
+        height: 34px !important;
+        border-radius: 8px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease !important;
+    }
+
+    .vafm-tb-btn svg {
+        width: 16px !important;
+        height: 16px !important;
+        stroke: currentColor !important;
+        stroke-width: 2 !important;
+        fill: none !important;
+    }
+
+    .vafm-tb-btn:hover {
+        background: rgba(255, 255, 255, 0.15) !important;
+        color: #ffffff !important;
+        border-color: rgba(255, 255, 255, 0.3) !important;
+        transform: translateY(-2px) !important;
+    }
+
+    /* Statut de publication */
+    .vafm-tb-btn.status-published {
+        color: #34c759 !important;
+    }
+    .vafm-tb-btn.status-draft {
+        color: #ff9500 !important;
+    }
+
+    /* Actions spécifiques */
+    .vafm-tb-btn.btn-save:hover {
+        background: #34c759 !important;
+        color: #ffffff !important;
+        border-color: #34c759 !important;
+    }
+
+    .vafm-tb-btn.btn-delete:hover {
+        background: #ff3b30 !important;
+        color: #ffffff !important;
+        border-color: #ff3b30 !important;
+    }
+
+    /* TOOLTIP PRO AU SURVOL */
+    .vafm-tb-btn::after {
+        content: attr(data-tooltip) !important;
+        position: absolute !important;
+        bottom: 135% !important;
+        left: 50% !important;
+        transform: translateX(-50%) translateY(4px) !important;
+        background: #09090b !important;
+        color: #f4f4f5 !important;
+        padding: 5px 10px !important;
+        border-radius: 6px !important;
+        font-size: 0.72rem !important;
+        font-weight: 600 !important;
+        white-space: nowrap !important;
+        pointer-events: none !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        transition: all 0.15s ease-out !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
+        border: 1px solid rgba(255,255,255,0.12) !important;
+        z-index: 100001 !important;
+    }
+
+    .vafm-tb-btn:hover::after {
+        opacity: 1 !important;
+        visibility: visible !important;
+        transform: translateX(-50%) translateY(0) !important;
+    }
+
+    /* LAYOUT ET DOCUMENT */
+    .canva-workspace {
+        width: 100% !important;
+        padding: 40px 20px 140px 20px !important;
+        box-sizing: border-box !important;
+    }
+
+    .canva-document {
+        max-width: 800px !important;
+        margin: 0 auto !important;
+        background: #ffffff !important;
+        border-radius: 16px !important;
+        padding: 40px !important;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.05) !important;
+        border: 1px solid #e5e5ea !important;
+    }
+
+    .canva-admin-active [contenteditable="true"]:hover,
+    .canva-admin-active [contenteditable="true"]:focus {
+        outline: 2px dashed #e63946 !important;
+        outline-offset: 4px;
+        border-radius: 4px;
+    }
+</style>
+
+        <div class="canva-layout ${isAdmin ? 'canva-admin-active' : ''}">
             
-            <article class="article-wrapper">
-                <header class="article-header">
-                    <span class="article-category-badge">${category}</span>
-                    <h1 class="article-title">
-                        ${title} 
-                        ${!isPublished ? '<small style="color:#ff9900; font-size: 0.4em;">(Brouillon)</small>' : ''}
-                    </h1>
-                    ${date ? `<div class="article-meta">Publié le ${date}</div>` : ''}
-                </header>
-
-                ${img ? `
-                    <div class="article-hero-media">
-                        <img src="${img}" alt="${title}">
-                    </div>
-                ` : ''}
-
-                <div class="article-content">
-                    ${text.split('\n').map(p => `<p>${p}</p>`).join('')}
+            <main class="canva-workspace">
+                <div style="max-width: 800px; margin: 0 auto 20px auto;">
+                    <button class="btn-back" onclick="closeArticleView()">← Retour à l'accueil</button>
                 </div>
 
-                <!-- CONTROLES ADMIN DE L'ARTICLE -->
-                ${isAdmin ? `
-                    <div class="article-admin-controls" style="margin-top:30px; padding-top:20px; border-top:1px solid #eee; display:flex; gap:10px; flex-wrap:wrap;">
-                        <button class="btn-admin-action" onclick="openEditorModal('${category}', '${id}')">✏️ Modifier</button>
-                        <button class="btn-admin-action ${isPublished ? 'btn-unpublish' : 'btn-publish'}" onclick="togglePublish('${tableName}', '${id}', ${isPublished}); openArticleView('${category}', '${id}');">
-                            ${isPublished ? '📥 Dépublier' : '🚀 Publier'}
-                        </button>
-                        <button class="btn-admin-action btn-delete" onclick="deleteItem('${tableName}', '${id}'); closeArticleView();">✕ Supprimer</button>
+                <article class="canva-document">
+                    <span class="article-category-badge">${category}</span>
+                    
+                    <h1 class="article-title" id="canva-doc-title" ${isAdmin ? 'contenteditable="true"' : ''}>${title}</h1>
+                    ${date ? `<div class="article-meta">Publié le ${date}</div>` : ''}
+
+                    <div class="article-hero-media" id="canva-doc-media">
+                        ${img ? `<img src="${img}" id="canva-img-element" alt="${title}" style="max-width:100%; border-radius:12px; margin:20px 0;">` : ''}
                     </div>
-                ` : ''}
-            </article>
+
+                    <div class="article-content" id="canva-doc-content" ${isAdmin ? 'contenteditable="true"' : ''}>
+                        ${rawText.split('\n').map(p => `<p>${p}</p>`).join('')}
+                    </div>
+                </article>
+            </main>
+
+            <!-- BARRE D'ÉDITION INTERCONNECTÉE AU PLAYER AUDIO -->
+            ${isAdmin ? `
+                <div class="vafm-player-toolbar">
+                    <span class="vafm-tb-label">Studio</span>
+
+                    <!-- Ajouter Paragraphe -->
+                    <button class="vafm-tb-btn" data-tooltip="Ajouter un paragraphe" onclick="addCanvaBlock()">
+                        <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+
+                    <!-- Changer Image -->
+                    <button class="vafm-tb-btn" data-tooltip="Changer l'image" onclick="document.getElementById('canva-file-input').click()">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    </button>
+                    <input type="file" id="canva-file-input" style="display:none;" accept="image/*" onchange="handleCanvaImageUpload(event)">
+
+                    <div class="vafm-tb-divider"></div>
+
+                    <!-- Statut Publication -->
+                    <button class="vafm-tb-btn ${isPublished ? 'status-published' : 'status-draft'}" data-tooltip="${isPublished ? 'En ligne (Cliquer pour dépublier)' : 'Brouillon (Cliquer pour publier)'}" onclick="togglePublish('${tableName}', '${id}', ${isPublished}); openArticleView('${category}', '${id}');">
+                        ${isPublished 
+                            ? `<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`
+                            : `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+                        }
+                    </button>
+
+                    <div class="vafm-tb-divider"></div>
+
+                    <!-- Sauvegarder -->
+                    <button class="vafm-tb-btn btn-save" data-tooltip="Enregistrer" onclick="saveCanvaArticle('${tableName}', '${id}')">
+                        <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                    </button>
+
+                    <!-- Supprimer -->
+                    <button class="vafm-tb-btn btn-delete" data-tooltip="Supprimer" onclick="deleteItem('${tableName}', '${id}'); closeArticleView();">
+                        <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                </div>
+            ` : ''}
+
         </div>
     `;
 
-    // 4. Affichage de la vue article
-    document.getElementById('content').style.display = 'none';
+    const mainContent = document.getElementById('content');
+    if (mainContent) mainContent.style.display = 'none';
+    
     articleContainer.style.display = 'block';
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    // 5. Mise à jour de l'URL sans recharger la page
     history.pushState({ page: 'article', category, id }, title, `?article=${category}&id=${id}`);
+}
+
+/* --- FONCTIONS AUXILIAIRES DE L'ÉDITEUR CANVA --- */
+
+// Ajouter un paragraphe au document
+function addCanvaBlock() {
+    const contentBox = document.getElementById('canva-doc-content');
+    if (contentBox) {
+        const newP = document.createElement('p');
+        newP.innerText = "Nouveau paragraphe... Cliquez pour écrire.";
+        contentBox.appendChild(newP);
+        newP.focus();
+    }
+}
+
+// Prévisualisation de l'image sélectionnée
+function handleCanvaImageUpload(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const mediaZone = document.getElementById('canva-doc-media');
+            mediaZone.innerHTML = `<img src="${e.target.result}" id="canva-img-element" alt="Aperçu">`;
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+// Enregistrement des modifications en base de données Supabase
+async function saveCanvaArticle(tableName, id) {
+    const title = document.getElementById('canva-doc-title')?.innerText.trim();
+    const content = document.getElementById('canva-doc-content')?.innerText.trim();
+    const imgElement = document.getElementById('canva-img-element');
+    const fileInput = document.getElementById('canva-file-input');
+    
+    let imageUrl = imgElement ? imgElement.src : null;
+
+    // Upload vers Supabase Storage si un nouveau fichier local est choisi
+    if (fileInput && fileInput.files[0]) {
+        const file = fileInput.files[0];
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabaseClient.storage.from('images').upload(fileName, file);
+        
+        if (!uploadError) {
+            const { data: publicUrlData } = supabaseClient.storage.from('images').getPublicUrl(fileName);
+            imageUrl = publicUrlData.publicUrl;
+        }
+    }
+
+    const payload = {
+        titre: title,
+        texte: content
+    };
+    if (imageUrl && !imageUrl.startsWith('data:')) payload.imageUrl = imageUrl;
+
+    const { error } = await supabaseClient
+        .from(tableName)
+        .update(payload)
+        .eq('id', id);
+
+    if (error) {
+        alert("Erreur lors de la sauvegarde : " + error.message);
+    } else {
+        alert("✨ Enregistré avec succès !");
+    }
 }
 
 function closeArticleView() {
     const articleContainer = document.getElementById('article-modal');
-    if (articleContainer) articleContainer.style.display = 'none';
+    if (articleContainer) {
+        articleContainer.style.display = 'none';
+        articleContainer.innerHTML = '';
+    }
     
-    document.getElementById('content').style.display = 'block';
+    const mainContent = document.getElementById('content');
+    if (mainContent) mainContent.style.display = 'block';
+    
     history.pushState({ page: 'home' }, '', window.location.pathname);
 }
 
-// Gestion des boutons Retour / Suivant du navigateur
+// Gestion de l'historique du navigateur (Retour / Suivant)
 window.addEventListener('popstate', (e) => {
     if (e.state && e.state.page === 'article') {
         openArticleView(e.state.category, e.state.id);
@@ -560,27 +798,3 @@ window.addEventListener('popstate', (e) => {
         closeArticleView();
     }
 });
-
-function closeArticle() { document.getElementById('article-modal').classList.remove('is-open'); }
-
-function initAudioControls() {
-    const audioStream = document.getElementById('radio-audio');
-    const playBtn = document.querySelector('.control-play-btn');
-    if (!audioStream) return;
-
-    async function toggleAudio() {
-        if (audioStream.paused) {
-            audioStream.load();
-            await audioStream.play();
-            if (playBtn) playBtn.classList.add('playing');
-        } else {
-            audioStream.pause();
-            if (playBtn) playBtn.classList.remove('playing');
-        }
-    }
-
-    if (playBtn) playBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleAudio(); });
-}
-
-function openModal(id) { document.getElementById(id).style.display = "flex"; }
-function closeModal(id) { document.getElementById(id).style.display = "none"; }
