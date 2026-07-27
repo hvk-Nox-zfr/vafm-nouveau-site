@@ -1,86 +1,112 @@
-/* ==========================================================================
-   NOTE : appState / saveState viennent de state.js
-          currentAuthMode, runLoader, initAudioControls, changeStyle,
-          openModal/closeModal, l'authentification, le mode admin et
-          l'éditeur de page viennent de common.js
-   Les deux fichiers doivent être chargés AVANT celui-ci.
-   ========================================================================== */
-
+let currentArticleData = null;
 let currentCategory = null;
 let currentId = null;
 
-document.addEventListener("DOMContentLoaded", () => {
-    runLoader();
+document.addEventListener('DOMContentLoaded', async () => {
+    // Récupération des paramètres de l'URL (?type=hero&id=xxx)
+    const urlParams = new URLSearchParams(window.location.search);
+    currentCategory = urlParams.get('type') || 'news';
+    currentId = urlParams.get('id');
 
-    const params = new URLSearchParams(window.location.search);
-    currentCategory = params.get('type');
-    currentId = Number(params.get('id'));
-
-    renderAll();
-    updateAuthUI();
-    initAudioControls();
-});
-
-/* ==========================================================================
-   RENDU DE LA PAGE ARTICLE
-   ========================================================================== */
-function findCurrentArticle() {
-    if (!currentCategory || !appState[currentCategory]) return null;
-    return appState[currentCategory].find(x => x.id === currentId) || null;
-}
-
-function renderAll() {
-    const wrap = document.getElementById('article-page-wrap');
-    if (!wrap) return;
-
-    const item = findCurrentArticle();
-    const isEdit = appState.editMode && appState.currentUser && appState.currentUser.role === 'admin';
-
-    if (!item) {
-        wrap.innerHTML = `
-            <div class="article-not-found">
-                <h2>Article introuvable</h2>
-                <p>Cette page n'existe plus ou a été déplacée.</p>
-                <a href="index.html" class="article-back-link">← Retour à l'accueil</a>
-            </div>
-        `;
+    if (!currentId) {
+        document.getElementById('article-title').innerText = "Article non trouvé";
         return;
     }
 
-    const bodyText = item.body && item.body.trim() ? item.body : item.text;
+    await loadArticleData();
+});
 
-    wrap.innerHTML = `
-        <a href="index.html" class="article-back-link">← Retour à l'accueil</a>
-        <img src="${item.img}" class="article-page-hero" alt="${item.title}"
-            ${isEdit ? `onclick="triggerImageChange('${currentCategory}', ${item.id})"` : ''}>
-        <h1 class="article-page-title" contenteditable="${isEdit}"
-            onblur="updateTextContent('${currentCategory}', ${item.id}, 'title', this.innerText)">${item.title}</h1>
-        <p class="article-page-body" contenteditable="${isEdit}"
-            onblur="updateTextContent('${currentCategory}', ${item.id}, 'body', this.innerText)">${bodyText}</p>
-        ${isEdit ? `<button class="edit-page-btn" onclick="openArticleEditor('${currentCategory}', ${item.id})">✎ Modifier la page (éditeur complet)</button>` : ''}
-    `;
+// Chargement des données de l'article depuis Supabase
+async function loadArticleData() {
+    const tableMap = { hero: 'hero', news: 'actus', shows: 'emissions', team: 'animateurs' };
+    const tableName = tableMap[currentCategory] || 'actus';
 
-    document.title = `VAFM | ${item.title}`;
+    const { data, error } = await supabaseClient
+        .from(tableName)
+        .select('*')
+        .eq('id', currentId)
+        .single();
+
+    if (error || !data) {
+        console.error("Erreur chargement article:", error);
+        document.getElementById('article-title').innerText = "Impossible de charger cet article.";
+        return;
+    }
+
+    currentArticleData = data;
+
+    // Normalisation des champs
+    const title = data.titre || data.title || data.nom || 'Sans titre';
+    const text = data.texte || data.description || data.contenu || '';
+    const img = data.imageUrl || data.image_url || data.img_url || '';
+    const date = data.created_at ? new Date(data.created_at).toLocaleDateString('fr-FR') : '';
+
+    // Injection dans le DOM
+    document.getElementById('article-title').innerText = title;
+    document.getElementById('article-category').innerText = currentCategory;
+    document.getElementById('article-date').innerText = date ? `Publié le ${date}` : '';
+    
+    // Remplacement des sauts de ligne par des paragraphes
+    document.getElementById('article-content').innerHTML = text.split('\n').map(p => `<p>${p}</p>`).join('');
+
+    const imgElem = document.getElementById('article-cover');
+    if (img) {
+        imgElem.src = img;
+        imgElem.style.display = 'block';
+    } else {
+        imgElem.style.display = 'none';
+    }
+
+    // Gestion de la visibilité des outils d'admin
+    checkAdminAccess();
 }
 
-/* ==========================================================================
-   ACTIONS ADMIN PROPRES À CETTE PAGE
-   ========================================================================== */
-function updateTextContent(category, id, key, value) {
-    const item = appState[category].find(x => x.id === id);
-    if (!item) return;
-    item[key] = value;
-    saveState();
+// Vérifie si l'admin est connecté pour afficher les boutons d'édition
+function checkAdminAccess() {
+    const isEdit = Boolean(appState.editMode && appState.currentUser);
+    const adminControls = document.getElementById('article-admin-controls');
+    if (adminControls) {
+        adminControls.style.display = isEdit ? 'flex' : 'none';
+    }
 }
 
-function triggerImageChange(category, id) {
-    const url = prompt("URL de l'image :");
-    if (url) {
-        const item = appState[category].find(x => x.id === id);
-        if (item) {
-            item.img = url;
-            saveState();
-            renderAll();
-        }
+// Ouvre la modale pré-remplie
+function openArticleEditorModal() {
+    if (!currentArticleData) return;
+
+    document.getElementById('editor-category').value = currentCategory;
+    document.getElementById('editor-item-id').value = currentId;
+    document.getElementById('editor-title').value = currentArticleData.titre || currentArticleData.title || currentArticleData.nom || '';
+    document.getElementById('editor-text').value = currentArticleData.texte || currentArticleData.description || currentArticleData.contenu || '';
+
+    const preview = document.getElementById('editor-img-preview');
+    const img = currentArticleData.imageUrl || currentArticleData.image_url || '';
+    if (img) {
+        preview.src = img;
+        preview.style.display = 'block';
+    }
+
+    document.getElementById('editor-modal').classList.add('active');
+}
+
+// Sauvegarde des modifications
+async function handleArticleSave(e) {
+    e.preventDefault();
+    await handleCardFormSubmit(e); // Réutilise la fonction d'upload/save de script.js
+    await loadArticleData(); // Recharge les données à jour
+}
+
+// Suppression de l'article
+async function deleteCurrentArticle() {
+    if (!confirm("Voulez-vous vraiment supprimer cet article ?")) return;
+
+    const tableMap = { hero: 'hero', news: 'actus', shows: 'emissions', team: 'animateurs' };
+    const tableName = tableMap[currentCategory];
+
+    const { error } = await supabaseClient.from(tableName).delete().eq('id', currentId);
+    if (error) {
+        alert("Erreur de suppression : " + error.message);
+    } else {
+        window.location.href = 'index.html';
     }
 }
