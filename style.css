@@ -597,3 +597,84 @@ body.admin-logged-in .hero-section {
 .style-selector { display: flex !important; gap: 6px !important; cursor: pointer !important; }
 .style-bar { width: 10px !important; height: 25px !important; background: #333339 !important; border-radius: 2px !important; transition: background 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important; }
 .style-bar:hover { background: var(--accent) !important; }
+
+/* Barre d'administration supérieure */
+.admin-top-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background: #111116;
+    border-bottom: 2px solid #ff0033;
+    z-index: 9999;
+    padding: 10px 24px;
+}
+.admin-bar-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+.admin-status {
+    color: #ff0033;
+    font-weight: 800;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+}
+.btn-publish-all {
+    background: #00e676;
+    color: #000;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+.btn-publish-all:hover { transform: scale(1.05); }
+
+/* Glisser - Déposer (Drop Zone) */
+.drop-zone {
+    border: 2px dashed #ff0033;
+    border-radius: 12px;
+    padding: 25px;
+    text-align: center;
+    background: #0f0f13;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+.drop-zone:hover, .drop-zone--over {
+    background: #1a0d12;
+    border-color: #ff3355;
+}
+.drop-zone-prompt {
+    color: #a0a0ab;
+    font-size: 0.9rem;
+}
+.drop-zone-input { display: none; }
+.file-preview img {
+    margin-top: 15px;
+    max-height: 140px;
+    border-radius: 8px;
+    object-fit: cover;
+    width: 100%;
+}
+
+/* Modale éditeur */
+.editor-modal-content {
+    max-width: 520px;
+    width: 90%;
+}
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 20px;
+}

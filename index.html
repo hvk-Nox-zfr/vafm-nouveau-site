@@ -20,13 +20,24 @@
         </div>
     </div>
 
+    <!-- BARRE D'ADMINISTRATION SUPERIEURE (GESTION DES BROUILLONS) -->
+    <div id="admin-top-bar" class="admin-top-bar" style="display: none;">
+        <div class="admin-bar-content">
+            <span class="admin-status">MODE ÉDITION ACTIF</span>
+            <div class="admin-actions">
+                <button class="btn-publish-all" onclick="publishAllDrafts()">🚀 Tout publier</button>
+            </div>
+        </div>
+    </div>
+
     <!-- LECTEUR AUDIO OPTIMISÉ -->
     <audio id="radio-audio" preload="auto">
         <source src="https://manager10.streamradio.fr:1555/stream" type="audio/mpeg">
         Votre navigateur ne supporte pas l'audio.
     </audio>
 
-    <div id="auth-modal" class="modal">
+    <!-- MODALE CONNEXION / INSCRIPTION -->
+    <div id="auth-modal" class="modal" style="display: none;">
         <div class="modal-content">
             <h2 id="auth-title">Connexion Club VAFM</h2>
             <p id="auth-subtitle">Accédez à votre espace ou gérez la station</p>
@@ -50,17 +61,45 @@
         </div>
     </div>
 
-    <div id="admin-top-bar" class="admin-top-bar">
-        <span class="admin-status">Espace Administrateur Connecté</span>
-        <div class="admin-actions">
-            <label class="switch">
-                <input type="checkbox" id="admin-mode-toggle" onchange="toggleAdminMode(this.checked)">
-                <span class="slider round"></span>
-            </label>
-            <span class="switch-label">Activer l'édition en direct</span>
+    <!-- MODALE STYLÉE D'ÉDITION & DRAG & DROP -->
+    <div id="card-editor-modal" class="modal" style="display: none;">
+        <div class="modal-content editor-modal-content">
+            <div class="modal-header">
+                <h3 id="modal-editor-title">Ajouter un élément</h3>
+                <button class="close-btn" onclick="closeEditorModal()">✕</button>
+            </div>
+            <form id="card-editor-form" onsubmit="handleCardFormSubmit(event)">
+                <input type="hidden" id="editor-category">
+                <input type="hidden" id="editor-item-id">
+
+                <div class="input-group">
+                    <label for="editor-title">Titre</label>
+                    <input type="text" id="editor-title" required placeholder="Titre de l'article ou de l'émission">
+                </div>
+
+                <div class="input-group">
+                    <label for="editor-text">Description / Contenu</label>
+                    <textarea id="editor-text" rows="4" required placeholder="Écrivez le texte ici..."></textarea>
+                </div>
+
+                <div class="input-group">
+                    <label>Image de couverture</label>
+                    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+                        <span class="drop-zone-prompt">📁 Glissez-déposez une image ici ou <u>cliquez pour parcourir</u></span>
+                        <input type="file" id="file-input" accept="image/*" class="drop-zone-input" onchange="handleFileSelect(event)">
+                        <div id="file-preview" class="file-preview"></div>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeEditorModal()">Annuler</button>
+                    <button type="submit" class="btn-submit" id="btn-save-card">Enregistrer (Brouillon)</button>
+                </div>
+            </form>
         </div>
     </div>
 
+    <!-- NAVBAR -->
     <header class="navbar" id="main-navbar">
         <div class="logo-container">
             <img src="VAFM logo rouge.png" alt="VAFM" class="nav-logo">
@@ -74,21 +113,24 @@
         <div class="nav-actions">
             <div id="user-profile-zone">
                 <button class="btn-secondary" onclick="openAuthModal()">Se connecter</button>
+            </div>
+        </div>
     </header>
 
+    <!-- CONTENU PRINCIPAL -->
     <main id="content">
         <section class="hero-section" id="home">
             <div class="swiper mainSwiper">
                 <div class="swiper-wrapper" id="hero-wrapper"></div>
                 <div class="swiper-pagination"></div>
-                <button class="admin-editable-ui add-btn hero-add" onclick="addNewSlide()">+ Ajouter une slide</button>
+                <button class="admin-editable-ui add-btn hero-add" onclick="openEditorModal('hero')">+ Ajouter une slide</button>
             </div>
         </section>
 
         <section class="section" id="actus">
             <div class="section-header">
                 <h2>Toutes les actualités</h2>
-                <button class="admin-editable-ui add-btn" onclick="addNewCard('news')">+ Ajouter un article</button>
+                <button class="admin-editable-ui add-btn" onclick="openEditorModal('news')">+ Ajouter un article</button>
             </div>
             <div class="grid" id="news-grid"></div>
         </section>
@@ -96,7 +138,7 @@
         <section class="section alt-bg" id="emissions">
             <div class="section-header">
                 <h2>Grille des Émissions</h2>
-                <button class="admin-editable-ui add-btn" onclick="addNewCard('shows')">+ Ajouter une émission</button>
+                <button class="admin-editable-ui add-btn" onclick="openEditorModal('shows')">+ Ajouter une émission</button>
             </div>
             <div class="grid" id="shows-grid"></div>
         </section>
@@ -104,7 +146,7 @@
         <section class="section" id="animateurs">
             <div class="section-header">
                 <h2>L'Équipe VAFM</h2>
-                <button class="admin-editable-ui add-btn" onclick="addNewCard('team')">+ Ajouter un membre</button>
+                <button class="admin-editable-ui add-btn" onclick="openEditorModal('team')">+ Ajouter un membre</button>
             </div>
             <div class="grid team-grid" id="team-grid"></div>
         </section>

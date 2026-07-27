@@ -11,14 +11,15 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let appState = {
     currentUser: null,
     editMode: false,
-    hero: [],       // Table 'hero'
-    news: [],       // Table 'actus'
-    shows: [],      // Table 'emissions'
-    team: []        // Table 'animateurs'
+    hero: [],       
+    news: [],       
+    shows: [],      
+    team: []        
 };
 
 let currentAuthMode = "login";
 let mainSwiperInstance = null;
+let selectedFile = null; // Pour stocker l'image sélectionnée dans la modale
 
 /* ==========================================================================
    3. INITIALISATION ET CHARGEMENT SUPABASE
@@ -36,7 +37,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     });
 
-    // 1. Écouter les changements d'état d'authentification
+    // Écoute de l'authentification
     supabaseClient.auth.onAuthStateChange((event, session) => {
         if (session) {
             appState.currentUser = session.user;
@@ -47,75 +48,73 @@ document.addEventListener("DOMContentLoaded", async () => {
             document.body.classList.remove('admin-logged-in', 'edit-mode-active');
         }
         updateAuthUI();
-        renderAll();
+        fetchAllFromSupabase(); // Recharger les données (Brouillons vs Publiés)
     });
 
-    // 2. Restauration de la session initiale
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (session) {
         appState.currentUser = session.user;
         checkAdminRights(session.user);
     }
 
-    // 3. Charger toutes les données depuis Supabase
     await fetchAllFromSupabase();
-
     updateAuthUI();
     initAudioControls();
+    initDragAndDrop(); // Initialiser la zone de dépôt d'image
 });
 
 /* ==========================================================================
-   4. RECUPÉRATION DES DONNÉES (SUPABASE READ)
+   4. RECUPÉRATION DES DONNÉES (FILTRE BROUILLON SI NON ADMIN)
    ========================================================================== */
 async function fetchAllFromSupabase() {
     try {
-        // Table 'hero' (Carrousel principal)
-        const { data: heroData } = await supabaseClient.from('hero').select('*');
-        if (heroData) {
-            appState.hero = heroData.map(h => ({
-                id: h.id,
-                title: h.titre || '',
-                text: h.texte || '',
-                img: h.imageUrl || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=1200'
+        const isAdmin = appState.editMode;
+
+        const getQuery = (table) => {
+            let q = supabaseClient.from(table).select('*');
+            if (!isAdmin) q = q.eq('is_published', true); // Les visiteurs ne voient que le publié
+            return q;
+        };
+
+        const [heroData, actusData, emissionsData, animateursData] = await Promise.all([
+            getQuery('hero'), getQuery('actus'), getQuery('emissions'), getQuery('animateurs')
+        ]);
+
+        if (heroData.data) {
+            appState.hero = heroData.data.map(h => ({
+                id: h.id, title: h.titre || '', text: h.texte || '', 
+                img: h.imageUrl || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=1200',
+                is_published: h.is_published
             }));
         }
 
-        // Table 'actus'
-        const { data: actus } = await supabaseClient.from('actus').select('*');
-        if (actus) {
-            appState.news = actus.map(a => ({
-                id: a.id,
-                title: a.titre || '',
-                text: a.texte || a.contenu || '',
-                img: a.imageUrl || 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600'
+        if (actusData.data) {
+            appState.news = actusData.data.map(a => ({
+                id: a.id, title: a.titre || '', text: a.texte || a.contenu || '', 
+                img: a.imageUrl || 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600',
+                is_published: a.is_published
             }));
         }
 
-        // Table 'emissions'
-        const { data: emissions } = await supabaseClient.from('emissions').select('*');
-        if (emissions) {
-            appState.shows = emissions.map(e => ({
-                id: e.id,
-                title: e.titre || '',
-                text: `${e.horaires ? e.horaires + ' - ' : ''}${e.description || ''}`,
-                img: e.image_url || 'https://images.unsplash.com/photo-1557134454-063901f1628d?q=80&w=600'
+        if (emissionsData.data) {
+            appState.shows = emissionsData.data.map(e => ({
+                id: e.id, title: e.titre || '', text: e.description || '', 
+                img: e.image_url || 'https://images.unsplash.com/photo-1557134454-063901f1628d?q=80&w=600',
+                is_published: e.is_published
             }));
         }
 
-        // Table 'animateurs'
-        const { data: animateurs } = await supabaseClient.from('animateurs').select('*');
-        if (animateurs) {
-            appState.team = animateurs.map(anim => ({
-                id: anim.id,
-                title: anim.nom || '',
-                text: anim.description || anim.emission || '',
-                img: anim.image_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400'
+        if (animateursData.data) {
+            appState.team = animateursData.data.map(anim => ({
+                id: anim.id, title: anim.nom || '', text: anim.description || '', 
+                img: anim.image_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400',
+                is_published: anim.is_published
             }));
         }
 
         renderAll();
     } catch (err) {
-        console.error("Erreur lors de la récupération des données :", err);
+        console.error("Erreur lors de la récupération :", err);
     }
 }
 
@@ -129,59 +128,51 @@ function renderAll() {
     const teamGrid = document.getElementById('team-grid');
     
     const isEdit = Boolean(appState.editMode && appState.currentUser);
+    document.getElementById('admin-top-bar').style.display = isEdit ? 'block' : 'none';
 
     if (heroWrapper) {
-        heroWrapper.innerHTML = appState.hero.map((slide, index) => `
-            <div class="swiper-slide">
-                <img src="${slide.img}" class="slide-bg" ${isEdit ? `onclick="triggerImageChange('hero', '${slide.id}')"` : ''}>
+        heroWrapper.innerHTML = appState.hero.map((slide) => `
+            <div class="swiper-slide ${!slide.is_published ? 'draft-card' : ''}">
+                <img src="${slide.img}" class="slide-bg">
                 <div class="slide-content">
-                    <h1 contenteditable="${isEdit}" onblur="updateTextContent('hero', '${slide.id}', 'titre', this.innerText)">${slide.title}</h1>
-                    <p contenteditable="${isEdit}" onblur="updateTextContent('hero', '${slide.id}', 'texte', this.innerText)">${slide.text}</p>
+                    <h1>${slide.title} ${!slide.is_published ? '<small style="color:#ff9900; font-size: 0.4em;">(Brouillon)</small>' : ''}</h1>
+                    <p>${slide.text}</p>
                     <button class="btn-more" onclick="openArticleView('hero', '${slide.id}')">Voir plus</button>
-                    ${isEdit ? `<button class="delete-card-btn" onclick="deleteItem('hero', '${slide.id}')">✕</button>` : ''}
+                    ${isEdit ? `
+                        <div class="card-admin-actions" style="position: relative; margin-top:20px; display:flex; gap:10px; justify-content:center;">
+                            ${!slide.is_published ? `<button class="btn-publish-all" onclick="publishItem('hero', '${slide.id}'); event.stopPropagation();">Publier</button>` : ''}
+                            <button class="delete-card-btn" onclick="openEditorModal('hero', '${slide.id}'); event.stopPropagation();">✏️ Modifier</button>
+                            <button class="delete-card-btn" onclick="deleteItem('hero', '${slide.id}'); event.stopPropagation();">✕</button>
+                        </div>
+                    ` : ''}
                 </div>
             </div>
         `).join('');
     }
 
-    if (newsGrid) {
-        newsGrid.innerHTML = appState.news.map((item) => `
-            <div class="card" onclick="if(!appState.editMode) openArticleView('news', '${item.id}')">
-                ${isEdit ? `<button class="delete-card-btn" onclick="deleteItem('actus', '${item.id}'); event.stopPropagation();">✕</button>` : ''}
-                <img src="${item.img}" class="card-img" onclick="if(appState.editMode) { triggerImageChange('actus', '${item.id}'); event.stopPropagation(); }">
+    const renderGrid = (gridElement, dataArray, category, tableName) => {
+        if (!gridElement) return;
+        gridElement.innerHTML = dataArray.map((item) => `
+            <div class="card ${!item.is_published ? 'draft-card' : ''}" onclick="if(!appState.editMode) openArticleView('${category}', '${item.id}')">
+                ${isEdit ? `
+                    <div class="card-admin-actions">
+                        ${!item.is_published ? `<button class="btn-card-publish" onclick="publishItem('${tableName}', '${item.id}'); event.stopPropagation();">Publier</button>` : ''}
+                        <button class="delete-card-btn" onclick="openEditorModal('${category}', '${item.id}'); event.stopPropagation();">✏️</button>
+                        <button class="delete-card-btn" onclick="deleteItem('${tableName}', '${item.id}'); event.stopPropagation();">✕</button>
+                    </div>
+                ` : ''}
+                <img src="${item.img}" class="card-img">
                 <div class="card-body">
-                    <h3 contenteditable="${isEdit}" onblur="updateTextContent('actus', '${item.id}', 'titre', this.innerText); event.stopPropagation();">${item.title}</h3>
-                    <p contenteditable="${isEdit}" onblur="updateTextContent('actus', '${item.id}', 'texte', this.innerText); event.stopPropagation();">${item.text}</p>
+                    <h3>${item.title} ${!item.is_published ? '<small style="color:#ff9900; font-size:0.6em;">(Brouillon)</small>' : ''}</h3>
+                    <p>${item.text}</p>
                 </div>
             </div>
         `).join('');
-    }
+    };
 
-    if (showsGrid) {
-        showsGrid.innerHTML = appState.shows.map((item) => `
-            <div class="card" onclick="if(!appState.editMode) openArticleView('shows', '${item.id}')">
-                ${isEdit ? `<button class="delete-card-btn" onclick="deleteItem('emissions', '${item.id}'); event.stopPropagation();">✕</button>` : ''}
-                <img src="${item.img}" class="card-img" onclick="if(appState.editMode) { triggerImageChange('emissions', '${item.id}'); event.stopPropagation(); }">
-                <div class="card-body">
-                    <h3 contenteditable="${isEdit}" onblur="updateTextContent('emissions', '${item.id}', 'titre', this.innerText); event.stopPropagation();">${item.title}</h3>
-                    <p contenteditable="${isEdit}" onblur="updateTextContent('emissions', '${item.id}', 'description', this.innerText); event.stopPropagation();">${item.text}</p>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    if (teamGrid) {
-        teamGrid.innerHTML = appState.team.map((item) => `
-            <div class="card" onclick="if(!appState.editMode) openArticleView('team', '${item.id}')">
-                ${isEdit ? `<button class="delete-card-btn" onclick="deleteItem('animateurs', '${item.id}'); event.stopPropagation();">✕</button>` : ''}
-                <img src="${item.img}" class="card-img" onclick="if(appState.editMode) { triggerImageChange('animateurs', '${item.id}'); event.stopPropagation(); }">
-                <div class="card-body">
-                    <h3 contenteditable="${isEdit}" onblur="updateTextContent('animateurs', '${item.id}', 'nom', this.innerText); event.stopPropagation();">${item.title}</h3>
-                    <p contenteditable="${isEdit}" onblur="updateTextContent('animateurs', '${item.id}', 'description', this.innerText); event.stopPropagation();">${item.text}</p>
-                </div>
-            </div>
-        `).join('');
-    }
+    renderGrid(newsGrid, appState.news, 'news', 'actus');
+    renderGrid(showsGrid, appState.shows, 'shows', 'emissions');
+    renderGrid(teamGrid, appState.team, 'team', 'animateurs');
 
     if (mainSwiperInstance) mainSwiperInstance.destroy(true, true);
     mainSwiperInstance = new Swiper(".mainSwiper", {
@@ -193,80 +184,157 @@ function renderAll() {
 }
 
 /* ==========================================================================
-   6. MODIFICATION ET ÉDITION EN DIRECT (SUPABASE UPDATE)
+   6. GESTION DE LA MODALE & DRAG & DROP
    ========================================================================== */
-async function updateTextContent(tableName, id, field, value) {
-    const { error } = await supabaseClient
-        .from(tableName)
-        .update({ [field]: value })
-        .eq('id', id);
+function openEditorModal(category, id = null) {
+    selectedFile = null;
+    document.getElementById('editor-category').value = category;
+    document.getElementById('editor-item-id').value = id || '';
+    document.getElementById('file-preview').innerHTML = '';
+    document.getElementById('file-input').value = '';
 
-    if (error) {
-        console.error("Erreur de mise à jour :", error);
-    }
-}
-
-async function triggerImageChange(tableName, id) {
-    const url = prompt("Entrez la nouvelle URL de l'image :");
-    if (!url) return;
-
-    const column = (tableName === 'emissions' || tableName === 'animateurs') ? 'image_url' : 'imageUrl';
-    
-    const { error } = await supabaseClient
-        .from(tableName)
-        .update({ [column]: url })
-        .eq('id', id);
-
-    if (error) {
-        alert("Erreur de mise à jour de l'image : " + error.message);
+    if (id) {
+        const item = appState[category].find(x => String(x.id) === String(id));
+        document.getElementById('modal-editor-title').innerText = "Modifier l'élément";
+        document.getElementById('editor-title').value = item.title;
+        document.getElementById('editor-text').value = item.text;
+        if (item.img) {
+            document.getElementById('file-preview').innerHTML = `<img src="${item.img}">`;
+        }
     } else {
-        await fetchAllFromSupabase();
+        document.getElementById('modal-editor-title').innerText = "Ajouter un élément";
+        document.getElementById('card-editor-form').reset();
     }
+
+    openModal('card-editor-modal');
 }
 
-async function addNewCard(category) {
-    const title = prompt("Titre :");
-    if (!title) return;
-    const text = prompt("Description / Texte :");
-    const img = prompt("URL de l'image :");
+function closeEditorModal() {
+    closeModal('card-editor-modal');
+}
 
-    let tableName = '';
-    let payload = {};
+function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) previewFile(file);
+}
 
-    if (category === 'hero') {
-        tableName = 'hero';
-        payload = { titre: title, texte: text, imageUrl: img };
-    } else if (category === 'news') {
-        tableName = 'actus';
-        payload = { titre: title, texte: text, imageUrl: img };
-    } else if (category === 'shows') {
-        tableName = 'emissions';
-        payload = { titre: title, description: text, image_url: img };
-    } else if (category === 'team') {
-        tableName = 'animateurs';
-        payload = { nom: title, description: text, image_url: img };
+function previewFile(file) {
+    selectedFile = file;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        document.getElementById('file-preview').innerHTML = `<img src="${e.target.result}">`;
+    };
+    reader.readAsDataURL(file);
+}
+
+function initDragAndDrop() {
+    const dropZone = document.getElementById('drop-zone');
+    if (!dropZone) return;
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.add('drop-zone--over'), false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove('drop-zone--over'), false);
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files && files.length > 0) previewFile(files[0]);
+    });
+}
+
+/* ==========================================================================
+   7. SAUVEGARDE, PUBLICATION ET SUPPRESSION (SUPABASE UPDATE)
+   ========================================================================== */
+async function handleCardFormSubmit(e) {
+    e.preventDefault();
+    const btnSave = document.getElementById('btn-save-card');
+    btnSave.innerText = "Enregistrement...";
+    btnSave.disabled = true;
+
+    const category = document.getElementById('editor-category').value;
+    const id = document.getElementById('editor-item-id').value;
+    const title = document.getElementById('editor-title').value;
+    const text = document.getElementById('editor-text').value;
+
+    let imageUrl = null;
+
+    // Upload de l'image si nouvelle
+    if (selectedFile) {
+        const fileExt = selectedFile.name.split('.').pop();
+        const filePath = `${category}/${Date.now()}.${fileExt}`;
+
+        const { data: uploadData, error: uploadError } = await supabaseClient.storage
+            .from('vafm-media')
+            .upload(filePath, selectedFile);
+
+        if (uploadError) {
+            alert("Erreur upload image : " + uploadError.message);
+            btnSave.innerText = "Enregistrer (Brouillon)";
+            btnSave.disabled = false;
+            return;
+        }
+
+        const { data: urlData } = supabaseClient.storage.from('vafm-media').getPublicUrl(filePath);
+        imageUrl = urlData.publicUrl;
     }
 
-    const { error } = await supabaseClient.from(tableName).insert([payload]);
-    if (error) {
-        alert("Erreur d'ajout : " + error.message);
+    const tableMap = { hero: 'hero', news: 'actus', shows: 'emissions', team: 'animateurs' };
+    const tableName = tableMap[category];
+
+    let payload = {
+        [category === 'team' ? 'nom' : 'titre']: title,
+        [category === 'shows' || category === 'team' ? 'description' : (category === 'hero' ? 'texte' : 'contenu')]: text,
+        is_published: false // Reste en brouillon par défaut
+    };
+
+    if (imageUrl) {
+        const imgColumn = (tableName === 'emissions' || tableName === 'animateurs') ? 'image_url' : 'imageUrl';
+        payload[imgColumn] = imageUrl;
+    }
+
+    if (id) {
+        await supabaseClient.from(tableName).update(payload).eq('id', id);
     } else {
-        await fetchAllFromSupabase();
+        await supabaseClient.from(tableName).insert([payload]);
     }
+
+    btnSave.innerText = "Enregistrer (Brouillon)";
+    btnSave.disabled = false;
+    closeEditorModal();
+    await fetchAllFromSupabase();
 }
 
-function addNewSlide() {
-    addNewCard('hero');
+async function publishItem(tableName, id) {
+    await supabaseClient.from(tableName).update({ is_published: true }).eq('id', id);
+    await fetchAllFromSupabase();
+}
+
+async function publishAllDrafts() {
+    await Promise.all([
+        supabaseClient.from('hero').update({ is_published: true }).eq('is_published', false),
+        supabaseClient.from('actus').update({ is_published: true }).eq('is_published', false),
+        supabaseClient.from('emissions').update({ is_published: true }).eq('is_published', false),
+        supabaseClient.from('animateurs').update({ is_published: true }).eq('is_published', false)
+    ]);
+    alert("Tous les éléments ont été publiés !");
+    await fetchAllFromSupabase();
 }
 
 async function deleteItem(tableName, id) {
-    if (confirm("Voulez-vous vraiment supprimer cet élément de la base de données ?")) {
+    if (confirm("Voulez-vous vraiment supprimer cet élément ?")) {
         const { error } = await supabaseClient.from(tableName).delete().eq('id', id);
-        if (error) {
-            alert("Erreur de suppression : " + error.message);
-        } else {
-            await fetchAllFromSupabase();
-        }
+        if (error) alert("Erreur : " + error.message);
+        else await fetchAllFromSupabase();
     }
 }
 
@@ -296,58 +364,22 @@ async function handleAuthSubmit(e) {
     const password = document.getElementById('auth-password').value;
 
     if (currentAuthMode === "login") {
-        // TENTATIVE DE CONNEXION
-        const { data, error } = await supabaseClient.auth.signInWithPassword({
-            email: email,
-            password: password,
-        });
-
-        if (error) {
-            console.error("Erreur Connexion:", error);
-            alert("Impossible de se connecter : " + error.message);
-        } else {
-            // Pas d'alert() ici ! On met à jour et on ferme directement
-            appState.currentUser = data.user;
-            checkAdminRights(data.user);
-            closeModal('auth-modal');
-            updateAuthUI();
-            renderAll();
-        }
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) alert("Impossible de se connecter : " + error.message);
+        else closeModal('auth-modal');
     } else {
-        // TENTATIVE D'INSCRIPTION
-        const { data, error } = await supabaseClient.auth.signUp({
-            email: email,
-            password: password,
+        const isAdminEmail = email.toLowerCase().endsWith('@vafm.fr');
+        const { data, error } = await supabaseClient.auth.signUp({ 
+            email, password, 
+            options: { data: { role: isAdminEmail ? 'admin' : 'member' } } 
         });
-
-        if (error) {
-            console.error("Erreur Inscription:", error);
-            alert("Erreur d'inscription : " + error.message);
-        } else {
-            appState.currentUser = data.user;
-            checkAdminRights(data.user);
-            closeModal('auth-modal');
-            updateAuthUI();
-            renderAll();
-        }
+        if (error) alert("Erreur d'inscription : " + error.message);
+        else closeModal('auth-modal');
     }
 }
 
 async function logout() {
     await supabaseClient.auth.signOut();
-    appState.currentUser = null;
-    appState.editMode = false;
-    document.body.classList.remove('admin-logged-in', 'edit-mode-active');
-    const toggleInput = document.getElementById('admin-mode-toggle');
-    if (toggleInput) toggleInput.checked = false;
-    updateAuthUI();
-    renderAll();
-}
-
-function toggleAdminMode(isActive) {
-    appState.editMode = isActive;
-    document.body.classList.toggle('edit-mode-active', isActive);
-    renderAll();
 }
 
 function checkAdminRights(user) {
@@ -355,41 +387,28 @@ function checkAdminRights(user) {
         appState.editMode = false;
         return;
     }
-
-    // Récupère le rôle dans les métadonnées de l'utilisateur
     const role = user.user_metadata?.role;
-
     if (role === 'admin') {
         appState.editMode = true;
         document.body.classList.add('admin-logged-in', 'edit-mode-active');
-        console.log("Connecté en tant qu'Admin !");
     } else {
         appState.editMode = false;
         document.body.classList.remove('admin-logged-in', 'edit-mode-active');
-        console.log("Connecté en tant que Membre");
     }
 }
 
 function updateAuthUI() {
     const profileZone = document.getElementById('user-profile-zone');
-    const adminToggle = document.getElementById('admin-mode-toggle'); // Si tu as un switch/checkbox admin
-    
     if (appState.currentUser) {
         const initial = appState.currentUser.email[0].toUpperCase();
-        
         if (profileZone) {
             profileZone.innerHTML = `
-                <div class="user-badge-container" onclick="logout()" style="cursor:pointer;" title="Cliquez pour vous déconnecter">
+                <div class="user-badge-container" onclick="logout()" style="cursor:pointer;" title="Déconnexion">
                     <div class="user-avatar">${initial}</div>
                     <span class="user-name-label">${appState.editMode ? 'Admin' : 'Membre'}</span>
                 </div>
             `;
         }
-
-        if (adminToggle) {
-            adminToggle.checked = appState.editMode;
-        }
-
     } else {
         if (profileZone) {
             profileZone.innerHTML = `<button class="btn-secondary" onclick="openAuthModal()">Se connecter</button>`;
@@ -422,24 +441,17 @@ function openArticleView(sourceCategory, id) {
             </div>
         `;
 
-        gsap.to(loader, { 
-            y: "-100%", 
-            duration: 0.5, 
-            onComplete: () => { loader.style.display = 'none'; }
-        });
+        gsap.to(loader, { y: "-100%", duration: 0.5, onComplete: () => { loader.style.display = 'none'; } });
     }, 500);
 }
 
 function closeArticle() {
-    const modal = document.getElementById('article-modal');
-    modal.classList.remove('is-open');
+    document.getElementById('article-modal').classList.remove('is-open');
 }
 
 function initAudioControls() {
     const audioStream = document.getElementById('radio-audio');
     const playBtn = document.querySelector('.control-play-btn');
-    const navLiveBtn = document.getElementById('navLiveBtn');
-    
     const trackNameEl = document.getElementById('current-track');
     const trackArtistEl = document.querySelector('.track-artist');
     const marquee = document.getElementById('marquee');
@@ -513,12 +525,10 @@ function initAudioControls() {
                 await audioStream.play();
                 isPlaying = true;
                 if (playBtn) playBtn.classList.add('playing');
-                if (navLiveBtn) navLiveBtn.style.background = "var(--accent)";
             } else {
                 audioStream.pause();
                 isPlaying = false;
                 if (playBtn) playBtn.classList.remove('playing');
-                if (navLiveBtn) navLiveBtn.style.background = "#ff334b";
             }
         } catch (e) {
             console.error("Erreur audio :", e);
@@ -526,7 +536,6 @@ function initAudioControls() {
     }
 
     if (playBtn) playBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleAudio(); });
-    if (navLiveBtn) navLiveBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleAudio(); });
 }
 
 function openModal(id) { document.getElementById(id).style.display = "flex"; }
