@@ -127,27 +127,45 @@ function renderAll() {
     document.getElementById('admin-top-bar').style.display = isEdit ? 'block' : 'none';
 
     // Rendu Hero
-    if (heroWrapper) {
-        heroWrapper.innerHTML = appState.hero.map((slide) => `
-            <div class="swiper-slide ${!slide.is_published ? 'draft-card' : ''}">
-                <img src="${slide.img}" class="slide-bg">
-                <div class="slide-content">
-                    <h1>${slide.title}</h1>
-                    <p>${slide.text}</p>
+    // Rendu Hero (Carrousel)
+if (heroWrapper) {
+    heroWrapper.innerHTML = appState.hero.map((slide) => `
+        <div class="swiper-slide ${!slide.is_published ? 'draft-card' : ''}">
+            <img src="${slide.img}" class="slide-bg">
+            <div class="slide-content">
+                <h1>${slide.title} ${!slide.is_published ? '<small style="color:#ff9900; font-size: 0.4em;">(Brouillon)</small>' : ''}</h1>
+                <p>${slide.text}</p>
+                <div style="display: flex; gap: 10px; align-items: center; justify-content: center; margin-top: 15px;">
                     <button class="btn-more" onclick="openArticleView('hero', '${slide.id}')">Voir plus</button>
                     ${isEdit ? `
-                        <div class="card-admin-actions" style="position:relative; margin-top:15px;">
-                            <button class="btn-admin-action ${slide.is_published ? 'btn-unpublish' : 'btn-publish'}" onclick="togglePublish('hero', '${slide.id}', ${slide.is_published}); event.stopPropagation();">
-                                ${slide.is_published ? '📥 Dépublier' : '🚀 Publier'}
-                            </button>
-                            <button class="btn-admin-action" onclick="openEditorModal('hero', '${slide.id}'); event.stopPropagation();">✏️ Modifier</button>
-                            <button class="btn-admin-action" onclick="deleteItem('hero', '${slide.id}'); event.stopPropagation();">✕</button>
-                        </div>
+                        <button class="btn-admin-action ${slide.is_published ? 'btn-unpublish' : 'btn-publish'}" onclick="togglePublish('hero', '${slide.id}', ${slide.is_published}); event.stopPropagation();">
+                            ${slide.is_published ? '📥 Dépublier' : '🚀 Publier'}
+                        </button>
+                        <button class="btn-admin-action" onclick="openEditorModal('hero', '${slide.id}'); event.stopPropagation();">✏️ Modifier</button>
+                        <button class="btn-admin-action" onclick="deleteItem('hero', '${slide.id}'); event.stopPropagation();">✕</button>
                     ` : ''}
                 </div>
             </div>
-        `).join('');
-    }
+        </div>
+    `).join('');
+}
+
+// Réinitialisation propre & forcée de Swiper
+if (mainSwiperInstance) {
+    mainSwiperInstance.destroy(true, true);
+    mainSwiperInstance = null;
+}
+
+if (document.querySelector('.mainSwiper') && appState.hero.length > 0) {
+    mainSwiperInstance = new Swiper(".mainSwiper", {
+        loop: appState.hero.length > 1,
+        speed: 700,
+        autoplay: isEdit ? false : { delay: 6000, disableOnInteraction: false },
+        pagination: { el: ".swiper-pagination", clickable: true },
+        observer: true,
+        observeParents: true
+    });
+}
 
     // Helper pour générer le HTML d'une grille
     const renderGrid = (gridElement, dataArray, category, tableName) => {
@@ -299,6 +317,7 @@ async function handleCardFormSubmit(e) {
 
     let imageUrl = null;
 
+    // Upload d'image vers Supabase Storage si un fichier a été déposé/sélectionné
     if (selectedFile) {
         const fileExt = selectedFile.name.split('.').pop();
         const filePath = `${category}/${Date.now()}.${fileExt}`;
@@ -308,7 +327,7 @@ async function handleCardFormSubmit(e) {
             .upload(filePath, selectedFile);
 
         if (uploadError) {
-            alert("Erreur d'envoi d'image : " + uploadError.message);
+            alert("Erreur upload d'image : " + uploadError.message);
             btnSave.innerText = "Enregistrer";
             btnSave.disabled = false;
             return;
@@ -321,6 +340,7 @@ async function handleCardFormSubmit(e) {
     const tableMap = { hero: 'hero', news: 'actus', shows: 'emissions', team: 'animateurs' };
     const tableName = tableMap[category];
 
+    // Construction du payload adapté au schéma de BDD Supabase
     let payload = {
         [category === 'team' ? 'nom' : 'titre']: title,
         [category === 'shows' || category === 'team' ? 'description' : (category === 'hero' ? 'texte' : 'contenu')]: text,
@@ -334,13 +354,15 @@ async function handleCardFormSubmit(e) {
     if (id) {
         await supabaseClient.from(tableName).update(payload).eq('id', id);
     } else {
-        payload.is_published = false; // Nouveau contenu par défaut en brouillon
+        payload.is_published = false; // Reste en brouillon au départ pour validation admin
         await supabaseClient.from(tableName).insert([payload]);
     }
 
     btnSave.innerText = "Enregistrer";
     btnSave.disabled = false;
     closeEditorModal();
+    
+    // Rechargement immédiat des données depuis Supabase pour afficher la nouvelle slide
     await fetchAllFromSupabase();
 }
 
