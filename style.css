@@ -598,16 +598,22 @@ body.admin-logged-in .hero-section {
 .style-bar { width: 10px !important; height: 25px !important; background: #333339 !important; border-radius: 2px !important; transition: background 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important; }
 .style-bar:hover { background: var(--accent) !important; }
 
-/* Barre d'administration supérieure */
+/* ==========================================================================
+   DESIGN ADMIN & MODALE PREMIUM
+   ========================================================================== */
+
+/* Barre Admin Supérieure */
 .admin-top-bar {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
-    background: #111116;
-    border-bottom: 2px solid #ff0033;
+    background: rgba(18, 18, 24, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     z-index: 9999;
-    padding: 10px 24px;
+    padding: 12px 24px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 .admin-bar-content {
     display: flex;
@@ -617,64 +623,134 @@ body.admin-logged-in .hero-section {
     margin: 0 auto;
 }
 .admin-status {
-    color: #ff0033;
+    color: #ff3355;
     font-weight: 800;
-    font-size: 0.85rem;
-    letter-spacing: 1px;
+    font-size: 0.8rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
-.btn-publish-all {
-    background: #00e676;
-    color: #000;
-    border: none;
-    padding: 8px 18px;
-    border-radius: 20px;
-    font-weight: 800;
-    cursor: pointer;
-    transition: transform 0.2s;
+.admin-status::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: #ff3355;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #ff3355;
 }
-.btn-publish-all:hover { transform: scale(1.05); }
 
-/* Glisser - Déposer (Drop Zone) */
-.drop-zone {
-    border: 2px dashed #ff0033;
-    border-radius: 12px;
-    padding: 25px;
-    text-align: center;
-    background: #0f0f13;
+/* Style des Cartes en Mode Édition */
+.card {
+    position: relative;
+    transition: transform 0.3s ease, border-color 0.3s ease;
+}
+.draft-card {
+    border: 2px dashed #ff9900 !important;
+    opacity: 0.85;
+}
+.card-status-tag {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    z-index: 5;
+    text-transform: uppercase;
+}
+.tag-published { background: rgba(0, 230, 118, 0.2); color: #00e676; border: 1px solid #00e676; }
+.tag-draft { background: rgba(255, 153, 0, 0.2); color: #ff9900; border: 1px solid #ff9900; }
+
+/* Boutons d'Action sur les Cartes */
+.card-admin-actions {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    gap: 6px;
+    z-index: 10;
+}
+.btn-admin-action {
+    background: rgba(20, 20, 28, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: white;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
     cursor: pointer;
-    transition: background 0.2s, border-color 0.2s;
+    transition: all 0.2s ease;
+}
+.btn-admin-action:hover {
+    background: white;
+    color: black;
+    transform: translateY(-2px);
+}
+.btn-admin-action.btn-unpublish {
+    border-color: #ff9900;
+    color: #ff9900;
+}
+.btn-admin-action.btn-unpublish:hover {
+    background: #ff9900;
+    color: black;
+}
+.btn-admin-action.btn-publish {
+    border-color: #00e676;
+    color: #00e676;
+}
+.btn-admin-action.btn-publish:hover {
+    background: #00e676;
+    color: black;
+}
+
+/* Modale Éditeur Sublimée */
+.editor-modal-content {
+    background: #16161e;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 24px;
+    padding: 30px;
+    max-width: 550px;
+    width: 92%;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.7);
+}
+.modal-header h3 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: white;
+}
+
+/* Glisser-Déposer Modernisé */
+.drop-zone {
+    border: 2px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    padding: 30px 20px;
+    text-align: center;
+    background: #0e0e13;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 .drop-zone:hover, .drop-zone--over {
-    background: #1a0d12;
-    border-color: #ff3355;
+    border-color: #ff0033;
+    background: rgba(255, 0, 51, 0.05);
 }
-.drop-zone-prompt {
-    color: #a0a0ab;
-    font-size: 0.9rem;
+.drop-icon {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 8px;
 }
-.drop-zone-input { display: none; }
+.file-preview {
+    margin-top: 12px;
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    max-height: 180px;
+}
 .file-preview img {
-    margin-top: 15px;
-    max-height: 140px;
-    border-radius: 8px;
-    object-fit: cover;
     width: 100%;
-}
-
-/* Modale éditeur */
-.editor-modal-content {
-    max-width: 520px;
-    width: 90%;
-}
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-}
-.modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-    margin-top: 20px;
+    height: 180px;
+    object-fit: cover;
 }
