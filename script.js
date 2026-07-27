@@ -307,17 +307,17 @@ function initDragAndDrop() {
 async function handleCardFormSubmit(e) {
     e.preventDefault();
     const btnSave = document.getElementById('btn-save-card');
-    btnSave.innerText = "Sauvegarde...";
+    btnSave.innerText = "Sauvegarde en cours...";
     btnSave.disabled = true;
 
-    const category = document.getElementById('editor-category').value;
+    const category = document.getElementById('editor-category').value; // 'hero', 'news', 'shows', 'team'
     const id = document.getElementById('editor-item-id').value;
     const title = document.getElementById('editor-title').value;
     const text = document.getElementById('editor-text').value;
 
     let imageUrl = null;
 
-    // 1. Upload de l'image si un fichier est sélectionné
+    // 1. Upload de l'image si un fichier a été déposé/sélectionné
     if (selectedFile) {
         const fileExt = selectedFile.name.split('.').pop();
         const fileName = `${category}/${Date.now()}.${fileExt}`;
@@ -330,13 +330,13 @@ async function handleCardFormSubmit(e) {
             });
 
         if (uploadError) {
-            alert("Erreur upload d'image : " + uploadError.message);
+            alert("Erreur lors de l'envoi de l'image : " + uploadError.message);
             btnSave.innerText = "Enregistrer";
             btnSave.disabled = false;
             return;
         }
 
-        // Récupération de l'URL publique
+        // Récupération de l'URL publique de l'image
         const { data: urlData } = supabaseClient.storage
             .from('uploads')
             .getPublicUrl(fileName);
@@ -344,38 +344,42 @@ async function handleCardFormSubmit(e) {
         imageUrl = urlData.publicUrl;
     }
 
+    // Correspondance avec les noms de tables Supabase
     const tableMap = { hero: 'hero', news: 'actus', shows: 'emissions', team: 'animateurs' };
     const tableName = tableMap[category];
 
-    // 2. Préparation des données pour Supabase
+    // 2. Construction du payload adapté
     let payload = {
         [category === 'team' ? 'nom' : 'titre']: title,
         [category === 'shows' || category === 'team' ? 'description' : (category === 'hero' ? 'texte' : 'contenu')]: text,
+        is_published: true // Publié directement pour apparition immédiate
     };
 
+    // Attribution de l'image
     if (imageUrl) {
         const imgColumn = (tableName === 'emissions' || tableName === 'animateurs') ? 'image_url' : 'imageUrl';
         payload[imgColumn] = imageUrl;
-    } else if (!id) {
-        // Image par défaut si création d'un nouvel élément sans image
-        const imgColumn = (tableName === 'emissions' || tableName === 'animateurs') ? 'image_url' : 'imageUrl';
-        payload[imgColumn] = 'VAFM logo rouge.png'; // Remplacez par l'URL de votre image par défaut
     }
 
-    // 3. Insertion ou mise à jour
+    // 3. Action en base de données (Update ou Insert)
+    let dbResult;
     if (id) {
-        await supabaseClient.from(tableName).update(payload).eq('id', id);
+        dbResult = await supabaseClient.from(tableName).update(payload).eq('id', id);
     } else {
-        payload.is_published = false; // Reste en brouillon au départ
-        await supabaseClient.from(tableName).insert([payload]);
+        dbResult = await supabaseClient.from(tableName).insert([payload]);
+    }
+
+    if (dbResult.error) {
+        console.error("Erreur Supabase BDD :", dbResult.error);
+        alert("Impossible d'enregistrer : " + dbResult.error.message);
+    } else {
+        closeEditorModal();
+        // Recharge immédiatement les données et rafraîchit le carrousel
+        await fetchAllFromSupabase();
     }
 
     btnSave.innerText = "Enregistrer";
     btnSave.disabled = false;
-    closeEditorModal();
-    
-    // Rechargement des données
-    await fetchAllFromSupabase();
 }
 
 async function deleteItem(tableName, id) {
