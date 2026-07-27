@@ -257,12 +257,23 @@ async function deleteItem(tableName, id) {
 }
 
 /* ==========================================================================
-   7. AUTHENTIFICATION VÉRITABLE AVEC SUPABASE AUTH
+   GESTION DES COMPTES (CONNEXION & INSCRIPTION)
    ========================================================================== */
 function openAuthModal() {
     currentAuthMode = "login";
-    document.getElementById('auth-title').innerText = "Connexion Admin VAFM";
+    document.getElementById('auth-title').innerText = "Connexion VAFM";
+    document.getElementById('auth-switch-link').innerText = "Pas encore de compte ? S'inscrire";
     openModal('auth-modal');
+}
+
+function toggleAuthMode() {
+    if (currentAuthMode === "login") {
+        currentAuthMode = "register";
+        document.getElementById('auth-title').innerText = "Créer un compte VAFM";
+        document.getElementById('auth-switch-link').innerText = "Déjà un compte ? Se connecter";
+    } else {
+        openAuthModal();
+    }
 }
 
 async function handleAuthSubmit(e) {
@@ -270,19 +281,39 @@ async function handleAuthSubmit(e) {
     const email = document.getElementById('auth-email').value;
     const password = document.getElementById('auth-password').value;
 
-    const { data, error } = await supabaseClient.auth.signInWithPassword({
-        email: email,
-        password: password
-    });
+    if (currentAuthMode === "login") {
+        // --- CONNEXION ---
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
 
-    if (error) {
-        alert("Erreur de connexion : " + error.message);
+        if (error) {
+            alert("Erreur de connexion : " + error.message);
+        } else {
+            appState.currentUser = data.user;
+            checkAdminRights(data.user);
+            closeModal('auth-modal');
+            updateAuthUI();
+            renderAll();
+        }
     } else {
-        appState.currentUser = data.user;
-        document.body.classList.add('admin-logged-in');
-        closeModal('auth-modal');
-        updateAuthUI();
-        renderAll();
+        // --- INSCRIPTION ---
+        const { data, error } = await supabaseClient.auth.signUp({
+            email: email,
+            password: password
+        });
+
+        if (error) {
+            alert("Erreur lors de la création du compte : " + error.message);
+        } else {
+            alert("Compte créé avec succès ! Tu es maintenant connecté.");
+            appState.currentUser = data.user;
+            checkAdminRights(data.user);
+            closeModal('auth-modal');
+            updateAuthUI();
+            renderAll();
+        }
     }
 }
 
