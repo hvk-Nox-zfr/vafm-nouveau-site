@@ -319,7 +319,7 @@ body.admin-logged-in .hero-section {
     overflow: hidden;
     background: #101015;
     display: flex;
-    align-items: flex-end; /* Aligne le texte en bas de l'image */
+    align-items: flex-end;
     box-sizing: border-box;
 }
 
@@ -340,7 +340,7 @@ body.admin-logged-in .hero-section {
     transform: scale(1.04); 
 }
 
-/* Fondu sombre pour garantir la lisibilité du texte */
+/* Fondu sombre */
 .swiper-slide::after {
     content: '';
     position: absolute;
@@ -382,7 +382,7 @@ body.admin-logged-in .hero-section {
     text-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
 }
 
-/* Alignement des Boutons (Admin & Voir Plus) */
+/* Alignement des Boutons */
 .slide-actions {
     display: flex;
     align-items: center;
@@ -483,7 +483,7 @@ body.admin-logged-in .hero-section {
 }
 
 /* ==========================================================================
-   6. FENÊTRES MODALES & FORMULAIRES
+   6. FENÊTRES MODALES & FORMULAIRES DE BASE
    ========================================================================== */
 .modal {
     display: none; position: fixed; top:0; left:0; width:100%; height:100%;
@@ -506,22 +506,128 @@ body.admin-logged-in .hero-section {
     font-size: 20px; cursor: pointer; color: var(--text-muted); z-index: 100; 
 }
 
-.modal-content.article-view { max-width: 700px; padding: 0; overflow-y: auto; max-height: 90vh; border-radius: 24px; }
-.article-hero-img { width: 100%; height: 350px; object-fit: cover; }
-.article-main-body { padding: 40px; }
-.article-main-body h2 { font-size: 2.2rem; font-weight: 800; margin-bottom: 20px; letter-spacing: -0.5px; }
-.article-text-content { font-size: 1.1rem; line-height: 1.7; color: #333; }
-
 .input-group { margin-bottom: 20px; }
 .input-group label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-.input-group input { width: 100%; padding: 14px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 15px; outline: none; }
-.input-group input:focus { border-color: var(--accent); }
+.input-group input, .input-group textarea { width: 100%; padding: 14px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 15px; outline: none; }
+.input-group input:focus, .input-group textarea:focus { border-color: var(--accent); }
 .btn-submit { width: 100%; background: #000; color:#fff; border:none; padding: 14px; border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 10px; }
 .auth-switch { margin-top: 20px; font-size: 13px; text-align: center; }
 .auth-switch a { color: var(--accent); text-decoration: none; font-weight: 600; }
 
 /* ==========================================================================
-   LECTEUR FLOATING ULTRA-PREMIUM
+   7. PAGE ARTICLE DÉDIÉE (#article-modal)
+   ========================================================================== */
+#article-modal {
+    display: none;
+    width: 100%;
+    min-height: 100vh;
+    padding-top: 110px;
+    padding-bottom: 140px;
+    background: #f8f9fa;
+    position: relative;
+    z-index: 100;
+}
+
+body.admin-logged-in #article-modal {
+    padding-top: 160px;
+}
+
+.article-page-container {
+    max-width: 850px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.article-wrapper {
+    background: #ffffff;
+    border-radius: var(--radius-premium);
+    padding: 40px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+    border: 1px solid var(--border-color);
+}
+
+.btn-back {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 25px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    color: var(--text-dark);
+}
+
+.btn-back:hover {
+    background: #f0f0f5;
+    transform: translateX(-3px);
+}
+
+.article-category-badge {
+    display: inline-block;
+    padding: 6px 14px;
+    background: #f0f0f5;
+    color: #333;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 15px;
+}
+
+.article-title {
+    font-size: 2.8rem;
+    font-weight: 800;
+    line-height: 1.2;
+    color: #111;
+    margin-bottom: 15px;
+    letter-spacing: -0.5px;
+}
+
+.article-meta {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin-bottom: 30px;
+}
+
+.article-hero-media {
+    width: 100%;
+    max-height: 480px;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 35px;
+}
+
+.article-hero-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.article-content {
+    font-size: 1.15rem;
+    line-height: 1.8;
+    color: #2c2c2c;
+}
+
+.article-content p {
+    margin-bottom: 20px;
+}
+
+.article-admin-controls {
+    margin-top: 40px;
+    padding-top: 25px;
+    border-top: 1px solid #eee;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* ==========================================================================
+   8. LECTEUR FLOATING ULTRA-PREMIUM
    ========================================================================== */
 .vafm-player-premium {
     position: fixed !important;
@@ -547,7 +653,7 @@ body.admin-logged-in .hero-section {
     left: 0; 
     width: 100%; 
     height: 100%;
-    background-image: url('vafm-logo.png');
+    background-image: url('VAFM logo rouge.png');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -609,33 +715,6 @@ body.admin-logged-in .hero-section {
     transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease;
 }
 
-.vafm-apple-page {
-    position: fixed !important;
-    top: 0 !important; bottom: 0 !important; 
-    left: 0 !important; right: 0 !important; 
-    width: 100vw !important; height: 100vh !important;
-    background: #131316 !important;
-    z-index: 99998 !important;
-    overflow-y: auto;
-    display: none;
-    opacity: 0;
-    transform: scale(0.96);
-    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease !important;
-}
-
-.vafm-apple-page.is-open {
-    display: block !important;
-    opacity: 1 !important;
-    transform: scale(1) !important;
-}
-
-.article-scroll-zone {
-    padding: 60px 20px;
-    max-width: 800px;
-    margin: 0 auto;
-    color: white;
-}
-
 .player-center { 
     position: absolute !important;
     left: 50% !important;
@@ -683,7 +762,7 @@ body.admin-logged-in .hero-section {
 .style-bar:hover { background: var(--accent) !important; }
 
 /* ==========================================================================
-   DESIGN ADMIN & MODALE PREMIUM
+   9. DESIGN ADMIN & MODALE PREMIUM
    ========================================================================== */
 
 /* Barre Admin Supérieure */
@@ -748,7 +827,7 @@ body.admin-logged-in .hero-section {
 .tag-published { background: rgba(0, 230, 118, 0.2); color: #00e676; border: 1px solid #00e676; }
 .tag-draft { background: rgba(255, 153, 0, 0.2); color: #ff9900; border: 1px solid #ff9900; }
 
-/* Boutons d'Action sur les Cartes */
+/* Boutons d'Action sur les Cartes & Articles */
 .card-admin-actions {
     position: absolute;
     top: 12px;
@@ -789,6 +868,14 @@ body.admin-logged-in .hero-section {
 .btn-admin-action.btn-publish:hover {
     background: #00e676;
     color: black;
+}
+.btn-admin-action.btn-delete {
+    border-color: #ff3355;
+    color: #ff3355;
+}
+.btn-admin-action.btn-delete:hover {
+    background: #ff3355;
+    color: white;
 }
 
 /* Modale Éditeur Sublimée */

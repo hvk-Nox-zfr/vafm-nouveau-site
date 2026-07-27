@@ -464,6 +464,9 @@ function updateAuthUI() {
 /* ==========================================================================
    NAVIGATION ARTICLE SANS COUPURE AUDIO
    ========================================================================== */
+/* ==========================================================================
+   NAVIGATION & EDITION ARTICLE (SANS COUPURE AUDIO)
+   ========================================================================== */
 async function openArticleView(category, id) {
     const tableMap = { hero: 'hero', news: 'actus', shows: 'emissions', team: 'animateurs' };
     const tableName = tableMap[category] || 'actus';
@@ -476,7 +479,7 @@ async function openArticleView(category, id) {
         .single();
 
     if (error || !data) {
-        alert("Impossible de charger l'article.");
+        alert("Impossible de charger cet article.");
         return;
     }
 
@@ -484,21 +487,27 @@ async function openArticleView(category, id) {
     const title = data.titre || data.title || data.nom || 'Sans titre';
     const text = data.texte || data.description || data.contenu || '';
     const img = data.imageUrl || data.image_url || data.img_url || '';
+    const isPublished = Boolean(data.is_published);
     const date = data.created_at ? new Date(data.created_at).toLocaleDateString('fr-FR') : '';
 
-    // 2. Injection du contenu dans le conteneur #article-modal
+    // 2. Vérification de l'état Admin
+    const isAdmin = Boolean(appState.editMode && appState.currentUser);
+
+    // 3. Injection du HTML dans #article-modal
     const articleContainer = document.getElementById('article-modal');
     if (!articleContainer) return;
-
-    const isAdmin = Boolean(appState.editMode && appState.currentUser);
 
     articleContainer.innerHTML = `
         <div class="article-page-container">
             <button class="btn-back" onclick="closeArticleView()">← Retour à l'accueil</button>
+            
             <article class="article-wrapper">
                 <header class="article-header">
                     <span class="article-category-badge">${category}</span>
-                    <h1 class="article-title">${title}</h1>
+                    <h1 class="article-title">
+                        ${title} 
+                        ${!isPublished ? '<small style="color:#ff9900; font-size: 0.4em;">(Brouillon)</small>' : ''}
+                    </h1>
                     ${date ? `<div class="article-meta">Publié le ${date}</div>` : ''}
                 </header>
 
@@ -512,9 +521,13 @@ async function openArticleView(category, id) {
                     ${text.split('\n').map(p => `<p>${p}</p>`).join('')}
                 </div>
 
+                <!-- CONTROLES ADMIN DE L'ARTICLE -->
                 ${isAdmin ? `
-                    <div class="article-admin-controls">
-                        <button class="btn-admin-action" onclick="openEditorModal('${category}', '${id}')">✏️ Modifier cet article</button>
+                    <div class="article-admin-controls" style="margin-top:30px; padding-top:20px; border-top:1px solid #eee; display:flex; gap:10px; flex-wrap:wrap;">
+                        <button class="btn-admin-action" onclick="openEditorModal('${category}', '${id}')">✏️ Modifier</button>
+                        <button class="btn-admin-action ${isPublished ? 'btn-unpublish' : 'btn-publish'}" onclick="togglePublish('${tableName}', '${id}', ${isPublished}); openArticleView('${category}', '${id}');">
+                            ${isPublished ? '📥 Dépublier' : '🚀 Publier'}
+                        </button>
                         <button class="btn-admin-action btn-delete" onclick="deleteItem('${tableName}', '${id}'); closeArticleView();">✕ Supprimer</button>
                     </div>
                 ` : ''}
@@ -522,23 +535,20 @@ async function openArticleView(category, id) {
         </div>
     `;
 
-    // 3. Masquer le contenu principal et afficher la vue article
+    // 4. Affichage de la vue article
     document.getElementById('content').style.display = 'none';
     articleContainer.style.display = 'block';
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    // 4. Modifier l'URL sans recharger la page (préserve la musique !)
+    // 5. Mise à jour de l'URL sans recharger la page
     history.pushState({ page: 'article', category, id }, title, `?article=${category}&id=${id}`);
 }
 
-// Fonction pour fermer la vue article et revenir à l'accueil sans couper la musique
 function closeArticleView() {
     const articleContainer = document.getElementById('article-modal');
     if (articleContainer) articleContainer.style.display = 'none';
     
     document.getElementById('content').style.display = 'block';
-    
-    // Remet l'URL d'origine
     history.pushState({ page: 'home' }, '', window.location.pathname);
 }
 
