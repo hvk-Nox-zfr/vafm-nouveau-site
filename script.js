@@ -306,12 +306,12 @@ async function handleAuthSubmit(e) {
             console.error("Erreur Connexion:", error);
             alert("Impossible de se connecter : " + error.message);
         } else {
-            alert("Connexion réussie !");
+            // Pas d'alert() ici ! On met à jour et on ferme directement
             appState.currentUser = data.user;
             checkAdminRights(data.user);
             closeModal('auth-modal');
             updateAuthUI();
-            if (typeof renderAll === 'function') renderAll();
+            renderAll();
         }
     } else {
         // TENTATIVE D'INSCRIPTION
@@ -324,12 +324,11 @@ async function handleAuthSubmit(e) {
             console.error("Erreur Inscription:", error);
             alert("Erreur d'inscription : " + error.message);
         } else {
-            alert("Compte créé avec succès !");
             appState.currentUser = data.user;
             checkAdminRights(data.user);
             closeModal('auth-modal');
             updateAuthUI();
-            if (typeof renderAll === 'function') renderAll();
+            renderAll();
         }
     }
 }
@@ -357,16 +356,17 @@ function checkAdminRights(user) {
         return;
     }
 
-    // Remplace cette adresse par ton e-mail exact d'administration Supabase
-    const adminEmails = ['hudoboss.star59@gmail.com'];
+    // Récupère le rôle dans les métadonnées de l'utilisateur
+    const role = user.user_metadata?.role;
 
-    if (adminEmails.includes(user.email)) {
-        appState.editMode = true; // Active automatiquement le mode édition pour l'admin
+    if (role === 'admin') {
+        appState.editMode = true;
         document.body.classList.add('admin-logged-in', 'edit-mode-active');
-        console.log("Connecté en tant qu'administrateur !");
+        console.log("Connecté en tant qu'Admin !");
     } else {
         appState.editMode = false;
         document.body.classList.remove('admin-logged-in', 'edit-mode-active');
+        console.log("Connecté en tant que Membre");
     }
 }
 
