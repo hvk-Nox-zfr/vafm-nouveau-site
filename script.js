@@ -323,7 +323,7 @@ async function handleCardFormSubmit(e) {
         const filePath = `${category}/${Date.now()}.${fileExt}`;
 
         const { error: uploadError } = await supabaseClient.storage
-            .from('vafm-media')
+            .from('uploads')
             .upload(filePath, selectedFile);
 
         if (uploadError) {
