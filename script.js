@@ -317,14 +317,17 @@ async function handleCardFormSubmit(e) {
 
     let imageUrl = null;
 
-    // Upload d'image vers Supabase Storage si un fichier a été déposé/sélectionné
+    // 1. Upload de l'image si un fichier est sélectionné
     if (selectedFile) {
         const fileExt = selectedFile.name.split('.').pop();
-        const filePath = `${category}/${Date.now()}.${fileExt}`;
+        const fileName = `${category}/${Date.now()}.${fileExt}`;
 
         const { error: uploadError } = await supabaseClient.storage
             .from('uploads')
-            .upload(filePath, selectedFile);
+            .upload(fileName, selectedFile, {
+                cacheControl: '3600',
+                upsert: true
+            });
 
         if (uploadError) {
             alert("Erreur upload d'image : " + uploadError.message);
@@ -333,14 +336,18 @@ async function handleCardFormSubmit(e) {
             return;
         }
 
-        const { data: urlData } = supabaseClient.storage.from('uploads').getPublicUrl(filePath);
+        // Récupération de l'URL publique
+        const { data: urlData } = supabaseClient.storage
+            .from('uploads')
+            .getPublicUrl(fileName);
+            
         imageUrl = urlData.publicUrl;
     }
 
     const tableMap = { hero: 'hero', news: 'actus', shows: 'emissions', team: 'animateurs' };
     const tableName = tableMap[category];
 
-    // Construction du payload adapté au schéma de BDD Supabase
+    // 2. Préparation des données pour Supabase
     let payload = {
         [category === 'team' ? 'nom' : 'titre']: title,
         [category === 'shows' || category === 'team' ? 'description' : (category === 'hero' ? 'texte' : 'contenu')]: text,
@@ -349,12 +356,17 @@ async function handleCardFormSubmit(e) {
     if (imageUrl) {
         const imgColumn = (tableName === 'emissions' || tableName === 'animateurs') ? 'image_url' : 'imageUrl';
         payload[imgColumn] = imageUrl;
+    } else if (!id) {
+        // Image par défaut si création d'un nouvel élément sans image
+        const imgColumn = (tableName === 'emissions' || tableName === 'animateurs') ? 'image_url' : 'imageUrl';
+        payload[imgColumn] = 'VAFM logo rouge.png'; // Remplacez par l'URL de votre image par défaut
     }
 
+    // 3. Insertion ou mise à jour
     if (id) {
         await supabaseClient.from(tableName).update(payload).eq('id', id);
     } else {
-        payload.is_published = false; // Reste en brouillon au départ pour validation admin
+        payload.is_published = false; // Reste en brouillon au départ
         await supabaseClient.from(tableName).insert([payload]);
     }
 
@@ -362,7 +374,7 @@ async function handleCardFormSubmit(e) {
     btnSave.disabled = false;
     closeEditorModal();
     
-    // Rechargement immédiat des données depuis Supabase pour afficher la nouvelle slide
+    // Rechargement des données
     await fetchAllFromSupabase();
 }
 
