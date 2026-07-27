@@ -37,10 +37,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     // 1. Restauration de la session utilisateur Supabase
+    // Dans DOMContentLoaded :
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (session) {
         appState.currentUser = session.user;
-        document.body.classList.add('admin-logged-in');
+        checkAdminRights(session.user);
     }
 
     // 2. Charger toutes les données depuis Supabase
