@@ -29,7 +29,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         width: "100%", duration: 1.2, ease: "power2.inOut", onComplete: () => {
             gsap.to("#loader", { 
                 y: "-100%", duration: 0.6, ease: "power4.in",
-                onComplete: () => { document.getElementById('loader').style.display = 'none'; }
+                onComplete: () => { 
+                    const loader = document.getElementById('loader');
+                    if (loader) loader.style.display = 'none'; 
+                }
             });
         }
     });
@@ -55,7 +58,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     await fetchAllFromSupabase();
     updateAuthUI();
-    initAudioControls();
     initDragAndDrop();
 });
 
@@ -124,96 +126,89 @@ function renderAll() {
     const teamGrid = document.getElementById('team-grid');
     
     const isEdit = Boolean(appState.editMode && appState.currentUser);
-    document.getElementById('admin-top-bar').style.display = isEdit ? 'block' : 'none';
+    const adminTopBar = document.getElementById('admin-top-bar');
+    if (adminTopBar) adminTopBar.style.display = isEdit ? 'block' : 'none';
 
-// Rendu Hero (Carrousel)
-if (heroWrapper) {
-    if (appState.hero.length === 0) {
-        heroWrapper.innerHTML = `
-            <div class="swiper-slide hero-slide">
-                <div class="slide-content">
-                    <h2>Aucune diapositive</h2>
-                    <p>Ajoutez un élément depuis le panneau d'administration.</p>
-                </div>
-            </div>`;
-    } else {
-        heroWrapper.innerHTML = appState.hero.map((slide) => `
-            <div class="swiper-slide hero-slide ${!slide.is_published ? 'draft-card' : ''}">
-                <img src="${slide.img}" class="slide-bg" alt="${slide.title}">
-                <div class="slide-overlay"></div>
-                <div class="slide-content">
-                    <h1>${slide.title} ${!slide.is_published ? '<small class="draft-badge">(Brouillon)</small>' : ''}</h1>
-                    <p>${slide.text}</p>
-                    <div class="slide-actions">
-                        <button class="btn-more" onclick="openArticleView('hero', '${slide.id}')">Voir plus</button>
-                        ${isEdit ? `
-                            <button class="btn-admin-action ${slide.is_published ? 'btn-unpublish' : 'btn-publish'}" onclick="togglePublish('hero', '${slide.id}', ${slide.is_published}); event.stopPropagation();">
-                                ${slide.is_published ? '📥 Dépublier' : '🚀 Publier'}
-                            </button>
-                            <button class="btn-admin-action" onclick="openEditorModal('hero', '${slide.id}'); event.stopPropagation();">✏️ Modifier</button>
-                            <button class="btn-admin-action btn-delete" onclick="deleteItem('hero', '${slide.id}'); event.stopPropagation();">✕</button>
-                        ` : ''}
+    // Rendu Hero (Carrousel)
+    if (heroWrapper) {
+        if (appState.hero.length === 0) {
+            heroWrapper.innerHTML = `
+                <div class="swiper-slide hero-slide">
+                    <div class="slide-content">
+                        <h2>Aucune diapositive</h2>
+                        <p>Ajoutez un élément depuis le panneau d'administration.</p>
                     </div>
+                </div>`;
+        } else {
+            heroWrapper.innerHTML = appState.hero.map((slide) => `
+                <div class="swiper-slide hero-slide ${!slide.is_published ? 'draft-card' : ''}">
+                    <img src="${slide.img}" class="slide-bg" alt="${slide.title}">
+                    <div class="slide-overlay"></div>
+                    <div class="slide-content">
+                        <h1>${slide.title} ${!slide.is_published ? '<small class="draft-badge">(Brouillon)</small>' : ''}</h1>
+                        <p>${slide.text}</p>
+                        <div class="slide-actions">
+                            <button class="btn-more" onclick="openArticleView('hero', '${slide.id}')">Voir plus</button>
+                            ${isEdit ? `
+                                <button class="btn-admin-action ${slide.is_published ? 'btn-unpublish' : 'btn-publish'}" onclick="togglePublish('hero', '${slide.id}', ${slide.is_published}); event.stopPropagation();">
+                                    ${slide.is_published ? '📥 Dépublier' : '🚀 Publier'}
+                                </button>
+                                <button class="btn-admin-action" onclick="openEditorModal('hero', '${slide.id}'); event.stopPropagation();">✏️ Modifier</button>
+                                <button class="btn-admin-action btn-delete" onclick="deleteItem('hero', '${slide.id}'); event.stopPropagation();">✕</button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+
+    // Swiper Initialisation
+    if (mainSwiperInstance) {
+        mainSwiperInstance.destroy(true, true);
+        mainSwiperInstance = null;
+    }
+
+    if (document.querySelector('.mainSwiper') && appState.hero.length > 0) {
+        mainSwiperInstance = new Swiper(".mainSwiper", {
+            loop: appState.hero.length > 1,
+            speed: 700,
+            autoplay: isEdit ? false : { delay: 6000, disableOnInteraction: false },
+            pagination: { el: ".swiper-pagination", clickable: true },
+            observer: true,
+            observeParents: true
+        });
+    }
+
+    // Helper pour générer le HTML d'une grille
+    const renderGrid = (gridElement, dataArray, category, tableName) => {
+        if (!gridElement) return;
+        gridElement.innerHTML = dataArray.map((item) => `
+            <div class="card ${!item.is_published ? 'draft-card' : ''}" onclick="openArticleView('${category}', '${item.id}')">
+                ${isEdit ? `
+                    <span class="card-status-tag ${item.is_published ? 'tag-published' : 'tag-draft'}">
+                        ${item.is_published ? 'Publié' : 'Brouillon'}
+                    </span>
+                    <div class="card-admin-actions" onclick="event.stopPropagation();">
+                        <button class="btn-admin-action ${item.is_published ? 'btn-unpublish' : 'btn-publish'}" onclick="togglePublish('${tableName}', '${item.id}', ${item.is_published}); event.stopPropagation();">
+                            ${item.is_published ? 'Dépublier' : 'Publier'}
+                        </button>
+                        <button class="btn-admin-action" onclick="openEditorModal('${category}', '${item.id}'); event.stopPropagation();">✏️</button>
+                        <button class="btn-admin-action" onclick="deleteItem('${tableName}', '${item.id}'); event.stopPropagation();">✕</button>
+                    </div>
+                ` : ''}
+                <img src="${item.img}" class="card-img" onerror="this.src='https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600'">
+                <div class="card-body">
+                    <h3>${item.title}</h3>
+                    <p>${item.text}</p>
                 </div>
             </div>
         `).join('');
-    }
-}
-
-// Réinitialisation propre & forcée de Swiper
-if (mainSwiperInstance) {
-    mainSwiperInstance.destroy(true, true);
-    mainSwiperInstance = null;
-}
-
-if (document.querySelector('.mainSwiper') && appState.hero.length > 0) {
-    mainSwiperInstance = new Swiper(".mainSwiper", {
-        loop: appState.hero.length > 1,
-        speed: 700,
-        autoplay: isEdit ? false : { delay: 6000, disableOnInteraction: false },
-        pagination: { el: ".swiper-pagination", clickable: true },
-        observer: true,
-        observeParents: true
-    });
-}
-
-    // Helper pour générer le HTML d'une grille
-const renderGrid = (gridElement, dataArray, category, tableName) => {
-    if (!gridElement) return;
-    gridElement.innerHTML = dataArray.map((item) => `
-        <div class="card ${!item.is_published ? 'draft-card' : ''}" onclick="openArticleView('${category}', '${item.id}')">
-            ${isEdit ? `
-                <span class="card-status-tag ${item.is_published ? 'tag-published' : 'tag-draft'}">
-                    ${item.is_published ? 'Publié' : 'Brouillon'}
-                </span>
-                <div class="card-admin-actions" onclick="event.stopPropagation();">
-                    <button class="btn-admin-action ${item.is_published ? 'btn-unpublish' : 'btn-publish'}" onclick="togglePublish('${tableName}', '${item.id}', ${item.is_published}); event.stopPropagation();">
-                        ${item.is_published ? 'Dépublier' : 'Publier'}
-                    </button>
-                    <button class="btn-admin-action" onclick="openEditorModal('${category}', '${item.id}'); event.stopPropagation();">✏️</button>
-                    <button class="btn-admin-action" onclick="deleteItem('${tableName}', '${item.id}'); event.stopPropagation();">✕</button>
-                </div>
-            ` : ''}
-            <img src="${item.img}" class="card-img" onerror="this.src='https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600'">
-            <div class="card-body">
-                <h3>${item.title}</h3>
-                <p>${item.text}</p>
-            </div>
-        </div>
-    `).join('');
-};
+    };
 
     renderGrid(newsGrid, appState.news, 'news', 'actus');
     renderGrid(showsGrid, appState.shows, 'shows', 'emissions');
     renderGrid(teamGrid, appState.team, 'team', 'animateurs');
-
-    if (mainSwiperInstance) mainSwiperInstance.destroy(true, true);
-    mainSwiperInstance = new Swiper(".mainSwiper", {
-        loop: appState.hero.length > 1,
-        speed: 700,
-        autoplay: isEdit ? false : { delay: 6000, disableOnInteraction: false },
-        pagination: { el: ".swiper-pagination", clickable: true }
-    });
 }
 
 /* ==========================================================================
@@ -320,24 +315,20 @@ async function handleCardFormSubmit(e) {
     btnSave.innerText = "Sauvegarde en cours...";
     btnSave.disabled = true;
 
-    const category = document.getElementById('editor-category').value; // 'hero', 'news', 'shows', 'team'
+    const category = document.getElementById('editor-category').value;
     const id = document.getElementById('editor-item-id').value;
     const title = document.getElementById('editor-title').value;
     const text = document.getElementById('editor-text').value;
 
     let imageUrl = null;
 
-    // 1. Upload de l'image si un fichier a été déposé/sélectionné
     if (selectedFile) {
         const fileExt = selectedFile.name.split('.').pop();
         const fileName = `${category}/${Date.now()}.${fileExt}`;
 
         const { error: uploadError } = await supabaseClient.storage
             .from('uploads')
-            .upload(fileName, selectedFile, {
-                cacheControl: '3600',
-                upsert: true
-            });
+            .upload(fileName, selectedFile, { cacheControl: '3600', upsert: true });
 
         if (uploadError) {
             alert("Erreur lors de l'envoi de l'image : " + uploadError.message);
@@ -346,7 +337,6 @@ async function handleCardFormSubmit(e) {
             return;
         }
 
-        // Récupération de l'URL publique de l'image
         const { data: urlData } = supabaseClient.storage
             .from('uploads')
             .getPublicUrl(fileName);
@@ -354,24 +344,20 @@ async function handleCardFormSubmit(e) {
         imageUrl = urlData.publicUrl;
     }
 
-    // Correspondance avec les noms de tables Supabase
     const tableMap = { hero: 'hero', news: 'actus', shows: 'emissions', team: 'animateurs' };
     const tableName = tableMap[category];
 
-    // 2. Construction du payload adapté
     let payload = {
         [category === 'team' ? 'nom' : 'titre']: title,
         [category === 'shows' || category === 'team' ? 'description' : (category === 'hero' ? 'texte' : 'contenu')]: text,
-        is_published: true // Publié directement pour apparition immédiate
+        is_published: true
     };
 
-    // Attribution de l'image
     if (imageUrl) {
         const imgColumn = (tableName === 'emissions' || tableName === 'animateurs') ? 'image_url' : 'imageUrl';
         payload[imgColumn] = imageUrl;
     }
 
-    // 3. Action en base de données (Update ou Insert)
     let dbResult;
     if (id) {
         dbResult = await supabaseClient.from(tableName).update(payload).eq('id', id);
@@ -384,7 +370,6 @@ async function handleCardFormSubmit(e) {
         alert("Impossible d'enregistrer : " + dbResult.error.message);
     } else {
         closeEditorModal();
-        // Recharge immédiatement les données et rafraîchit le carrousel
         await fetchAllFromSupabase();
     }
 
@@ -403,15 +388,26 @@ async function deleteItem(tableName, id) {
 /* ==========================================================================
    AUTH & LECTEUR AUDIO
    ========================================================================== */
+function toggleAuthModal() {
+    if (appState && appState.currentUser) {
+        const confirmLogout = confirm("Voulez-vous vous déconnecter du Studio ?");
+        if (confirmLogout) logout();
+        return;
+    }
+    openAuthModal();
+}
+
 function openAuthModal() {
     currentAuthMode = "login";
-    document.getElementById('auth-title').innerText = "Connexion VAFM";
+    const authTitle = document.getElementById('auth-title');
+    if (authTitle) authTitle.innerText = "Connexion VAFM";
     openModal('auth-modal');
 }
 
 function toggleAuthMode() {
     currentAuthMode = currentAuthMode === "login" ? "register" : "login";
-    document.getElementById('auth-title').innerText = currentAuthMode === "login" ? "Connexion VAFM" : "Inscription";
+    const authTitle = document.getElementById('auth-title');
+    if (authTitle) authTitle.innerText = currentAuthMode === "login" ? "Connexion VAFM" : "Inscription";
 }
 
 async function handleAuthSubmit(e) {
@@ -434,7 +430,10 @@ async function handleAuthSubmit(e) {
     }
 }
 
-async function logout() { await supabaseClient.auth.signOut(); }
+async function logout() { 
+    await supabaseClient.auth.signOut(); 
+    location.reload();
+}
 
 function checkAdminRights(user) {
     if (!user) { appState.editMode = false; return; }
@@ -446,19 +445,29 @@ function checkAdminRights(user) {
 
 function updateAuthUI() {
     const profileZone = document.getElementById('user-profile-zone');
+    if (!profileZone) return;
+
     if (appState.currentUser) {
         const initial = appState.currentUser.email[0].toUpperCase();
-        if (profileZone) {
-            profileZone.innerHTML = `
-                <div class="user-badge-container" onclick="logout()" style="cursor:pointer;" title="Déconnexion">
-                    <div class="user-avatar">${initial}</div>
-                    <span class="user-name-label">${appState.editMode ? 'Admin' : 'Membre'}</span>
-                </div>
-            `;
-        }
-    } else if (profileZone) {
-        profileZone.innerHTML = `<button class="btn-secondary" onclick="openAuthModal()">Se connecter</button>`;
+        profileZone.innerHTML = `
+            <div class="user-badge-container" onclick="toggleAuthModal()" style="cursor:pointer; display:flex; align-items:center; gap:8px;" title="Cliquez pour vous déconnecter">
+                <div class="user-avatar" style="background-color: #E50914; color: #ffffff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">${initial}</div>
+                <span class="user-name-label">${appState.editMode ? 'Admin' : 'Membre'}</span>
+            </div>
+        `;
+    } else {
+        profileZone.innerHTML = `<button class="btn-secondary" onclick="toggleAuthModal()">Se connecter</button>`;
     }
+}
+
+function openModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) modal.style.display = 'none';
 }
 
 /* ==========================================================================
@@ -493,10 +502,20 @@ async function openArticleView(category, id) {
 
     articleContainer.innerHTML = `
        <style>
+    /* SELECTION DU TEXTE EN ROUGE VAFM */
+    ::selection {
+        background-color: #E50914 !important;
+        color: #ffffff !important;
+    }
+    ::-moz-selection {
+        background-color: #E50914 !important;
+        color: #ffffff !important;
+    }
+
     /* BARRE D'ÉDITION INTERCONNECTED AU PLAYER AUDIO */
     .vafm-player-toolbar {
         position: fixed !important;
-        bottom: 92px !important; /* 🛑 Remonté pour sortir de sous le lecteur */
+        bottom: 92px !important;
         left: 50% !important;
         transform: translateX(-50%) !important;
         background: #18181c !important;
@@ -507,7 +526,7 @@ async function openArticleView(category, id) {
         display: flex !important;
         align-items: center !important;
         gap: 8px !important;
-        z-index: 100000 !important; /* 🛑 Passe OBLIGATOIREMENT au-dessus du player */
+        z-index: 100000 !important;
         box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.5) !important;
     }
 
@@ -516,7 +535,7 @@ async function openArticleView(category, id) {
         font-weight: 800 !important;
         text-transform: uppercase !important;
         letter-spacing: 0.8px !important;
-        color: #e63946 !important;
+        color: #E50914 !important;
         margin-right: 6px !important;
         display: flex !important;
         align-items: center !important;
@@ -530,7 +549,6 @@ async function openArticleView(category, id) {
         margin: 0 4px !important;
     }
 
-    /* BOUTONS AVEC ICÔNES SVG */
     .vafm-tb-btn {
         position: relative !important;
         background: rgba(255, 255, 255, 0.06) !important;
@@ -561,7 +579,6 @@ async function openArticleView(category, id) {
         transform: translateY(-2px) !important;
     }
 
-    /* Statut de publication */
     .vafm-tb-btn.status-published {
         color: #34c759 !important;
     }
@@ -569,7 +586,6 @@ async function openArticleView(category, id) {
         color: #ff9500 !important;
     }
 
-    /* Actions spécifiques */
     .vafm-tb-btn.btn-save:hover {
         background: #34c759 !important;
         color: #ffffff !important;
@@ -582,7 +598,6 @@ async function openArticleView(category, id) {
         border-color: #ff3b30 !important;
     }
 
-    /* TOOLTIP PRO AU SURVOL */
     .vafm-tb-btn::after {
         content: attr(data-tooltip) !important;
         position: absolute !important;
@@ -611,7 +626,6 @@ async function openArticleView(category, id) {
         transform: translateX(-50%) translateY(0) !important;
     }
 
-    /* LAYOUT ET DOCUMENT */
     .canva-workspace {
         width: 100% !important;
         padding: 40px 20px 140px 20px !important;
@@ -630,7 +644,7 @@ async function openArticleView(category, id) {
 
     .canva-admin-active [contenteditable="true"]:hover,
     .canva-admin-active [contenteditable="true"]:focus {
-        outline: 2px dashed #e63946 !important;
+        outline: 2px dashed #E50914 !important;
         outline-offset: 4px;
         border-radius: 4px;
     }
@@ -659,17 +673,14 @@ async function openArticleView(category, id) {
                 </article>
             </main>
 
-            <!-- BARRE D'ÉDITION INTERCONNECTÉE AU PLAYER AUDIO -->
             ${isAdmin ? `
                 <div class="vafm-player-toolbar">
                     <span class="vafm-tb-label">Studio</span>
 
-                    <!-- Ajouter Paragraphe -->
                     <button class="vafm-tb-btn" data-tooltip="Ajouter un paragraphe" onclick="addCanvaBlock()">
                         <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     </button>
 
-                    <!-- Changer Image -->
                     <button class="vafm-tb-btn" data-tooltip="Changer l'image" onclick="document.getElementById('canva-file-input').click()">
                         <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                     </button>
@@ -677,7 +688,6 @@ async function openArticleView(category, id) {
 
                     <div class="vafm-tb-divider"></div>
 
-                    <!-- Statut Publication -->
                     <button class="vafm-tb-btn ${isPublished ? 'status-published' : 'status-draft'}" data-tooltip="${isPublished ? 'En ligne (Cliquer pour dépublier)' : 'Brouillon (Cliquer pour publier)'}" onclick="togglePublish('${tableName}', '${id}', ${isPublished}); openArticleView('${category}', '${id}');">
                         ${isPublished 
                             ? `<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`
@@ -687,12 +697,10 @@ async function openArticleView(category, id) {
 
                     <div class="vafm-tb-divider"></div>
 
-                    <!-- Sauvegarder -->
                     <button class="vafm-tb-btn btn-save" data-tooltip="Enregistrer" onclick="saveCanvaArticle('${tableName}', '${id}')">
                         <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                     </button>
 
-                    <!-- Supprimer -->
                     <button class="vafm-tb-btn btn-delete" data-tooltip="Supprimer" onclick="deleteItem('${tableName}', '${id}'); closeArticleView();">
                         <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                     </button>
@@ -713,7 +721,6 @@ async function openArticleView(category, id) {
 
 /* --- FONCTIONS AUXILIAIRES DE L'ÉDITEUR CANVA --- */
 
-// Ajouter un paragraphe au document
 function addCanvaBlock() {
     const contentBox = document.getElementById('canva-doc-content');
     if (contentBox) {
@@ -724,7 +731,6 @@ function addCanvaBlock() {
     }
 }
 
-// Prévisualisation de l'image sélectionnée
 function handleCanvaImageUpload(event) {
     const file = event.target.files[0];
     if (file) {
@@ -737,7 +743,6 @@ function handleCanvaImageUpload(event) {
     }
 }
 
-// Enregistrement des modifications en base de données Supabase
 async function saveCanvaArticle(tableName, id) {
     const title = document.getElementById('canva-doc-title')?.innerText.trim();
     const content = document.getElementById('canva-doc-content')?.innerText.trim();
@@ -746,7 +751,6 @@ async function saveCanvaArticle(tableName, id) {
     
     let imageUrl = imgElement ? imgElement.src : null;
 
-    // Upload vers Supabase Storage si un nouveau fichier local est choisi
     if (fileInput && fileInput.files[0]) {
         const file = fileInput.files[0];
         const fileExt = file.name.split('.').pop();
@@ -790,7 +794,6 @@ function closeArticleView() {
     history.pushState({ page: 'home' }, '', window.location.pathname);
 }
 
-// Gestion de l'historique du navigateur (Retour / Suivant)
 window.addEventListener('popstate', (e) => {
     if (e.state && e.state.page === 'article') {
         openArticleView(e.state.category, e.state.id);
