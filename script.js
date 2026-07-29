@@ -17,7 +17,7 @@ let appState = {
     team: []        
 };
 
-let currentAuthMode = "login";
+let currentAuthMode = "login"; // "login" ou "signup"
 let mainSwiperInstance = null;
 let selectedFile = null;
 
@@ -25,6 +25,7 @@ let selectedFile = null;
    3. INITIALISATION
    ========================================================================== */
 document.addEventListener("DOMContentLoaded", async () => {
+    // Animation du loader
     gsap.to(".loader-bar", {
         width: "100%", duration: 1.2, ease: "power2.inOut", onComplete: () => {
             gsap.to("#loader", { 
@@ -37,7 +38,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     });
 
-    supabaseClient.auth.onAuthStateChange((event, session) => {
+    // Écoute de la session Supabase
+    supabaseClient.auth.onAuthStateChange(async (event, session) => {
         if (session) {
             appState.currentUser = session.user;
             checkAdminRights(session.user);
@@ -47,7 +49,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             document.body.classList.remove('admin-logged-in', 'edit-mode-active');
         }
         updateAuthUI();
-        fetchAllFromSupabase();
+        await fetchAllFromSupabase();
     });
 
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -66,11 +68,13 @@ document.addEventListener("DOMContentLoaded", async () => {
    ========================================================================== */
 async function fetchAllFromSupabase() {
     try {
-        const isAdmin = appState.editMode;
+        const isAdmin = Boolean(appState.editMode && appState.currentUser);
 
         const getQuery = (table) => {
             let q = supabaseClient.from(table).select('*');
-            if (!isAdmin) q = q.eq('is_published', true);
+            if (!isAdmin) {
+                q = q.eq('is_published', true);
+            }
             return q;
         };
 
@@ -112,12 +116,12 @@ async function fetchAllFromSupabase() {
 
         renderAll();
     } catch (err) {
-        console.error("Erreur chargement :", err);
+        console.error("Erreur de chargement :", err);
     }
 }
 
 /* ==========================================================================
-   5. RENDU AVEC GESTION DÉPUBLIER / PUBLIER & BOUTON MODIFIER
+   5. RENDU DU CARROUSEL & DES GRILLES
    ========================================================================== */
 function renderAll() {
     const heroWrapper = document.getElementById('hero-wrapper');
@@ -129,14 +133,14 @@ function renderAll() {
     const adminTopBar = document.getElementById('admin-top-bar');
     if (adminTopBar) adminTopBar.style.display = isEdit ? 'block' : 'none';
 
-    // Rendu Hero (Carrousel)
+    // 1. CARROUSEL HERO
     if (heroWrapper) {
         if (appState.hero.length === 0) {
             heroWrapper.innerHTML = `
                 <div class="swiper-slide hero-slide">
                     <div class="slide-content">
-                        <h2>Aucune diapositive</h2>
-                        <p>Ajoutez un élément depuis le panneau d'administration.</p>
+                        <h2>Aucun élément disponible</h2>
+                        <p>${isEdit ? 'Ajoutez un élément depuis le panneau d\'administration.' : 'Revenez plus tard pour découvrir nos contenus.'}</p>
                     </div>
                 </div>`;
         } else {
@@ -163,7 +167,6 @@ function renderAll() {
         }
     }
 
-    // Swiper Initialisation
     if (mainSwiperInstance) {
         mainSwiperInstance.destroy(true, true);
         mainSwiperInstance = null;
@@ -180,9 +183,15 @@ function renderAll() {
         });
     }
 
-    // Helper pour générer le HTML d'une grille
+    // 2. RENDU DES GRILLES
     const renderGrid = (gridElement, dataArray, category, tableName) => {
         if (!gridElement) return;
+
+        if (dataArray.length === 0) {
+            gridElement.innerHTML = `<p class="empty-msg" style="color: #a1a1aa; padding: 20px;">Aucun contenu disponible pour le moment.</p>`;
+            return;
+        }
+
         gridElement.innerHTML = dataArray.map((item) => `
             <div class="card ${!item.is_published ? 'draft-card' : ''}" onclick="openArticleView('${category}', '${item.id}')">
                 ${isEdit ? `
@@ -212,10 +221,11 @@ function renderAll() {
 }
 
 /* ==========================================================================
-   6. BASCULE PUBLIER / DÉPUBLIER (TOGGLE)
+   6. BASCULE PUBLIER / DÉPUBLIER & TOUT PUBLIER
    ========================================================================== */
 async function togglePublish(tableName, id, currentStatus) {
     const newStatus = !currentStatus;
+
     const { error } = await supabaseClient
         .from(tableName)
         .update({ is_published: newStatus })
@@ -373,7 +383,7 @@ async function handleCardFormSubmit(e) {
         await fetchAllFromSupabase();
     }
 
-    btnSave.innerText = "Enregistrer";
+    btnSave.innerText = "Enregistrer les modifications";
     btnSave.disabled = false;
 }
 
@@ -386,7 +396,7 @@ async function deleteItem(tableName, id) {
 }
 
 /* ==========================================================================
-   AUTH & LECTEUR AUDIO
+   9. AUTHENTIFICATION & COMPTE UTILISATEUR
    ========================================================================== */
 function toggleAuthModal() {
     if (appState && appState.currentUser) {
@@ -399,55 +409,124 @@ function toggleAuthModal() {
 
 function openAuthModal() {
     currentAuthMode = "login";
-    const authTitle = document.getElementById('auth-title');
-    if (authTitle) authTitle.innerText = "Connexion VAFM";
+    resetAuthUI();
     openModal('auth-modal');
 }
 
 function toggleAuthMode() {
-    currentAuthMode = currentAuthMode === "login" ? "register" : "login";
+    currentAuthMode = (currentAuthMode === "login") ? "signup" : "login";
+    updateAuthModalState();
+}
+
+function updateAuthModalState() {
     const authTitle = document.getElementById('auth-title');
-    if (authTitle) authTitle.innerText = currentAuthMode === "login" ? "Connexion VAFM" : "Inscription";
+    const authSubtitle = document.getElementById('auth-subtitle');
+    const authSwitchLink = document.getElementById('auth-switch-link');
+    const btnSubmit = document.getElementById('btn-auth-submit');
+    const newsletterOptin = document.getElementById('newsletter-optin-group');
+
+    if (currentAuthMode === "signup") {
+        if (authTitle) authTitle.innerText = "Rejoindre le Club VAFM";
+        if (authSubtitle) authSubtitle.innerText = "Créez votre compte en quelques secondes";
+        if (authSwitchLink) authSwitchLink.innerText = "Déjà membre ? Se connecter";
+        if (btnSubmit) btnSubmit.innerText = "S'inscrire";
+        if (newsletterOptin) newsletterOptin.style.display = "block";
+    } else {
+        if (authTitle) authTitle.innerText = "Connexion VAFM";
+        if (authSubtitle) authSubtitle.innerText = "Accédez à votre espace ou gérez la station";
+        if (authSwitchLink) authSwitchLink.innerText = "Pas encore membre ? S'inscrire avec mon email";
+        if (btnSubmit) btnSubmit.innerText = "Se connecter";
+        if (newsletterOptin) newsletterOptin.style.display = "none";
+    }
+}
+
+function resetAuthUI() {
+    updateAuthModalState();
+    const form = document.getElementById('auth-form');
+    if (form) form.reset();
 }
 
 async function handleAuthSubmit(e) {
     e.preventDefault();
-    const email = document.getElementById('auth-email').value.trim();
-    const password = document.getElementById('auth-password').value;
+    const emailInput = document.getElementById('auth-email');
+    const passwordInput = document.getElementById('auth-password');
+    const newsletterCheckbox = document.getElementById('auth-newsletter');
+
+    const email = emailInput ? emailInput.value.trim() : "";
+    const password = passwordInput ? passwordInput.value : "";
+    const wantsNewsletter = newsletterCheckbox ? newsletterCheckbox.checked : false;
+
+    if (!email || !password) {
+        alert("Veuillez remplir tous les champs.");
+        return;
+    }
 
     if (currentAuthMode === "login") {
+        // --- CONNEXION ---
         const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        if (error) alert("Erreur : " + error.message);
-        else closeModal('auth-modal');
+        if (error) {
+            alert("Erreur de connexion : " + error.message);
+        } else {
+            closeModal('auth-modal');
+        }
     } else {
+        // --- INSCRIPTION ---
         const isAdminEmail = email.toLowerCase().endsWith('@vafm.fr');
-        const { error } = await supabaseClient.auth.signUp({ 
-            email, password, 
-            options: { data: { role: isAdminEmail ? 'admin' : 'member' } } 
+        
+        const { data, error } = await supabaseClient.auth.signUp({ 
+            email, 
+            password, 
+            options: { 
+                data: { role: isAdminEmail ? 'admin' : 'member' } 
+            } 
         });
-        if (error) alert("Erreur : " + error.message);
-        else closeModal('auth-modal');
+
+        if (error) {
+            alert("Erreur d'inscription : " + error.message);
+            return;
+        }
+
+        // Sauvegarde de l'email dans la table subscribers si la case est cochée
+        if (wantsNewsletter) {
+            const { error: subError } = await supabaseClient
+                .from('subscribers')
+                .insert([{ email: email }]);
+
+            if (subError && subError.code !== '23505') { // Code 23505 = doublon ignoré
+                console.error("Erreur enregistrement newsletter :", subError.message);
+            }
+        }
+
+        alert("Inscription réussie !");
+        closeModal('auth-modal');
     }
 }
 
 async function logout() { 
-    await supabaseClient.auth.signOut(); 
+    if (supabaseClient) {
+        await supabaseClient.auth.signOut(); 
+    }
     location.reload();
 }
 
 function checkAdminRights(user) {
-    if (!user) { appState.editMode = false; return; }
+    if (!user) { 
+        if (typeof appState !== 'undefined') appState.editMode = false; 
+        return; 
+    }
     const role = user.user_metadata?.role;
-    appState.editMode = (role === 'admin');
-    document.body.classList.toggle('admin-logged-in', appState.editMode);
-    document.body.classList.toggle('edit-mode-active', appState.editMode);
+    if (typeof appState !== 'undefined') {
+        appState.editMode = (role === 'admin');
+    }
+    document.body.classList.toggle('admin-logged-in', role === 'admin');
+    document.body.classList.toggle('edit-mode-active', role === 'admin');
 }
 
 function updateAuthUI() {
     const profileZone = document.getElementById('user-profile-zone');
     if (!profileZone) return;
 
-    if (appState.currentUser) {
+    if (appState && appState.currentUser) {
         const initial = appState.currentUser.email[0].toUpperCase();
         profileZone.innerHTML = `
             <div class="user-badge-container" onclick="toggleAuthModal()" style="cursor:pointer; display:flex; align-items:center; gap:8px;" title="Cliquez pour vous déconnecter">
@@ -467,13 +546,15 @@ function openModal(id) {
 
 function closeModal(id) {
     const modal = document.getElementById(id);
-    if (modal) modal.style.display = 'none';
+    if (modal) {
+        modal.style.display = 'none';
+        if (id === 'auth-modal') resetAuthUI();
+    }
 }
 
 /* ==========================================================================
-   NAVIGATION & ÉDITION ARTICLE - STYLE CANVA STUDIO
+   10. NAVIGATION & ÉDITION ARTICLE - CANVA STUDIO
    ========================================================================== */
-
 async function openArticleView(category, id) {
     const tableMap = { hero: 'hero', news: 'actus', shows: 'emissions', team: 'animateurs' };
     const tableName = tableMap[category] || 'actus';
@@ -502,169 +583,107 @@ async function openArticleView(category, id) {
 
     articleContainer.innerHTML = `
        <style>
-    /* SELECTION DU TEXTE EN ROUGE VAFM */
-    ::selection {
-        background-color: #E50914 !important;
-        color: #ffffff !important;
-    }
-    ::-moz-selection {
-        background-color: #E50914 !important;
-        color: #ffffff !important;
-    }
+            ::selection { background-color: #E50914 !important; color: #ffffff !important; }
+            ::-moz-selection { background-color: #E50914 !important; color: #ffffff !important; }
 
-    /* BARRE D'ÉDITION INTERCONNECTED AU PLAYER AUDIO */
-    .vafm-player-toolbar {
-        position: fixed !important;
-        bottom: 92px !important;
-        left: 50% !important;
-        transform: translateX(-50%) !important;
-        background: #18181c !important;
-        border: 1px solid rgba(255, 255, 255, 0.18) !important;
-        border-bottom: none !important;
-        border-radius: 12px 12px 0 0 !important;
-        padding: 8px 16px !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 8px !important;
-        z-index: 100000 !important;
-        box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.5) !important;
-    }
+            #article-modal {
+                position: relative !important;
+                width: 100% !important;
+                min-height: 100vh !important;
+                background-color: #f4f4f7 !important;
+            }
 
-    .vafm-tb-label {
-        font-size: 0.7rem !important;
-        font-weight: 800 !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.8px !important;
-        color: #E50914 !important;
-        margin-right: 6px !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 5px !important;
-    }
+            header, .navbar, nav { border-bottom: none !important; box-shadow: none !important; }
 
-    .vafm-tb-divider {
-        width: 1px !important;
-        height: 18px !important;
-        background: rgba(255, 255, 255, 0.15) !important;
-        margin: 0 4px !important;
-    }
+            .vafm-player-toolbar {
+                position: fixed !important;
+                bottom: 92px !important;
+                left: 50% !important;
+                transform: translateX(-50%) !important;
+                background: #18181c !important;
+                border: 1px solid rgba(255, 255, 255, 0.18) !important;
+                border-bottom: none !important;
+                border-radius: 12px 12px 0 0 !important;
+                padding: 8px 16px !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 8px !important;
+                z-index: 100000 !important;
+                box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.5) !important;
+            }
 
-    .vafm-tb-btn {
-        position: relative !important;
-        background: rgba(255, 255, 255, 0.06) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        color: #b0b0bb !important;
-        width: 34px !important;
-        height: 34px !important;
-        border-radius: 8px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        cursor: pointer !important;
-        transition: all 0.2s ease !important;
-    }
+            .vafm-tb-label {
+                font-size: 0.7rem !important;
+                font-weight: 800 !important;
+                text-transform: uppercase !important;
+                letter-spacing: 0.8px !important;
+                color: #E50914 !important;
+                margin-right: 6px !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 5px !important;
+            }
 
-    .vafm-tb-btn svg {
-        width: 16px !important;
-        height: 16px !important;
-        stroke: currentColor !important;
-        stroke-width: 2 !important;
-        fill: none !important;
-    }
+            .vafm-tb-divider {
+                width: 1px !important;
+                height: 18px !important;
+                background: rgba(255, 255, 255, 0.15) !important;
+                margin: 0 4px !important;
+            }
 
-    .vafm-tb-btn:hover {
-        background: rgba(255, 255, 255, 0.15) !important;
-        color: #ffffff !important;
-        border-color: rgba(255, 255, 255, 0.3) !important;
-        transform: translateY(-2px) !important;
-    }
+            .vafm-tb-btn {
+                position: relative !important;
+                background: rgba(255, 255, 255, 0.06) !important;
+                border: 1px solid rgba(255, 255, 255, 0.1) !important;
+                color: #b0b0bb !important;
+                width: 34px !important;
+                height: 34px !important;
+                border-radius: 8px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                cursor: pointer !important;
+                transition: all 0.2s ease !important;
+            }
 
-    .vafm-tb-btn.status-published {
-        color: #34c759 !important;
-    }
-    .vafm-tb-btn.status-draft {
-        color: #ff9500 !important;
-    }
+            .vafm-tb-btn svg { width: 16px !important; height: 16px !important; stroke: currentColor !important; stroke-width: 2 !important; fill: none !important; }
 
-    .vafm-tb-btn.btn-save:hover {
-        background: #34c759 !important;
-        color: #ffffff !important;
-        border-color: #34c759 !important;
-    }
+            .vafm-tb-btn:hover {
+                background: rgba(255, 255, 255, 0.15) !important;
+                color: #ffffff !important;
+                border-color: rgba(255, 255, 255, 0.3) !important;
+                transform: translateY(-2px) !important;
+            }
 
-    .vafm-tb-btn.btn-delete:hover {
-        background: #ff3b30 !important;
-        color: #ffffff !important;
-        border-color: #ff3b30 !important;
-    }
+            .vafm-tb-btn.status-published { color: #34c759 !important; }
+            .vafm-tb-btn.status-draft { color: #ff9500 !important; }
 
-    .vafm-tb-btn::after {
-        content: attr(data-tooltip) !important;
-        position: absolute !important;
-        bottom: 135% !important;
-        left: 50% !important;
-        transform: translateX(-50%) translateY(4px) !important;
-        background: #09090b !important;
-        color: #f4f4f5 !important;
-        padding: 5px 10px !important;
-        border-radius: 6px !important;
-        font-size: 0.72rem !important;
-        font-weight: 600 !important;
-        white-space: nowrap !important;
-        pointer-events: none !important;
-        opacity: 0 !important;
-        visibility: hidden !important;
-        transition: all 0.15s ease-out !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
-        border: 1px solid rgba(255,255,255,0.12) !important;
-        z-index: 100001 !important;
-    }
+            .vafm-tb-btn.btn-save:hover { background: #34c759 !important; color: #ffffff !important; border-color: #34c759 !important; }
+            .vafm-tb-btn.btn-delete:hover { background: #ff3b30 !important; color: #ffffff !important; border-color: #ff3b30 !important; }
 
-    .vafm-tb-btn:hover::after {
-        opacity: 1 !important;
-        visibility: visible !important;
-        transform: translateX(-50%) translateY(0) !important;
-    }
+            .canva-layout { width: 100% !important; min-height: 100vh !important; display: flex !important; flex-direction: column !important; }
+            .canva-workspace { width: 100% !important; min-height: 100vh !important; padding: 0 !important; margin: 0 !important; box-sizing: border-box !important; background-color: #f4f4f7 !important; display: flex !important; justify-content: center !important; }
+            .canva-document { width: 100% !important; max-width: 850px !important; min-height: 100vh !important; margin: 0 auto !important; background: #ffffff !important; padding: 40px 50px 180px 50px !important; box-sizing: border-box !important; border-left: 1px solid #e0e0e8 !important; border-right: 1px solid #e0e0e8 !important; box-shadow: -15px 0 25px -10px rgba(0, 0, 0, 0.07), 15px 0 25px -10px rgba(0, 0, 0, 0.07) !important; }
 
-    .canva-workspace {
-        width: 100% !important;
-        padding: 40px 20px 140px 20px !important;
-        box-sizing: border-box !important;
-    }
+            .canva-admin-active [contenteditable="true"]:hover,
+            .canva-admin-active [contenteditable="true"]:focus {
+                outline: 2px dashed #E50914 !important;
+                outline-offset: 4px;
+                border-radius: 4px;
+            }
 
-    .canva-document {
-        max-width: 800px !important;
-        margin: 0 auto !important;
-        background: #ffffff !important;
-        border-radius: 16px !important;
-        padding: 40px !important;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.05) !important;
-        border: 1px solid #e5e5ea !important;
-    }
-
-    .canva-admin-active [contenteditable="true"]:hover,
-    .canva-admin-active [contenteditable="true"]:focus {
-        outline: 2px dashed #E50914 !important;
-        outline-offset: 4px;
-        border-radius: 4px;
-    }
-</style>
-
+            blockquote.canva-quote { border-left: 4px solid #E50914; padding-left: 16px; margin: 20px 0; font-style: italic; color: #555; }
+        </style>
         <div class="canva-layout ${isAdmin ? 'canva-admin-active' : ''}">
-            
             <main class="canva-workspace">
-                <div style="max-width: 800px; margin: 0 auto 20px auto;">
-                    <button class="btn-back" onclick="closeArticleView()">← Retour à l'accueil</button>
-                </div>
-
                 <article class="canva-document">
-                    <span class="article-category-badge">${category}</span>
+                    <span class="article-category-badge" style="display:inline-block; padding:4px 12px; background:#f0f0f5; border-radius:20px; font-weight:700; font-size:0.75rem; text-transform:uppercase; margin-bottom:15px;">${category}</span>
                     
-                    <h1 class="article-title" id="canva-doc-title" ${isAdmin ? 'contenteditable="true"' : ''}>${title}</h1>
-                    ${date ? `<div class="article-meta">Publié le ${date}</div>` : ''}
+                    <h1 class="article-title" id="canva-doc-title" ${isAdmin ? 'contenteditable="true"' : ''} style="font-size: 2.5rem; font-weight: 800; margin-bottom: 10px;">${title}</h1>
+                    ${date ? `<div class="article-meta" style="color: #8e8e93; font-size:0.85rem; margin-bottom: 25px;">Publié le ${date}</div>` : ''}
 
                     <div class="article-hero-media" id="canva-doc-media">
-                        ${img ? `<img src="${img}" id="canva-img-element" alt="${title}" style="max-width:100%; border-radius:12px; margin:20px 0;">` : ''}
+                        ${img ? `<img src="${img}" id="canva-img-element" alt="${title}" style="max-width:100%; border-radius:12px; margin:10px 0 30px 0;">` : ''}
                     </div>
 
                     <div class="article-content" id="canva-doc-content" ${isAdmin ? 'contenteditable="true"' : ''}>
@@ -677,18 +696,26 @@ async function openArticleView(category, id) {
                 <div class="vafm-player-toolbar">
                     <span class="vafm-tb-label">Studio</span>
 
-                    <button class="vafm-tb-btn" data-tooltip="Ajouter un paragraphe" onclick="addCanvaBlock()">
+                    <button class="vafm-tb-btn" data-tooltip="Ajouter un paragraphe" onclick="addCanvaBlock('p')">
                         <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     </button>
 
-                    <button class="vafm-tb-btn" data-tooltip="Changer l'image" onclick="document.getElementById('canva-file-input').click()">
+                    <button class="vafm-tb-btn" data-tooltip="Ajouter un titre" onclick="addCanvaBlock('h2')">
+                        <svg viewBox="0 0 24 24"><path d="M4 12h16M4 6h16M4 18h10"/></svg>
+                    </button>
+
+                    <button class="vafm-tb-btn" data-tooltip="Ajouter une mise en avant" onclick="addCanvaBlock('quote')">
+                        <svg viewBox="0 0 24 24"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1zM15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/></svg>
+                    </button>
+
+                    <button class="vafm-tb-btn" data-tooltip="Ajouter une image" onclick="document.getElementById('canva-file-input').click()">
                         <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                     </button>
                     <input type="file" id="canva-file-input" style="display:none;" accept="image/*" onchange="handleCanvaImageUpload(event)">
 
                     <div class="vafm-tb-divider"></div>
 
-                    <button class="vafm-tb-btn ${isPublished ? 'status-published' : 'status-draft'}" data-tooltip="${isPublished ? 'En ligne (Cliquer pour dépublier)' : 'Brouillon (Cliquer pour publier)'}" onclick="togglePublish('${tableName}', '${id}', ${isPublished}); openArticleView('${category}', '${id}');">
+                    <button class="vafm-tb-btn ${isPublished ? 'status-published' : 'status-draft'}" data-tooltip="${isPublished ? 'En ligne' : 'Brouillon'}" onclick="togglePublish('${tableName}', '${id}', ${isPublished}); openArticleView('${category}', '${id}');">
                         ${isPublished 
                             ? `<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`
                             : `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
@@ -704,9 +731,14 @@ async function openArticleView(category, id) {
                     <button class="vafm-tb-btn btn-delete" data-tooltip="Supprimer" onclick="deleteItem('${tableName}', '${id}'); closeArticleView();">
                         <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                     </button>
+
+                    <div class="vafm-tb-divider"></div>
+
+                    <button class="vafm-tb-btn" data-tooltip="Quitter la vue" onclick="closeArticleView()">
+                        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
                 </div>
             ` : ''}
-
         </div>
     `;
 
@@ -719,16 +751,28 @@ async function openArticleView(category, id) {
     history.pushState({ page: 'article', category, id }, title, `?article=${category}&id=${id}`);
 }
 
-/* --- FONCTIONS AUXILIAIRES DE L'ÉDITEUR CANVA --- */
-
-function addCanvaBlock() {
+/* --- FONCTIONS AUXILIAIRES CANVA --- */
+function addCanvaBlock(type = 'p') {
     const contentBox = document.getElementById('canva-doc-content');
-    if (contentBox) {
-        const newP = document.createElement('p');
-        newP.innerText = "Nouveau paragraphe... Cliquez pour écrire.";
-        contentBox.appendChild(newP);
-        newP.focus();
+    if (!contentBox) return;
+
+    let el;
+    if (type === 'h2') {
+        el = document.createElement('h2');
+        el.innerText = "Nouveau titre...";
+        el.style.fontSize = "1.5rem";
+        el.style.marginTop = "20px";
+    } else if (type === 'quote') {
+        el = document.createElement('blockquote');
+        el.className = 'canva-quote';
+        el.innerText = "Citation ou texte en évidence...";
+    } else {
+        el = document.createElement('p');
+        el.innerText = "Nouveau paragraphe... Cliquez pour écrire.";
     }
+
+    contentBox.appendChild(el);
+    el.focus();
 }
 
 function handleCanvaImageUpload(event) {
@@ -737,7 +781,7 @@ function handleCanvaImageUpload(event) {
         const reader = new FileReader();
         reader.onload = function(e) {
             const mediaZone = document.getElementById('canva-doc-media');
-            mediaZone.innerHTML = `<img src="${e.target.result}" id="canva-img-element" alt="Aperçu">`;
+            mediaZone.innerHTML = `<img src="${e.target.result}" id="canva-img-element" alt="Aperçu" style="max-width:100%; border-radius:12px; margin:10px 0 30px 0;">`;
         };
         reader.readAsDataURL(file);
     }
@@ -745,7 +789,7 @@ function handleCanvaImageUpload(event) {
 
 async function saveCanvaArticle(tableName, id) {
     const title = document.getElementById('canva-doc-title')?.innerText.trim();
-    const content = document.getElementById('canva-doc-content')?.innerText.trim();
+    const content = document.getElementById('canva-doc-content')?.innerHTML.trim();
     const imgElement = document.getElementById('canva-img-element');
     const fileInput = document.getElementById('canva-file-input');
     
@@ -755,19 +799,27 @@ async function saveCanvaArticle(tableName, id) {
         const file = fileInput.files[0];
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}.${fileExt}`;
-        const { error: uploadError } = await supabaseClient.storage.from('images').upload(fileName, file);
+        const { error: uploadError } = await supabaseClient.storage.from('uploads').upload(fileName, file);
         
         if (!uploadError) {
-            const { data: publicUrlData } = supabaseClient.storage.from('images').getPublicUrl(fileName);
+            const { data: publicUrlData } = supabaseClient.storage.from('uploads').getPublicUrl(fileName);
             imageUrl = publicUrlData.publicUrl;
         }
     }
 
+    // Gestion dynamique des colonnes selon la table
+    const titleCol = (tableName === 'animateurs') ? 'nom' : 'titre';
+    const textCol = (tableName === 'emissions' || tableName === 'animateurs') ? 'description' : (tableName === 'hero' ? 'texte' : 'contenu');
+    const imgCol = (tableName === 'emissions' || tableName === 'animateurs') ? 'image_url' : 'imageUrl';
+
     const payload = {
-        titre: title,
-        texte: content
+        [titleCol]: title,
+        [textCol]: content
     };
-    if (imageUrl && !imageUrl.startsWith('data:')) payload.imageUrl = imageUrl;
+
+    if (imageUrl && !imageUrl.startsWith('data:')) {
+        payload[imgCol] = imageUrl;
+    }
 
     const { error } = await supabaseClient
         .from(tableName)
@@ -778,6 +830,7 @@ async function saveCanvaArticle(tableName, id) {
         alert("Erreur lors de la sauvegarde : " + error.message);
     } else {
         alert("✨ Enregistré avec succès !");
+        await fetchAllFromSupabase();
     }
 }
 
@@ -801,3 +854,32 @@ window.addEventListener('popstate', (e) => {
         closeArticleView();
     }
 });
+
+function setupPlayerCollapse() {
+    const footer = document.getElementById('main-footer');
+    const player = document.querySelector('.vafm-player-toolbar') 
+                || document.querySelector('[class*="player"]') 
+                || document.getElementById('vafm-audio-player');
+
+    if (!footer || !player) return;
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                player.classList.add('player-collapsed');
+            } else {
+                player.classList.remove('player-collapsed');
+            }
+        });
+    }, {
+        threshold: 0.1
+    });
+
+    observer.observe(footer);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupPlayerCollapse);
+} else {
+    setupPlayerCollapse();
+}

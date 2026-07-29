@@ -20,7 +20,7 @@
         </div>
     </div>
 
-    <!-- BARRE D'ADMINISTRATION SUPERIEURE (GESTION DES BROUILLONS) -->
+    <!-- BARRE D'ADMINISTRATION SUPERIEURE -->
     <div id="admin-top-bar" class="admin-top-bar" style="display: none;">
         <div class="admin-bar-content">
             <span class="admin-status">MODE ÉDITION ACTIF</span>
@@ -30,7 +30,7 @@
         </div>
     </div>
 
-    <!-- LECTEUR AUDIO OPTIMISÉ -->
+    <!-- LECTEUR AUDIO -->
     <audio id="radio-audio" preload="auto">
         <source src="https://manager10.streamradio.fr:1555/stream" type="audio/mpeg">
         Votre navigateur ne supporte pas l'audio.
@@ -44,61 +44,70 @@
             
             <form id="auth-form" onsubmit="handleAuthSubmit(event)">
                 <div class="input-group">
-                    <label>Adresse Email</label>
+                    <label for="auth-email">Adresse Email</label>
                     <input type="email" id="auth-email" placeholder="exemple@vafm.fr" required>
                 </div>
                 <div class="input-group">
-                    <label>Mot de passe</label>
+                    <label for="auth-password">Mot de passe</label>
                     <input type="password" id="auth-password" placeholder="••••••••" required>
                 </div>
-                <button type="submit" class="btn-submit">Valider</button>
+
+                <!-- BLOC CASE À COCHER POUR CAPTURER L'ACCORD DU MAIL (NEWSLETTER) -->
+                <div id="newsletter-optin-group" class="input-group-checkbox" style="display: none; margin: 12px 0;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #a1a1aa; font-size: 0.85rem;">
+                        <input type="checkbox" id="auth-newsletter" checked style="width: auto; cursor: pointer;">
+                        <span>Recevoir les actualités et nouveautés VAFM par e-mail</span>
+                    </label>
+                </div>
+
+                <button type="submit" class="btn-submit" id="btn-auth-submit">Valider</button>
             </form>
 
             <div class="auth-switch">
-                <a href="#" id="auth-switch-link" onclick="toggleAuthMode()">Pas encore membre ? S'inscrire avec mon email</a>
+                <a href="#" id="auth-switch-link" onclick="toggleAuthMode(); return false;">Pas encore membre ? S'inscrire avec mon email</a>
             </div>
             <button class="close-btn" onclick="closeModal('auth-modal')">✕</button>
         </div>
     </div>
 
-    <!-- MODALE STYLÉE D'ÉDITION & DRAG & DROP -->
+    <!-- MODALE ÉDITION & DRAG & DROP -->
     <div id="card-editor-modal" class="modal" style="display: none;">
-    <div class="modal-content editor-modal-content">
-        <div class="modal-header">
-            <h3 id="modal-editor-title">Éditer le contenu</h3>
-            <button class="close-btn" onclick="closeEditorModal()">✕</button>
-        </div>
-        <form id="card-editor-form" onsubmit="handleCardFormSubmit(event)">
-            <input type="hidden" id="editor-category">
-            <input type="hidden" id="editor-item-id">
-
-            <div class="input-group">
-                <label for="editor-title">Titre</label>
-                <input type="text" id="editor-title" required placeholder="Titre principal">
+        <div class="modal-content editor-modal-content">
+            <div class="modal-header">
+                <h3 id="modal-editor-title">Éditer le contenu</h3>
+                <button class="close-btn" onclick="closeEditorModal()">✕</button>
             </div>
+            <form id="card-editor-form" onsubmit="handleCardFormSubmit(event)">
+                <input type="hidden" id="editor-category">
+                <input type="hidden" id="editor-item-id">
 
-            <div class="input-group">
-                <label for="editor-text">Contenu / Description</label>
-                <textarea id="editor-text" rows="4" required placeholder="Rédigez le texte ici..."></textarea>
-            </div>
-
-            <div class="input-group">
-                <label>Image de présentation</label>
-                <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
-                    <span class="drop-icon">🖼️</span>
-                    <span class="drop-zone-prompt">Glissez une nouvelle image ici ou <u>parcourez</u></span>
-                    <input type="file" id="file-input" accept="image/*" class="drop-zone-input" onchange="handleFileSelect(event)">
-                    <div id="file-preview" class="file-preview"></div>
+                <div class="input-group">
+                    <label for="editor-title">Titre</label>
+                    <input type="text" id="editor-title" required placeholder="Titre principal">
                 </div>
-            </div>
 
-            <div class="modal-actions">
-                <button type="button" class="btn-secondary" onclick="closeEditorModal()">Annuler</button>
-                <button type="submit" class="btn-submit" id="btn-save-card">Enregistrer les modifications</button>
-            </div>
-        </form>
+                <div class="input-group">
+                    <label for="editor-text">Contenu / Description</label>
+                    <textarea id="editor-text" rows="4" required placeholder="Rédigez le texte ici..."></textarea>
+                </div>
+
+                <div class="input-group">
+                    <label>Image de présentation</label>
+                    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+                        <span class="drop-icon">🖼️</span>
+                        <span class="drop-zone-prompt">Glissez une nouvelle image ici ou <u>parcourez</u></span>
+                        <input type="file" id="file-input" accept="image/*" class="drop-zone-input" onchange="handleFileSelect(event)">
+                        <div id="file-preview" class="file-preview"></div>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeEditorModal()">Annuler</button>
+                    <button type="submit" class="btn-submit" id="btn-save-card">Enregistrer les modifications</button>
+                </div>
+            </form>
+        </div>
     </div>
-</div>
 
     <!-- NAVBAR -->
     <header class="navbar" id="main-navbar">
@@ -156,13 +165,13 @@
     <!-- PAGE DÉDIÉE ARTICLE -->
     <div id="article-modal" class="vafm-apple-page"></div>
 
-    <!-- CONTENEUR GOUTTES LIQUIDES -->
+    <!-- GOUTTES LIQUIDES -->
     <div class="liquid-container-fx">
         <div class="liquid-drop" id="drop-1"></div>
         <div class="liquid-drop" id="drop-2"></div>
     </div>
 
-    <!-- LECTEUR FLOATING PREMIUM -->
+    <!-- LECTEUR FLOATING -->
     <footer class="vafm-player-premium">
         <div class="player-watermark"></div>
 
@@ -191,6 +200,21 @@
                 <div class="style-bar" onclick="changeStyle('classic')"></div>
                 <div class="style-bar" onclick="changeStyle('modern')"></div>
             </div>
+        </div>
+    </footer>
+
+    <!-- FOOTER PRINCIPAL -->
+    <footer id="main-footer">
+        <div class="footer-container">
+            <img src="VAFM logo rouge.png" alt="VAFM Logo" class="footer-logo-img">
+            
+            <div class="footer-links">
+                <a href="legal.html#mentions">Mentions Légales</a>
+                <span class="footer-dot">•</span>
+                <a href="legal.html#privacy">Politique de Confidentialité</a>
+            </div>
+            
+            <p class="footer-copy">© 2026 VAFM — La radio qu'il vous faut.</p>
         </div>
     </footer>
 

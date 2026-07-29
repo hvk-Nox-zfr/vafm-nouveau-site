@@ -936,3 +936,217 @@ body.admin-logged-in #article-modal {
     height: 180px;
     object-fit: cover;
 }
+
+/* CONTENEUR PARENT FIXÉ SUR TOUTE LA HAUTEUR DU VIEWPORT */
+    .canva-workspace {
+        width: 100% !important;
+        min-height: 100vh !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        background-color: #f4f4f7 !important;
+        display: flex !important;
+        justify-content: center !important;
+    }
+
+    /* BANDE BLANCHE PROLONGÉE DE TOUT EN HAUT À TOUT EN BAS */
+    .canva-document {
+        width: 100% !important;
+        max-width: 850px !important;
+        min-height: 100vh !important; /* Force le bloc à faire TOUTE la hauteur de la fenêtre */
+        margin: 0 auto !important;
+        background: #ffffff !important;
+        
+        /* Aucune bordure ni arrondi haut/bas */
+        border-radius: 0 !important;
+        border-top: none !important;
+        border-bottom: none !important;
+        
+        /* Marge interne haute et basse (pour scroller confortablement au-dessus du player) */
+        padding: 40px 50px 180px 50px !important;
+        box-sizing: border-box !important;
+        
+        /* Ombres et bordures EXCLUSIVEMENT sur les côtés gauche et droit */
+        border-left: 1px solid #e0e0e8 !important;
+        border-right: 1px solid #e0e0e8 !important;
+        box-shadow: -15px 0 25px -10px rgba(0, 0, 0, 0.07), 15px 0 25px -10px rgba(0, 0, 0, 0.07) !important;
+    }
+
+/* ==========================================================================
+   RESTITUTION DU FOND BLANC POUR LE SITE
+   ========================================================================== */
+html, body {
+    background-color: #f4f4f7 !important; /* Le fond clair d'origine */
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* ==========================================================================
+   FOOTER SOBRE ET COMPACT
+   ========================================================================== */
+footer#main-footer {
+    width: 100% !important;
+    background: #18181c !important;
+    color: #a1a1aa !important;
+    /* Réduction du padding haut (30px) et bas (90px) pour enlever le vide */
+    padding: 30px 20px 90px 20px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-sizing: border-box !important;
+}
+
+.footer-container {
+    max-width: 1000px !important;
+    margin: 0 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 12px !important; /* Espacement réduit entre les éléments */
+    text-align: center !important;
+}
+
+/* LOGO IMAGE EN GRIS SOBRE */
+.footer-logo-img {
+height: 180px !important; /* Ajuste la hauteur du logo */
+    width: auto !important;
+    object-fit: contain !important;
+    /* Convertit l'image rouge en niveau de gris propre */
+    filter: grayscale(100%) opacity(0.4) !important;
+    transition: filter 0.3s ease !important;
+}
+
+.footer-logo-img:hover {
+    /* Éclaircit le logo gris au survol */
+    filter: grayscale(100%) opacity(0.85) !important;
+}
+
+/* LIENS DU FOOTER */
+.footer-links {
+    display: flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+}
+
+.footer-links a {
+    color: #8e8e93 !important;
+    text-decoration: none !important;
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+    transition: color 0.2s ease !important;
+}
+
+.footer-links a:hover {
+    color: #ffffff !important;
+}
+
+.footer-dot {
+    color: #3a3a3c !important;
+}
+
+.footer-copy {
+    font-size: 0.75rem !important;
+    color: #636366 !important;
+}
+
+/* ==========================================================================
+   8. LECTEUR FLOATING (CENTRÉ DÉROULÉ, ENROULEMENT VERS LE LOGO)
+   ========================================================================== */
+
+/* ÉTAT DÉROULÉ (PAR DÉFAUT - CENTRÉ) */
+.vafm-player-premium {
+    position: fixed !important;
+    bottom: 20px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    
+    width: calc(100% - 40px) !important;
+    max-width: 1050px !important;
+    height: 75px !important;
+    
+    background: #131316 !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 25px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 0 30px !important;
+    z-index: 99999 !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    
+    /* 🚀 ANIMATION D'ENROULEMENT / DÉROULEMENT SANS DÉPLACER LE LOGO */
+    transition: width 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+                max-width 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+                left 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+                transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+                background-color 0.3s ease,
+                border-color 0.3s ease,
+                box-shadow 0.3s ease !important;
+    will-change: width, max-width, left, transform;
+}
+
+/* LE LOGO CONSERVE SA TAILLE ET SA POSITION EXACTE */
+.player-left { 
+    display: flex !important; 
+    align-items: center !important; 
+    z-index: 2; 
+    flex-shrink: 0 !important;
+}
+
+.cover-container {
+    width: 140px !important; 
+    height: 140px !important;
+    margin-top: -50px !important; 
+    display: flex !important; 
+    align-items: center !important; 
+    justify-content: center !important;
+    filter: drop-shadow(0 5px 15px rgba(0, 0, 0, 0.5));
+    z-index: 10;
+}
+
+#track-cover { 
+    width: 100% !important; 
+    height: 100% !important; 
+    object-fit: contain !important; 
+}
+
+/* ÉLÉMENTS INTERNES */
+.metadata-block,
+.player-center,
+.player-right,
+.player-watermark { 
+    transition: opacity 0.25s ease !important;
+}
+
+/* ==========================================================================
+   ÉTAT ENROULÉ : LA BARRE SE RETRACTE, IL NE RESTE QUE LE LOGO IMMOBILE
+   ========================================================================== */
+
+.vafm-player-premium.player-collapsed {
+    /* Maintient le bord gauche EXACTEMENT là où se trouve le logo en mode centré */
+    left: calc(50% - 525px) !important;
+    transform: translateX(0) !important;
+    
+    width: 140px !important;
+    max-width: 140px !important;
+    
+    /* SUPPRESSION COMPLÈTE DE L'OVALE / CONTOUR */
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+/* Ajustement sur petit écran pour garder le logo aligné si la fenêtre est réduite */
+@media (max-width: 1090px) {
+    .vafm-player-premium.player-collapsed {
+        left: 20px !important;
+    }
+}
+
+/* Masque le reste du lecteur pour ne laisser dépasser que le logo pur */
+.vafm-player-premium.player-collapsed .metadata-block,
+.vafm-player-premium.player-collapsed .player-center,
+.vafm-player-premium.player-collapsed .player-right,
+.vafm-player-premium.player-collapsed .player-watermark {
+    opacity: 0 !important;
+    pointer-events: none !important;
+}

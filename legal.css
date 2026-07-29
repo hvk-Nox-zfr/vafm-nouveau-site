@@ -1,0 +1,191 @@
+/* ==========================================================================
+   PAGE MENTIONS LÉGALES & CONFIDENTIALITÉ (VAFM STYLING)
+   ========================================================================== */
+
+body {
+    background-color: #0d0d0f;
+    color: #e4e4e7;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+}
+
+/* EN-TÊTE */
+.legal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 40px;
+    background: #131316;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #a1a1aa;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.back-btn:hover {
+    color: #ffffff;
+}
+
+.legal-logo {
+    height: 80px;
+    filter: grayscale(100%) opacity(0.8);
+}
+
+/* CONTENEUR PRINCIPAL */
+.legal-container {
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 0 20px 80px 20px;
+}
+
+/* ONGLETS */
+.legal-tabs {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 35px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 12px;
+}
+
+/* Onglet inactif */
+.tab-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: #a1a1aa; /* Texte gris clair bien lisible */
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 10px 20px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+/* Au survol */
+.tab-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* Onglet actif (Bouton sombre avec texte blanc bien contrasté) */
+.tab-btn.active {
+    color: #ffffff !important;
+    background: #27272a !important; /* Fond gris foncé solide */
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* CONTENU DES SECTIONS */
+.tab-content {
+    display: none;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Couleur des titres sur fond clair */
+h1 {
+    color: #09090b !important; /* Noir/gris très foncé */
+    font-size: 2.2rem;
+    margin-bottom: 10px;
+}
+
+h2 {
+    color: #09090b !important;
+    font-size: 1.4rem;
+    margin-top: 35px;
+    margin-bottom: 12px;
+    border-left: 3px solid #e11d48;
+    padding-left: 12px;
+}
+
+h3 {
+    color: #18181b !important;
+    font-size: 1.1rem;
+}
+
+/* Couleur du texte général */
+p, li {
+    color: #3f3f46 !important; /* Gris foncé bien contrasté */
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.last-update {
+    color: #71717a !important;
+}
+
+/* CARDS MENTIONS LÉGALES */
+.legal-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 20px;
+    margin-top: 25px;
+}
+
+.legal-card {
+    background: #131316;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 24px;
+}
+
+.legal-card h3 {
+    margin-top: 0;
+    color: #ffffff;
+}
+
+.legal-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.legal-card li {
+    margin-bottom: 6px;
+}
+
+/* Correction de la citation (fond rosé et texte foncé) */
+.legal-quote {
+    background: rgba(225, 29, 72, 0.08) !important;
+    border-left: 4px solid #e11d48 !important;
+    margin: 25px 0;
+    padding: 15px 20px;
+    border-radius: 0 12px 12px 0;
+    color: #18181b !important; /* Texte bien lisible */
+    font-style: italic;
+}
+
+.titre {
+    color: black
+}
+
+/* RESPONSIVE */
+@media (max-width: 600px) {
+    .legal-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .legal-tabs {
+        flex-direction: column;
+    }
+    
+    .tab-btn {
+        text-align: left;
+    }
+}
