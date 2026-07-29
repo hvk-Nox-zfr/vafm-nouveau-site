@@ -25,18 +25,23 @@ let selectedFile = null;
    3. INITIALISATION
    ========================================================================== */
 document.addEventListener("DOMContentLoaded", async () => {
-    // Animation du loader
-    gsap.to(".loader-bar", {
-        width: "100%", duration: 1.2, ease: "power2.inOut", onComplete: () => {
-            gsap.to("#loader", { 
-                y: "-100%", duration: 0.6, ease: "power4.in",
-                onComplete: () => { 
-                    const loader = document.getElementById('loader');
-                    if (loader) loader.style.display = 'none'; 
-                }
-            });
-        }
-    });
+    // Animation du loader GSAP (si présent)
+    if (typeof gsap !== 'undefined' && document.querySelector('.loader-bar')) {
+        gsap.to(".loader-bar", {
+            width: "100%", duration: 1.2, ease: "power2.inOut", onComplete: () => {
+                gsap.to("#loader", { 
+                    y: "-100%", duration: 0.6, ease: "power4.in",
+                    onComplete: () => { 
+                        const loader = document.getElementById('loader');
+                        if (loader) loader.style.display = 'none'; 
+                    }
+                });
+            }
+        });
+    } else {
+        const loader = document.getElementById('loader');
+        if (loader) loader.style.display = 'none';
+    }
 
     // Écoute de la session Supabase
     supabaseClient.auth.onAuthStateChange(async (event, session) => {
@@ -61,6 +66,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     await fetchAllFromSupabase();
     updateAuthUI();
     initDragAndDrop();
+
+    // Initialisation du lecteur Radio
+    initRadioPlayer();
 });
 
 /* ==========================================================================
@@ -101,7 +109,7 @@ async function fetchAllFromSupabase() {
         if (emissionsData.data) {
             appState.shows = emissionsData.data.map(e => ({
                 id: e.id, title: e.titre || '', text: e.description || '', 
-                img: e.image_url || 'https://images.unsplash.com/photo-1557134454-063901f1628d?q=80&w=600',
+                img: e.image_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&q=80',
                 is_published: Boolean(e.is_published)
             }));
         }
@@ -116,7 +124,7 @@ async function fetchAllFromSupabase() {
 
         renderAll();
     } catch (err) {
-        console.error("Erreur de chargement :", err);
+        console.error("Erreur de chargement Supabase :", err);
     }
 }
 
@@ -172,7 +180,7 @@ function renderAll() {
         mainSwiperInstance = null;
     }
 
-    if (document.querySelector('.mainSwiper') && appState.hero.length > 0) {
+    if (typeof Swiper !== 'undefined' && document.querySelector('.mainSwiper') && appState.hero.length > 0) {
         mainSwiperInstance = new Swiper(".mainSwiper", {
             loop: appState.hero.length > 1,
             speed: 700,
@@ -253,24 +261,34 @@ async function publishAllDrafts() {
    ========================================================================== */
 function openEditorModal(category, id = null) {
     selectedFile = null;
-    document.getElementById('editor-category').value = category;
-    document.getElementById('editor-item-id').value = id || '';
-    document.getElementById('file-preview').innerHTML = '';
-    document.getElementById('file-input').value = '';
+    const catInput = document.getElementById('editor-category');
+    const idInput = document.getElementById('editor-item-id');
+    const preview = document.getElementById('file-preview');
+    const fileInput = document.getElementById('file-input');
+
+    if (catInput) catInput.value = category;
+    if (idInput) idInput.value = id || '';
+    if (preview) preview.innerHTML = '';
+    if (fileInput) fileInput.value = '';
+
+    const titleEl = document.getElementById('modal-editor-title');
 
     if (id) {
-        const item = appState[category].find(x => String(x.id) === String(id));
+        const item = appState[category]?.find(x => String(x.id) === String(id));
         if (item) {
-            document.getElementById('modal-editor-title').innerText = "Modifier la carte";
-            document.getElementById('editor-title').value = item.title;
-            document.getElementById('editor-text').value = item.text;
-            if (item.img) {
-                document.getElementById('file-preview').innerHTML = `<img src="${item.img}">`;
+            if (titleEl) titleEl.innerText = "Modifier la carte";
+            const edTitle = document.getElementById('editor-title');
+            const edText = document.getElementById('editor-text');
+            if (edTitle) edTitle.value = item.title;
+            if (edText) edText.value = item.text;
+            if (item.img && preview) {
+                preview.innerHTML = `<img src="${item.img}">`;
             }
         }
     } else {
-        document.getElementById('modal-editor-title').innerText = "Ajouter un élément";
-        document.getElementById('card-editor-form').reset();
+        if (titleEl) titleEl.innerText = "Ajouter un élément";
+        const form = document.getElementById('card-editor-form');
+        if (form) form.reset();
     }
 
     openModal('card-editor-modal');
@@ -289,7 +307,8 @@ function previewFile(file) {
     selectedFile = file;
     const reader = new FileReader();
     reader.onload = (e) => {
-        document.getElementById('file-preview').innerHTML = `<img src="${e.target.result}">`;
+        const preview = document.getElementById('file-preview');
+        if (preview) preview.innerHTML = `<img src="${e.target.result}">`;
     };
     reader.readAsDataURL(file);
 }
@@ -322,13 +341,15 @@ function initDragAndDrop() {
 async function handleCardFormSubmit(e) {
     e.preventDefault();
     const btnSave = document.getElementById('btn-save-card');
-    btnSave.innerText = "Sauvegarde en cours...";
-    btnSave.disabled = true;
+    if (btnSave) {
+        btnSave.innerText = "Sauvegarde en cours...";
+        btnSave.disabled = true;
+    }
 
-    const category = document.getElementById('editor-category').value;
-    const id = document.getElementById('editor-item-id').value;
-    const title = document.getElementById('editor-title').value;
-    const text = document.getElementById('editor-text').value;
+    const category = document.getElementById('editor-category')?.value;
+    const id = document.getElementById('editor-item-id')?.value;
+    const title = document.getElementById('editor-title')?.value;
+    const text = document.getElementById('editor-text')?.value;
 
     let imageUrl = null;
 
@@ -342,8 +363,10 @@ async function handleCardFormSubmit(e) {
 
         if (uploadError) {
             alert("Erreur lors de l'envoi de l'image : " + uploadError.message);
-            btnSave.innerText = "Enregistrer";
-            btnSave.disabled = false;
+            if (btnSave) {
+                btnSave.innerText = "Enregistrer";
+                btnSave.disabled = false;
+            }
             return;
         }
 
@@ -355,7 +378,7 @@ async function handleCardFormSubmit(e) {
     }
 
     const tableMap = { hero: 'hero', news: 'actus', shows: 'emissions', team: 'animateurs' };
-    const tableName = tableMap[category];
+    const tableName = tableMap[category] || 'actus';
 
     let payload = {
         [category === 'team' ? 'nom' : 'titre']: title,
@@ -383,8 +406,10 @@ async function handleCardFormSubmit(e) {
         await fetchAllFromSupabase();
     }
 
-    btnSave.innerText = "Enregistrer les modifications";
-    btnSave.disabled = false;
+    if (btnSave) {
+        btnSave.innerText = "Enregistrer les modifications";
+        btnSave.disabled = false;
+    }
 }
 
 async function deleteItem(tableName, id) {
@@ -462,7 +487,6 @@ async function handleAuthSubmit(e) {
     }
 
     if (currentAuthMode === "login") {
-        // --- CONNEXION ---
         const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
         if (error) {
             alert("Erreur de connexion : " + error.message);
@@ -470,7 +494,6 @@ async function handleAuthSubmit(e) {
             closeModal('auth-modal');
         }
     } else {
-        // --- INSCRIPTION ---
         const isAdminEmail = email.toLowerCase().endsWith('@vafm.fr');
         
         const { data, error } = await supabaseClient.auth.signUp({ 
@@ -486,13 +509,12 @@ async function handleAuthSubmit(e) {
             return;
         }
 
-        // Sauvegarde de l'email dans la table subscribers si la case est cochée
         if (wantsNewsletter) {
             const { error: subError } = await supabaseClient
                 .from('subscribers')
                 .insert([{ email: email }]);
 
-            if (subError && subError.code !== '23505') { // Code 23505 = doublon ignoré
+            if (subError && subError.code !== '23505') {
                 console.error("Erreur enregistrement newsletter :", subError.message);
             }
         }
@@ -781,7 +803,9 @@ function handleCanvaImageUpload(event) {
         const reader = new FileReader();
         reader.onload = function(e) {
             const mediaZone = document.getElementById('canva-doc-media');
-            mediaZone.innerHTML = `<img src="${e.target.result}" id="canva-img-element" alt="Aperçu" style="max-width:100%; border-radius:12px; margin:10px 0 30px 0;">`;
+            if (mediaZone) {
+                mediaZone.innerHTML = `<img src="${e.target.result}" id="canva-img-element" alt="Aperçu" style="max-width:100%; border-radius:12px; margin:10px 0 30px 0;">`;
+            }
         };
         reader.readAsDataURL(file);
     }
@@ -807,7 +831,6 @@ async function saveCanvaArticle(tableName, id) {
         }
     }
 
-    // Gestion dynamique des colonnes selon la table
     const titleCol = (tableName === 'animateurs') ? 'nom' : 'titre';
     const textCol = (tableName === 'emissions' || tableName === 'animateurs') ? 'description' : (tableName === 'hero' ? 'texte' : 'contenu');
     const imgCol = (tableName === 'emissions' || tableName === 'animateurs') ? 'image_url' : 'imageUrl';
@@ -871,9 +894,7 @@ function setupPlayerCollapse() {
                 player.classList.remove('player-collapsed');
             }
         });
-    }, {
-        threshold: 0.1
-    });
+    }, { threshold: 0.1 });
 
     observer.observe(footer);
 }
@@ -882,4 +903,130 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', setupPlayerCollapse);
 } else {
     setupPlayerCollapse();
+}
+
+/* ==========================================================================
+   11. LECTEUR AUDIO & MÉTADONNÉES (STABLE & SANS PROXY EXTERNE)
+   ========================================================================== */
+function initRadioPlayer() {
+    const audio = document.getElementById("radio-audio");
+    const playBtn = document.getElementById("play-btn") || document.getElementById("playBtn");
+    const currentShow = document.getElementById("current-show");
+    const trackSpan = document.getElementById("current-track");
+    const marquee = document.getElementById("marquee");
+    const playIcon = playBtn?.querySelector(".icon");
+
+    const STREAM_URL = "https://manager10.streamradio.fr:1555/stream";
+    const STATS_URL = "https://manager10.streamradio.fr:1555/status-json.xsl";
+
+    if (!audio || !playBtn) return;
+
+    if (currentShow) {
+        currentShow.textContent = "En direct : Le meilleur du son !";
+    }
+
+    // 1. GESTION DU PLAY / STOP
+    playBtn.addEventListener("click", async () => {
+        try {
+            if (audio.paused) {
+                audio.src = STREAM_URL;
+                audio.load();
+                
+                await audio.play();
+                audio.volume = 1;
+                
+                if (playIcon) playIcon.textContent = "⏸";
+                playBtn.classList.add("playing");
+            } else {
+                audio.pause();
+                audio.src = "";
+                
+                if (playIcon) playIcon.textContent = "▶";
+                playBtn.classList.remove("playing");
+            }
+        } catch (e) {
+            console.warn("Erreur de lecture gérée :", e.message);
+            audio.pause();
+            audio.src = "";
+            if (playIcon) playIcon.textContent = "▶";
+            playBtn.classList.remove("playing");
+        }
+    });
+
+    // 2. EFFET DÉFILEMENT TYPE "RADIO VOITURE"
+    let animTimeout = null;
+
+    function lancerDefilementVoiture(titre) {
+        if (!marquee || !trackSpan) return;
+
+        clearTimeout(animTimeout);
+
+        trackSpan.textContent = titre;
+        trackSpan.style.transition = "none";
+        trackSpan.style.transform = "translateX(0)";
+
+        animTimeout = setTimeout(() => {
+            const containerWidth = marquee.offsetWidth;
+            const textWidth = trackSpan.offsetWidth;
+
+            if (textWidth <= containerWidth) return;
+
+            const distance = textWidth - containerWidth + 20;
+            const duration = distance * 15;
+
+            trackSpan.style.transition = `transform ${duration}ms linear`;
+            trackSpan.style.transform = `translateX(-${distance}px)`;
+
+            animTimeout = setTimeout(() => {
+                trackSpan.style.transition = "none";
+                trackSpan.style.transform = "translateX(0)";
+            }, duration + 1000);
+
+        }, 1000);
+    }
+
+    // 3. RÉCUPÉRATION DU TITRE (EN DIRECT SANS PROXY TIERS)
+    async function updateCurrentTitle() {
+        try {
+            const response = await fetch(`${STATS_URL}?nocache=${Date.now()}`);
+            if (!response.ok) return;
+
+            const data = await response.json();
+            let rawTitle = "";
+
+            if (data && data.icestats) {
+                let source = data.icestats.source;
+                if (Array.isArray(source)) source = source[0];
+                if (source) {
+                    rawTitle = source.title || source.song || "";
+                }
+            }
+
+            if (!rawTitle || typeof rawTitle !== "string") {
+                lancerDefilementVoiture("VAFM – En Direct");
+                return;
+            }
+
+            const formattedTitle = rawTitle.replace(" - ", " – ");
+            lancerDefilementVoiture(formattedTitle);
+
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: formattedTitle,
+                    artist: 'VAFM',
+                    album: 'En Direct',
+                    artwork: [
+                        { src: 'VAFM logo rouge.png', sizes: '512x512', type: 'image/png' }
+                    ]
+                });
+            }
+
+        } catch (error) {
+            // Si le navigateur bloque l'accès direct (CORS strict), on affiche un titre par défaut propre sans planter
+            lancerDefilementVoiture("VAFM – En Direct");
+        }
+    }
+
+    updateCurrentTitle();
+    setInterval(updateCurrentTitle, 15000);
 }
