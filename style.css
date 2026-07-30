@@ -682,6 +682,42 @@ body.admin-logged-in #article-modal {
 }
 
 /* ==========================================================================
+   CORRECTION ACCESSIBILITÉ MODALE VS LECTEUR AUDIO
+   ========================================================================== */
+
+/* 1. S'assurer que le fond obscurci et la modale passent AU-DESSUS du lecteur */
+.modal, 
+#card-editor-modal,
+#auth-modal {
+    z-index: 99999 !important; /* Supérieur au z-index du lecteur radio */
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+/* 2. Limiter la hauteur de la boîte modale et activer le scroll interne */
+.modal-content,
+#card-editor-modal .modal-content {
+    max-height: 85vh; /* Maximum 85% de la hauteur de l'écran */
+    overflow-y: auto;  /* Permet de scroller si l'image ou le texte est grand */
+    padding-bottom: 30px; /* Marge interne en bas pour respirer */
+}
+
+/* 3. Ajuster le lecteur pour qu'il reste en dessous des fenêtres modales */
+.vafm-player-toolbar,
+#vafm-audio-player,
+[class*="player"] {
+    z-index: 9990; /* Légèrement inférieur à la modale */
+}
+
+/* Empêche le défilement de se propager à la page arrière-plan */
+.modal,
+.modal-content,
+#card-editor-modal .modal-content {
+    overscroll-behavior: contain;
+}
+
+/* ==========================================================================
    8. LECTEUR FLOATING ULTRA-PREMIUM
    ========================================================================== */
 .vafm-player-premium {
