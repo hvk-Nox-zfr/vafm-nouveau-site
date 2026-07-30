@@ -206,6 +206,50 @@ body.edit-mode-active [contenteditable="true"] {
 }
 
 /* ==========================================================================
+   HEADER & NAVIGATION - EFFET SURVOL ROUGE (HOVER)
+   ========================================================================== */
+
+/* Structure de base des liens du menu */
+.nav-link, 
+header nav a {
+    position: relative;
+    color: #ffffff;
+    text-decoration: none;
+    padding: 8px 12px;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+/* Changement de couleur du texte au survol */
+.nav-link:hover, 
+header nav a:hover {
+    color: #E50914; /* Rouge VAFM */
+}
+
+/* Création de la barre rouge sous le bouton (masquée par défaut) */
+.nav-link::after, 
+header nav a::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    height: 3px;
+    background-color: #E50914; /* Rouge VAFM */
+    border-radius: 2px;
+    transition: all 0.2s ease-in-out;
+    transform: translateX(-50%);
+}
+
+/* Animation : apparition et étirement de la barre au survol */
+.nav-link:hover::after, 
+header nav a:hover::after,
+.nav-link.active::after,
+header nav a.active::after {
+    width: 80%; /* Largeur de la barre sous le texte */
+}
+
+/* ==========================================================================
    4. NAVIGATION BARRE (HEADER)
    ========================================================================== */
 .navbar {
