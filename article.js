@@ -173,7 +173,7 @@ async function openArticleView(category, id) {
 
                     <div class="vafm-tb-divider"></div>
 
-                    <button class="vafm-tb-btn ${isPublished ? 'status-published' : 'status-draft'}" data-tooltip="${isPublished ? 'En ligne' : 'Brouillon'}" onclick="togglePublish('${tableName}', '${id}', ${isPublished}); openArticleView('${category}', '${id}');">
+                    <button class="vafm-tb-btn ${isPublished ? 'status-published' : 'status-draft'}" data-tooltip="${isPublished ? 'En ligne' : 'Brouillon'}" onclick="handleTogglePublishInStudio('${tableName}', '${id}', ${isPublished}, '${category}')">
                         ${isPublished 
                             ? `<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`
                             : `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
@@ -207,6 +207,11 @@ async function openArticleView(category, id) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     history.pushState({ page: 'article', category, id }, title, `?article=${category}&id=${id}`);
+}
+
+async function handleTogglePublishInStudio(tableName, id, isPublished, category) {
+    await togglePublish(tableName, id, isPublished);
+    await openArticleView(category, id);
 }
 
 function closeArticleView() {
@@ -325,7 +330,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const articleId = urlParams.get('id');
 
     if (articleCategory && articleId) {
-        // Attendre que Supabase/script.js soit prêt si nécessaire
         setTimeout(() => {
             openArticleView(articleCategory, articleId);
         }, 100);

@@ -30,7 +30,7 @@
         </div>
     </div>
 
-    <!-- LECTEUR AUDIO (CORRIGÉ : Port HTTPS StreamRadio) -->
+    <!-- LECTEUR AUDIO -->
     <audio id="radio-audio" preload="none">
         <source src="https://manager10.streamradio.fr:1555/stream" type="audio/mpeg">
         Votre navigateur ne supporte pas l'audio.
@@ -52,7 +52,6 @@
                     <input type="password" id="auth-password" placeholder="••••••••" required>
                 </div>
 
-                <!-- BLOC CASE À COCHER POUR CAPTURER L'ACCORD DU MAIL (NEWSLETTER) -->
                 <div id="newsletter-optin-group" class="input-group-checkbox" style="display: none; margin: 12px 0;">
                     <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #a1a1aa; font-size: 0.85rem;">
                         <input type="checkbox" id="auth-newsletter" checked style="width: auto; cursor: pointer;">
@@ -162,8 +161,8 @@
         </section>
     </main>
 
-    <!-- PAGE DÉDIÉE ARTICLE -->
-    <div id="article-modal" class="vafm-apple-page"></div>
+    <!-- PAGE DÉDIÉE ARTICLE (Masquée par défaut) -->
+    <div id="article-modal" class="vafm-apple-page" style="display: none;"></div>
 
     <!-- GOUTTES LIQUIDES -->
     <div class="liquid-container-fx">
