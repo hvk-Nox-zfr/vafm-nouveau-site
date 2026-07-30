@@ -1230,3 +1230,26 @@ height: 180px !important; /* Ajuste la hauteur du logo */
     opacity: 0 !important;
     pointer-events: none !important;
 }
+
+/* Limite la taille des cartes d'actualités et tronque le texte long */
+.grid .card {
+    display: flex;
+    flex-direction: column;
+    max-height: 480px;
+    overflow: hidden;
+    border-radius: 12px;
+}
+
+.grid .card .card-img {
+    height: 200px;
+    object-fit: cover;
+    width: 100%;
+}
+
+.grid .card .card-body {
+    padding: 16px;
+    overflow: hidden;
+    display: -webkit-box;
+    --webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+}

@@ -98,7 +98,7 @@ body.admin-logged-in .article-page-container {
 }
 
 /* ==========================================================================
-   STYLE SIDEBAR & STUDIO CANVA (CORRECTION D'AFFICHAGE)
+   STYLE WORKSPACE & STUDIO CANVA
    ========================================================================== */
 
 .canva-layout {
@@ -109,131 +109,11 @@ body.admin-logged-in .article-page-container {
     position: relative;
 }
 
-/* SIDEBAR CANVA FIXÉE À GAUCHE */
-.canva-sidebar {
-    width: 280px;
-    background: #1e1e24 !important;
-    color: #ffffff !important;
-    padding: 25px 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    position: fixed;
-    top: 50px; /* S'aligne sous le bandeau rose Mode Édition */
-    left: 0;
-    bottom: 0;
-    z-index: 9999;
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 5px 0 25px rgba(0, 0, 0, 0.15);
-    box-sizing: border-box;
-}
-
-.canva-sidebar-header h3 {
-    font-size: 1.2rem;
-    font-weight: 800;
-    color: #ffffff !important;
-    margin: 5px 0 0 0;
-}
-
-.canva-badge {
-    background: #e63946; /* Ou ta variable --accent */
-    color: #ffffff;
-    font-size: 0.7rem;
-    font-weight: 800;
-    padding: 3px 8px;
-    border-radius: 6px;
-    text-transform: uppercase;
-    display: inline-block;
-}
-
-.canva-tools-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.canva-tool-label {
-    font-size: 0.75rem;
-    color: #8e8e93;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.canva-tool-btn {
-    background: #2a2a32;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: #ffffff !important;
-    padding: 10px 12px;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 0.85rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    transition: all 0.2s ease;
-    text-align: left;
-    width: 100%;
-}
-
-.canva-tool-btn:hover {
-    background: #3a3a45;
-    transform: translateX(3px);
-}
-
-.canva-sidebar-footer {
-    margin-top: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding-bottom: 20px;
-}
-
-.canva-btn-save {
-    background: #34c759;
-    color: #ffffff;
-    border: none;
-    padding: 12px;
-    border-radius: 8px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.2s;
-    width: 100%;
-}
-
-.canva-btn-save:hover {
-    background: #2fb34f;
-}
-
-.canva-btn-delete {
-    background: rgba(255, 59, 48, 0.15);
-    color: #ff3b30;
-    border: 1px solid #ff3b30;
-    padding: 10px;
-    border-radius: 8px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s;
-    width: 100%;
-}
-
-.canva-btn-delete:hover {
-    background: #ff3b30;
-    color: #ffffff;
-}
-
-/* DECALAGE DU CONTENU DU DOCUMENT EN MODE ADMIN */
 .canva-workspace {
     flex: 1;
     padding: 40px;
-    transition: margin-left 0.3s ease;
     width: 100%;
     box-sizing: border-box;
-}
-
-.canva-admin-active .canva-workspace {
-    margin-left: 280px; /* Décale le document pour ne pas qu'il soit sous la sidebar */
 }
 
 .canva-document {
@@ -249,7 +129,123 @@ body.admin-logged-in .article-page-container {
 /* Cadre pointillé de sélection style Canva au survol/clic */
 .canva-admin-active [contenteditable="true"]:hover,
 .canva-admin-active [contenteditable="true"]:focus {
-    outline: 2px dashed #e63946 !important;
+    outline: 2px dashed #E50914 !important;
     outline-offset: 4px;
     border-radius: 4px;
 }
+
+/* ==========================================================================
+   INFOBULLES AU SURVOL DES BOUTONS (TOOLTIPS UNIFIÉS ET VISIBLES)
+   ========================================================================== */
+[data-tooltip] {
+    position: relative !important;
+}
+
+/* Bulle de texte */
+[data-tooltip]:hover::after {
+    content: attr(data-tooltip) !important;
+    position: absolute !important;
+    bottom: calc(100% + 8px) !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    background: #000000 !important;
+    color: #ffffff !important;
+    padding: 6px 10px !important;
+    border-radius: 6px !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    pointer-events: none !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    z-index: 9999999 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    line-height: 1.2 !important;
+}
+
+/* Flèche sous la bulle */
+[data-tooltip]:hover::before {
+    content: '' !important;
+    position: absolute !important;
+    bottom: calc(100% + 2px) !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    border-width: 6px 6px 0 6px !important;
+    border-style: solid !important;
+    border-color: #000000 transparent transparent transparent !important;
+    z-index: 9999999 !important;
+    pointer-events: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* Poignée de glisser-déposer */
+.canva-drag-handle {
+    cursor: grab;
+    padding: 2px 4px;
+    font-size: 0.8rem;
+    color: #888;
+    text-align: center;
+    user-select: none;
+}
+
+.canva-drag-handle:active {
+    cursor: grabbing;
+}
+
+.canva-block[draggable="true"] {
+    cursor: move;
+}
+
+/* Barre d'outils fixe Studio Canva */
+.vafm-player-toolbar {
+    position: fixed;
+    bottom: 110px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #121218;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 40px;
+    padding: 8px 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 999999;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.vafm-tb-label {
+    color: #8e8e93;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-right: 6px;
+}
+
+.vafm-tb-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: none;
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.vafm-tb-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.vafm-tb-divider {
+    width: 1px;
+    height: 18px;
+    background: rgba(255, 255, 255, 0.15);
+    margin: 0 4px;
+}
+
+.vafm-tb-btn.status-published { color: #00e676; }
+.vafm-tb-btn.status-draft { color: #ff9900; }
+.vafm-tb-btn.btn-save { background: #E50914; font-weight: 700; }
+.vafm-tb-btn.btn-delete { color: #ff3355; }
