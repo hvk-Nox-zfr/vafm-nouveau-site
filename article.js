@@ -566,80 +566,150 @@ function addCanvaBlock(type = 'p') {
 
 function handleCanvaImageUpload(event) {
     const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const contentBox = document.getElementById('canva-doc-content');
-            if (contentBox) {
-                const block = document.createElement('div');
-                block.className = 'canva-block img-full';
-                block.innerHTML = `<img src="${e.target.result}" alt="Image téléchargée">`;
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const contentBox = document.getElementById('canva-doc-content');
+        if (!contentBox) return;
+
+        // Si un bloc image est déjà sélectionné, on met à jour son image au lieu de recréer un bloc
+        if (activeBlock && activeBlock.querySelector('img')) {
+            const imgEl = activeBlock.querySelector('img');
+            imgEl.src = e.target.result;
+        } else {
+            // Sinon on crée UN SEUL nouveau bloc d'image
+            const block = document.createElement('div');
+            block.className = 'canva-block img-full';
+            block.innerHTML = `<img src="${e.target.result}" alt="Image téléchargée">`;
+            
+            // Si l'indicateur rouge de drop est visible, on insère là où est l'indicateur
+            const dropInd = contentBox.querySelector('.canva-drop-indicator');
+            if (dropInd && dropInd.style.display !== 'none') {
+                contentBox.insertBefore(block, dropInd);
+            } else {
                 contentBox.appendChild(block);
-                initCanvaInteractions();
             }
-        };
-        reader.readAsDataURL(file);
-    }
+        }
+
+        // On réinitialise l'input pour pouvoir ré-uploader la même image si besoin
+        event.target.value = '';
+
+        // Réattache les événements drag/click sur le nouveau bloc
+        initCanvaInteractions();
+    };
+    
+    reader.readAsDataURL(file);
 }
 
 async function saveCanvaArticle(tableName, id) {
-    const title = document.getElementById('canva-doc-title')?.innerText.trim();
-    const contentBox = document.getElementById('canva-doc-content');
-    const fileInput = document.getElementById('canva-file-input');
-    
-    const contentClone = contentBox.cloneNode(true);
-    contentClone.querySelectorAll('.canva-block').forEach(b => {
-        b.classList.remove('selected', 'editing', 'dragging');
-        b.removeAttribute('contenteditable');
-        b.removeAttribute('draggable');
-        delete b.dataset.interactive;
-    });
+    try {
+        const titleElement = document.getElementById('canva-doc-title');
+        const title = titleElement ? titleElement.innerText.trim() : '';
 
-    const dropInd = contentClone.querySelector('.canva-drop-indicator');
-    if (dropInd) dropInd.remove();
-
-    const content = contentClone.innerHTML.trim();
-    
-    const firstImg = contentBox.querySelector('img');
-    let imageUrl = firstImg ? firstImg.src : null;
-
-    if (fileInput && fileInput.files[0]) {
-        const file = fileInput.files[0];
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}.${fileExt}`;
-        const { error: uploadError } = await supabaseClient.storage.from('uploads').upload(fileName, file);
-        
-        if (!uploadError) {
-            const { data: publicUrlData } = supabaseClient.storage.from('uploads').getPublicUrl(fileName);
-            imageUrl = publicUrlData.publicUrl;
+        const contentBox = document.getElementById('canva-doc-content');
+        if (!contentBox) {
+            alert("Erreur : zone de contenu introuvable.");
+            return;
         }
-    }
 
-    const titleCol = (tableName === 'animateurs') ? 'nom' : 'titre';
-    const textCol = (tableName === 'emissions' || tableName === 'animateurs') ? 'description' : (tableName === 'hero' ? 'texte' : 'contenu');
-    const imgCol = (tableName === 'emissions' || tableName === 'animateurs') ? 'image_url' : 'imageUrl';
+        // 1. Nettoyage propre du HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = contentBox.innerHTML;
 
-    const payload = {
-        [titleCol]: title,
-        [textCol]: content
-    };
+        const dropInd = tempDiv.querySelector('.canva-drop-indicator');
+        if (dropInd) dropInd.remove();
 
-    if (imageUrl && !imageUrl.startsWith('data:')) {
-        payload[imgCol] = imageUrl;
-    }
+        tempDiv.querySelectorAll('.canva-block').forEach(b => {
+            b.classList.remove('selected', 'editing', 'dragging');
+            b.removeAttribute('contenteditable');
+            b.removeAttribute('draggable');
+            b.removeAttribute('data-interactive');
+        });
 
-    const { error } = await supabaseClient
-        .from(tableName)
-        .update(payload)
-        .eq('id', id);
+        const content = tempDiv.innerHTML.trim();
 
-    if (error) {
-        alert("Erreur lors de la sauvegarde : " + error.message);
-    } else {
-        alert("✨ Enregistré avec succès !");
-        if (typeof fetchAllFromSupabase === 'function') {
-            await fetchAllFromSupabase();
+        // 2. Gestion de l'image
+        const fileInput = document.getElementById('canva-file-input');
+        let imageUrl = null;
+
+        if (fileInput && fileInput.files && fileInput.files[0]) {
+            const file = fileInput.files[0];
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}.${fileExt}`;
+
+            const { error: uploadError } = await supabaseClient.storage
+                .from('uploads')
+                .upload(fileName, file);
+
+            if (!uploadError) {
+                const { data: publicUrlData } = supabaseClient.storage
+                    .from('uploads')
+                    .getPublicUrl(fileName);
+                imageUrl = publicUrlData.publicUrl;
+            }
+        } else {
+            const firstImg = contentBox.querySelector('img');
+            if (firstImg && !firstImg.src.startsWith('data:')) {
+                imageUrl = firstImg.src;
+            }
         }
+
+        // 3. Normalisation exacte de la table et des champs
+        // On s'assure que 'news' redirige bien vers 'actus'
+        const realTable = (tableName === 'news' || tableName === 'actus') ? 'actus' : tableName;
+
+        let titleCol = 'titre';
+        let textCol = 'contenu';
+        let imgCol = 'imageUrl';
+
+        if (realTable === 'animateurs') {
+            titleCol = 'nom';
+            textCol = 'description';
+            imgCol = 'image_url';
+        } else if (realTable === 'emissions') {
+            titleCol = 'titre';
+            textCol = 'description';
+            imgCol = 'image_url';
+        } else if (realTable === 'hero') {
+            titleCol = 'titre';
+            textCol = 'texte';
+            imgCol = 'imageUrl';
+        } else if (realTable === 'actus') {
+            titleCol = 'titre';
+            textCol = 'texte';    // <-- CHANGÉ : On utilise 'texte' (type text) et PAS 'contenu' (type json)
+            imgCol = 'imageUrl';
+        }
+
+        const payload = {
+            [titleCol]: title,
+            [textCol]: content
+        };
+
+        if (imageUrl) {
+            payload[imgCol] = imageUrl;
+        }
+
+        console.log(`Envoi du payload Supabase vers la table "${realTable}" :`, payload);
+
+        // 4. Update Supabase
+        const { error } = await supabaseClient
+            .from(realTable)
+            .update(payload)
+            .eq('id', id);
+
+        if (error) {
+            console.error("Erreur Supabase Update:", error);
+            alert(`Erreur de sauvegarde (Table: ${realTable}) : ` + error.message);
+        } else {
+            alert("✨ Actu enregistrée avec succès !");
+            if (typeof fetchAllFromSupabase === 'function') {
+                await fetchAllFromSupabase();
+            }
+        }
+    } catch (err) {
+        console.error("Erreur inattendue durant la sauvegarde:", err);
+        alert("Une erreur est survenue : " + err.message);
     }
 }
 
