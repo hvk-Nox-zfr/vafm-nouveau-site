@@ -31,12 +31,23 @@ async function openArticleView(category, id) {
     currentId = id;
 
     const title = data.titre || data.title || data.nom || 'Sans titre';
-    const rawText = data.texte || data.description || data.contenu || '';
-    const img = data.imageUrl || data.image_url || data.img_url || '';
+    const rawText = data.texte || data.contenu || data.description || '';
     const isPublished = Boolean(data.is_published);
-    const date = data.created_at ? new Date(data.created_at).toLocaleDateString('fr-FR') : '';
+    
+    // Formatting de la date : utilise published_at si disponible, sinon created_at
+    let publicationText = "Non publié (Brouillon)";
+    const dateSource = data.published_at || (isPublished ? data.created_at : null);
 
-    // Détection session admin fiable
+    if (dateSource) {
+        const dateObj = new Date(dateSource);
+        publicationText = dateObj.toLocaleDateString('fr-FR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+    }
+
+    // Détection session admin
     const isAdmin = Boolean(
         (window.appState && window.appState.editMode) || 
         document.body.classList.contains('admin-logged-in') || 
@@ -48,8 +59,6 @@ async function openArticleView(category, id) {
         console.error("Élément #article-modal introuvable dans le DOM !");
         return;
     }
-
-    const initialMediaBlock = img ? `<div class="canva-block img-full" id="canva-doc-media"><img src="${img}" id="canva-img-element" alt="${title}"></div>` : '';
 
     articleContainer.innerHTML = `
        <style>
@@ -147,7 +156,6 @@ async function openArticleView(category, id) {
 
             .canva-document a { color: #E50914 !important; text-decoration: underline !important; font-weight: 600; cursor: pointer; }
 
-            /* Nettoyage du flux pour autoriser le texte à entourer l'image */
             .canva-document::after, .article-content::after, #canva-doc-content::after {
                 content: "";
                 display: table;
@@ -155,7 +163,7 @@ async function openArticleView(category, id) {
             }
 
             .canva-header-fixed {
-                margin-bottom: 25px;
+                margin-bottom: 35px;
                 user-select: none;
             }
 
@@ -199,32 +207,11 @@ async function openArticleView(category, id) {
                 clear: both;
             }
 
-            /* --- STYLES FLOTANTS IMAGE + TEXTE --- */
-            .canva-block.img-left { 
-                float: left !important; 
-                width: 45% !important; 
-                margin-right: 20px !important; 
-                margin-bottom: 15px !important; 
-                clear: left;
-            }
-
-            .canva-block.img-right { 
-                float: right !important; 
-                width: 45% !important; 
-                margin-left: 20px !important; 
-                margin-bottom: 15px !important; 
-                clear: right;
-            }
-
-            .canva-block.img-full { 
-                float: none !important; 
-                width: 100% !important; 
-                margin: 15px 0 !important; 
-                clear: both;
-            }
+            .canva-block.img-left { float: left !important; width: 45% !important; margin-right: 20px !important; margin-bottom: 15px !important; clear: left; }
+            .canva-block.img-right { float: right !important; width: 45% !important; margin-left: 20px !important; margin-bottom: 15px !important; clear: right; }
+            .canva-block.img-full { float: none !important; width: 100% !important; margin: 15px 0 !important; clear: both; }
 
             .canva-block img { width: 100%; border-radius: 8px; display: block; }
-
             blockquote.canva-quote { border-left: 4px solid #E50914; padding-left: 16px; margin: 20px 0; font-style: italic; color: #555; }
         </style>
 
@@ -234,11 +221,12 @@ async function openArticleView(category, id) {
                     <header class="canva-header-fixed">
                         <span class="article-category-badge" style="display:inline-block; padding:4px 12px; background:#f0f0f5; border-radius:20px; font-weight:700; font-size:0.75rem; text-transform:uppercase; margin-bottom:15px;">${category}</span>
                         <h1 class="article-title" id="canva-doc-title" ${isAdmin ? 'contenteditable="true"' : ''} style="font-size: 2.5rem; font-weight: 800; margin-bottom: 10px; outline: none;">${title}</h1>
-                        ${date ? `<div class="article-meta" style="color: #8e8e93; font-size:0.85rem;">Publié le ${date}</div>` : ''}
+                        <div class="article-meta" style="color: #8e8e93; font-size:0.85rem;">
+                            ${isPublished ? `Publié le ${publicationText}` : publicationText}
+                        </div>
                     </header>
 
                     <div class="article-content" id="canva-doc-content">
-                        ${initialMediaBlock}
                         ${formatContentToCanvaBlocks(rawText)}
                     </div>
                 </article>
@@ -291,7 +279,7 @@ async function openArticleView(category, id) {
 
                     <div class="vafm-tb-divider"></div>
 
-                    <button class="vafm-tb-btn ${isPublished ? 'status-published' : 'status-draft'}" title="${isPublished ? 'En ligne' : 'Brouillon'}" onclick="handleTogglePublishInStudio('${tableName}', '${id}', ${isPublished}, '${category}')">
+                    <button class="vafm-tb-btn ${isPublished ? 'status-published' : 'status-draft'}" title="${isPublished ? 'Passer en brouillon' : 'Publier l\'article'}" onclick="handleTogglePublishInStudio('${tableName}', '${id}', ${isPublished}, '${category}')">
                         ${isPublished 
                             ? `<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`
                             : `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
@@ -303,7 +291,7 @@ async function openArticleView(category, id) {
                     <button class="vafm-tb-btn btn-save" title="Enregistrer" onclick="saveCanvaArticle('${tableName}', '${id}')">
                         <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                     </button>
-                    <button class="vafm-tb-btn btn-delete" title="Supprimer" onclick="deleteItem('${tableName}', '${id}'); closeArticleView();">
+                    <button class="vafm-tb-btn btn-delete" title="Supprimer l'élément sélectionné" onclick="deleteSelectedElement()">
                         <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                     </button>
                 </div>
@@ -325,10 +313,12 @@ async function openArticleView(category, id) {
 }
 
 /* --------------------------------------------------------------------------
-   2. SYSTÈME DRAG & DROP "LAXISTE" ET MAGNÉTIQUE
+   2. FORMATAGE DES BLOCS
    -------------------------------------------------------------------------- */
 function formatContentToCanvaBlocks(htmlContent) {
-    if (!htmlContent) return '<div class="canva-block"><p>Écrivez votre texte ici...</p></div>';
+    if (!htmlContent || htmlContent.trim() === '') {
+        return '<div class="canva-block"><p>Écrivez votre texte ici...</p></div>';
+    }
     
     const temp = document.createElement('div');
     temp.innerHTML = htmlContent;
@@ -347,7 +337,7 @@ function formatContentToCanvaBlocks(htmlContent) {
         }
     });
 
-    return result || `<div class="canva-block"><p>${htmlContent}</p></div>`;
+    return result || `<div class="canva-block"><p>Écrivez votre texte ici...</p></div>`;
 }
 
 function initCanvaInteractions() {
@@ -478,10 +468,26 @@ function setBlockPosition(position) {
 }
 
 /* --------------------------------------------------------------------------
-   3. OUTILS ET LIENS
+   3. OUTILS, LIENS ET SUPPRESSION
    -------------------------------------------------------------------------- */
 function applyFormat(command) {
     document.execCommand(command, false, null);
+}
+
+function deleteSelectedElement() {
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) {
+        document.execCommand('delete', false, null);
+        return;
+    }
+
+    if (activeBlock) {
+        activeBlock.remove();
+        activeBlock = null;
+        return;
+    }
+
+    alert("Sélectionnez d'abord du texte surligné ou cliquez sur un bloc à supprimer.");
 }
 
 function addLinkToSelection() {
@@ -508,8 +514,27 @@ function addLinkToSelection() {
     }
 }
 
-async function handleTogglePublishInStudio(tableName, id, isPublished, category) {
-    await togglePublish(tableName, id, isPublished);
+async function handleTogglePublishInStudio(tableName, id, currentStatus, category) {
+    const nextStatus = !currentStatus;
+    
+    // Si on passe l'article EN LIGNE (publication), on enregistre l'instant T dans published_at
+    const updateData = {
+        is_published: nextStatus,
+        published_at: nextStatus ? new Date().toISOString() : null
+    };
+
+    const { error } = await supabaseClient
+        .from(tableName)
+        .update(updateData)
+        .eq('id', id);
+
+    if (error) {
+        console.error("Erreur lors du changement de statut de publication:", error);
+        alert("Impossible de modifier le statut de publication : " + error.message);
+        return;
+    }
+
+    // Recharger la vue pour afficher immédiatement la nouvelle date
     await openArticleView(category, id);
 }
 
@@ -573,17 +598,14 @@ function handleCanvaImageUpload(event) {
         const contentBox = document.getElementById('canva-doc-content');
         if (!contentBox) return;
 
-        // Si un bloc image est déjà sélectionné, on met à jour son image au lieu de recréer un bloc
         if (activeBlock && activeBlock.querySelector('img')) {
             const imgEl = activeBlock.querySelector('img');
             imgEl.src = e.target.result;
         } else {
-            // Sinon on crée UN SEUL nouveau bloc d'image
             const block = document.createElement('div');
             block.className = 'canva-block img-full';
             block.innerHTML = `<img src="${e.target.result}" alt="Image téléchargée">`;
             
-            // Si l'indicateur rouge de drop est visible, on insère là où est l'indicateur
             const dropInd = contentBox.querySelector('.canva-drop-indicator');
             if (dropInd && dropInd.style.display !== 'none') {
                 contentBox.insertBefore(block, dropInd);
@@ -592,10 +614,7 @@ function handleCanvaImageUpload(event) {
             }
         }
 
-        // On réinitialise l'input pour pouvoir ré-uploader la même image si besoin
         event.target.value = '';
-
-        // Réattache les événements drag/click sur le nouveau bloc
         initCanvaInteractions();
     };
     
@@ -613,7 +632,28 @@ async function saveCanvaArticle(tableName, id) {
             return;
         }
 
-        // 1. Nettoyage propre du HTML
+        // 1. Upload d'une nouvelle image si sélectionnée
+        const fileInput = document.getElementById('canva-file-input');
+        let newUploadedUrl = null;
+
+        if (fileInput && fileInput.files && fileInput.files[0]) {
+            const file = fileInput.files[0];
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}.${fileExt}`;
+
+            const { error: uploadError } = await supabaseClient.storage
+                .from('uploads')
+                .upload(fileName, file);
+
+            if (!uploadError) {
+                const { data: publicUrlData } = supabaseClient.storage
+                    .from('uploads')
+                    .getPublicUrl(fileName);
+                newUploadedUrl = publicUrlData.publicUrl;
+            }
+        }
+
+        // 2. Nettoyage du HTML
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = contentBox.innerHTML;
 
@@ -629,55 +669,20 @@ async function saveCanvaArticle(tableName, id) {
 
         const content = tempDiv.innerHTML.trim();
 
-        // 2. Gestion de l'image
-        const fileInput = document.getElementById('canva-file-input');
-        let imageUrl = null;
-
-        if (fileInput && fileInput.files && fileInput.files[0]) {
-            const file = fileInput.files[0];
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Date.now()}.${fileExt}`;
-
-            const { error: uploadError } = await supabaseClient.storage
-                .from('uploads')
-                .upload(fileName, file);
-
-            if (!uploadError) {
-                const { data: publicUrlData } = supabaseClient.storage
-                    .from('uploads')
-                    .getPublicUrl(fileName);
-                imageUrl = publicUrlData.publicUrl;
-            }
-        } else {
-            const firstImg = contentBox.querySelector('img');
-            if (firstImg && !firstImg.src.startsWith('data:')) {
-                imageUrl = firstImg.src;
-            }
-        }
-
-        // 3. Normalisation exacte de la table et des champs
-        // On s'assure que 'news' redirige bien vers 'actus'
+        // 3. Normalisation exacte de la table et des colonnes
         const realTable = (tableName === 'news' || tableName === 'actus') ? 'actus' : tableName;
 
         let titleCol = 'titre';
         let textCol = 'contenu';
         let imgCol = 'imageUrl';
 
-        if (realTable === 'animateurs') {
-            titleCol = 'nom';
+        if (realTable === 'animateurs' || realTable === 'emissions') {
+            titleCol = (realTable === 'animateurs') ? 'nom' : 'titre';
             textCol = 'description';
             imgCol = 'image_url';
-        } else if (realTable === 'emissions') {
-            titleCol = 'titre';
-            textCol = 'description';
-            imgCol = 'image_url';
-        } else if (realTable === 'hero') {
+        } else if (realTable === 'hero' || realTable === 'actus') {
             titleCol = 'titre';
             textCol = 'texte';
-            imgCol = 'imageUrl';
-        } else if (realTable === 'actus') {
-            titleCol = 'titre';
-            textCol = 'texte';    // <-- CHANGÉ : On utilise 'texte' (type text) et PAS 'contenu' (type json)
             imgCol = 'imageUrl';
         }
 
@@ -686,11 +691,10 @@ async function saveCanvaArticle(tableName, id) {
             [textCol]: content
         };
 
-        if (imageUrl) {
-            payload[imgCol] = imageUrl;
+        // Si une nouvelle image a été envoyée pour la carte
+        if (newUploadedUrl) {
+            payload[imgCol] = newUploadedUrl;
         }
-
-        console.log(`Envoi du payload Supabase vers la table "${realTable}" :`, payload);
 
         // 4. Update Supabase
         const { error } = await supabaseClient
@@ -700,9 +704,11 @@ async function saveCanvaArticle(tableName, id) {
 
         if (error) {
             console.error("Erreur Supabase Update:", error);
-            alert(`Erreur de sauvegarde (Table: ${realTable}) : ` + error.message);
+            alert(`Erreur de sauvegarde : ` + error.message);
         } else {
-            alert("✨ Actu enregistrée avec succès !");
+            alert("✨ Enregistré avec succès !");
+            if (fileInput) fileInput.value = '';
+            
             if (typeof fetchAllFromSupabase === 'function') {
                 await fetchAllFromSupabase();
             }
