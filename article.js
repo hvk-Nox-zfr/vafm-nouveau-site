@@ -254,7 +254,7 @@ async function openArticleView(category, id) {
             <main class="canva-workspace">
                 <article class="canva-document">
                     <header class="canva-header-fixed">
-                        <span class="article-category-badge" style="display:inline-block; padding:4px 12px; background:#f0f0f5; border-radius:20px; font-weight:700; font-size:0.75rem; text-transform:uppercase; margin-bottom:15px;">${category}</span>
+                        <span class="article-category-badge" style="display:inline-block; padding:4px 12px; background:#f0f0f5; border-radius:20px; font-weight:700; font-size:0.75rem; text-transform:uppercase; margin-bottom:15px;">news</span>
                         <h1 class="article-title" id="canva-doc-title" ${isAdmin ? 'contenteditable="true"' : ''} style="font-size: 2.5rem; font-weight: 800; margin-bottom: 10px; outline: none;">${title}</h1>
                         <div class="article-meta" style="color: #8e8e93; font-size:0.85rem;">
                             <div class="article-date">${publicationText}</div>
