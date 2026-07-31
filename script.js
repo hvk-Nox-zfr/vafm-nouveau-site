@@ -584,14 +584,15 @@ function closeModal(id) {
 }
 
 /* ==========================================================================
-   11. LECTEUR AUDIO & MÉTADONNÉES
+   11. LECTEUR AUDIO & MÉTADONNÉES (STABLE & SANS PROXY EXTERNE)
    ========================================================================== */
 function initRadioPlayer() {
     const audio = document.getElementById("radio-audio");
-    const playBtn = document.getElementById("playBtn");
+    const playBtn = document.getElementById("play-btn") || document.getElementById("playBtn");
     const currentShow = document.getElementById("current-show");
     const trackSpan = document.getElementById("current-track");
     const marquee = document.getElementById("marquee");
+    const playIcon = playBtn?.querySelector(".icon");
 
     const STREAM_URL = "https://manager10.streamradio.fr:1555/stream";
     const STATS_URL = "https://manager10.streamradio.fr:1555/status-json.xsl";
@@ -602,33 +603,42 @@ function initRadioPlayer() {
         currentShow.textContent = "En direct : Le meilleur du son !";
     }
 
+    // 1. GESTION DU PLAY / STOP
     playBtn.addEventListener("click", async () => {
         try {
             if (audio.paused) {
                 audio.src = STREAM_URL;
                 audio.load();
+                
                 await audio.play();
                 audio.volume = 1;
+                
+                if (playIcon) playIcon.textContent = "⏸";
                 playBtn.classList.add("playing");
             } else {
                 audio.pause();
                 audio.src = "";
+                
+                if (playIcon) playIcon.textContent = "▶";
                 playBtn.classList.remove("playing");
             }
         } catch (e) {
             console.warn("Erreur de lecture gérée :", e.message);
             audio.pause();
             audio.src = "";
+            if (playIcon) playIcon.textContent = "▶";
             playBtn.classList.remove("playing");
         }
     });
 
+    // 2. EFFET DÉFILEMENT TYPE "RADIO VOITURE"
     let animTimeout = null;
 
     function lancerDefilementVoiture(titre) {
         if (!marquee || !trackSpan) return;
 
         clearTimeout(animTimeout);
+
         trackSpan.textContent = titre;
         trackSpan.style.transition = "none";
         trackSpan.style.transform = "translateX(0)";
@@ -653,6 +663,7 @@ function initRadioPlayer() {
         }, 1000);
     }
 
+    // 3. RÉCUPÉRATION DU TITRE (EN DIRECT SANS PROXY TIERS)
     async function updateCurrentTitle() {
         try {
             const response = await fetch(`${STATS_URL}?nocache=${Date.now()}`);
@@ -689,10 +700,46 @@ function initRadioPlayer() {
             }
 
         } catch (error) {
+            // Si le navigateur bloque l'accès direct (CORS strict), on affiche un titre par défaut propre sans planter
             lancerDefilementVoiture("VAFM – En Direct");
         }
     }
 
     updateCurrentTitle();
     setInterval(updateCurrentTitle, 15000);
+}
+
+/* ==========================================================================
+   ANIMATION & REPLIEMENT DU LECTEUR AU SCROLL (FOOTER)
+   ========================================================================== */
+function setupPlayerCollapse() {
+    const footer = document.getElementById('main-footer');
+    // Sélectionne la barre du lecteur (toolbar studio ou lecteur général)
+    const player = document.querySelector('.vafm-player-toolbar') 
+                || document.querySelector('[class*="player"]') 
+                || document.getElementById('vafm-audio-player');
+
+    if (!footer || !player) return;
+
+    // Détection de l'intersection avec le footer
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                // Ajoute la classe déclenchant l'animation de réduction
+                player.classList.add('player-collapsed');
+            } else {
+                // Rétablit le lecteur dans son état d'origine
+                player.classList.remove('player-collapsed');
+            }
+        });
+    }, { threshold: 0.1 });
+
+    observer.observe(footer);
+}
+
+// Initialisation au chargement de la page
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupPlayerCollapse);
+} else {
+    setupPlayerCollapse();
 }

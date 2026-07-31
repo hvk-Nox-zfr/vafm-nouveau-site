@@ -4,118 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VAFM - Article</title>
-    <!-- CSS Swiper & Google Fonts -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="article.css">
-    <!-- Supabase JS Client -->
+    <!-- Supabase CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- GSAP & ScrollTrigger pour les animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
 </head>
 <body>
 
-    <!-- BARRE ADMIN SUPÉRIEURE -->
-    <div id="admin-top-bar" class="admin-top-bar" style="display: none;">
-        <span>⚡ MODE ÉDITION ACTIF</span>
-        <div class="admin-actions-right">
-            <button class="btn-admin-top" onclick="logoutAdmin()">Déconnexion</button>
-        </div>
-    </div>
+    <!-- Zone principale injectée dynamiquement par article.js -->
+    <div id="article-modal"></div>
 
-    <!-- HEADER IDENTIQUE À LA PAGE D'ACCUEIL -->
-    <header class="navbar">
-        <div class="nav-container">
-            <a href="index.html" class="logo">
-                <img src="https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=200" alt="VAFM Logo" id="nav-logo">
-            </a>
-            <nav class="nav-menu">
-                <a href="index.html#accueil" class="nav-link">Accueil</a>
-                <a href="index.html#actualites" class="nav-link">Actualités</a>
-                <a href="index.html#emissions" class="nav-link">Émissions</a>
-                <a href="index.html#animateurs" class="nav-link">Animateurs</a>
-            </nav>
-            <div class="nav-right">
-                <button id="btn-admin-login" class="btn-admin" onclick="openLoginModal()">
-                    <span class="admin-icon">H</span> Admin
-                </button>
-            </div>
-        </div>
-    </header>
+    <!-- Contenu principal (Masqué si on lit un article spécifique) -->
+    <div id="content"></div>
 
-    <!-- SECTION PRINCIPALE ARTICLE -->
-    <main class="article-page-container">
-        <!-- Bouton Retour -->
-        <a href="index.html" class="btn-back">← Retour à l'accueil</a>
-
-        <article class="article-wrapper" id="article-wrapper">
-            <!-- Hero de l'article -->
-            <header class="article-header">
-                <span class="article-category-badge" id="article-category">Actualité</span>
-                <h1 id="article-title" class="article-title">Chargement de l'article...</h1>
-                <div class="article-meta">
-                    <span id="article-date">-- / -- / ----</span>
-                </div>
-            </header>
-
-            <!-- Image Principale / Banner -->
-            <div class="article-hero-media">
-                <img id="article-cover" src="" alt="" onerror="this.style.display='none'">
-            </div>
-
-            <!-- Contenu dynamique de l'article -->
-            <div class="article-content" id="article-content">
-                <p>Chargement du contenu...</p>
-            </div>
-
-            <!-- Actions d'édition Admin sur l'article -->
-            <div id="article-admin-controls" class="article-admin-controls" style="display: none;">
-                <button class="btn-admin-action" onclick="openArticleEditorModal()">✏️ Modifier cet article</button>
-                <button class="btn-admin-action btn-delete" onclick="deleteCurrentArticle()">✕ Supprimer</button>
-            </div>
-        </article>
-    </main>
-
-    <!-- MODALE LOGIN ADMIN -->
-    <div id="login-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-modal" onclick="closeLoginModal()">&times;</span>
-            <h2>Connexion Administration</h2>
-            <form id="form-login" onsubmit="handleLoginSubmit(event)">
-                <input type="email" id="login-email" placeholder="Adresse e-mail" required>
-                <input type="password" id="login-password" placeholder="Mot de passe" required>
-                <button type="submit" class="btn-submit">Se connecter</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- MODALE ÉDITION ARTICLE -->
-    <div id="editor-modal" class="modal">
-        <div class="modal-content modal-large">
-            <span class="close-modal" onclick="closeEditorModal()">&times;</span>
-            <h2>Éditeur d'Article</h2>
-            <form id="form-edit-article" onsubmit="handleArticleSave(event)">
-                <input type="hidden" id="editor-category">
-                <input type="hidden" id="editor-item-id">
-                
-                <label>Titre de l'article</label>
-                <input type="text" id="editor-title" required placeholder="Titre de l'article">
-
-                <label>Image de couverture</label>
-                <input type="file" id="editor-image-file" accept="image/*" onchange="previewSelectedImage(event)">
-                <img id="editor-img-preview" class="editor-preview-img" style="display:none;">
-
-                <label>Contenu de l'article (supporte le HTML / paragraphe)</label>
-                <textarea id="editor-text" rows="10" required placeholder="Saisissez le contenu de votre article..."></textarea>
-
-                <div class="modal-buttons">
-                    <button type="button" class="btn-cancel" onclick="closeEditorModal()">Annuler</button>
-                    <button type="submit" id="btn-save-card" class="btn-submit">Enregistrer</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <script src="script.js"></script>
+    <!-- Scripts de l'application -->
+    <script src="supabase-config.js"></script>
     <script src="article.js"></script>
+    <script src="main.js"></script>
 </body>
 </html>
