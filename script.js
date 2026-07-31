@@ -24,7 +24,7 @@ let selectedFile = null;
 let sortableInstances = [];
 
 /* ==========================================================================
-   3. UTILITIES
+   3. UTILITIES & DROITS
    ========================================================================== */
 function stripHTML(html) {
     let tmp = document.createElement("DIV");
@@ -32,12 +32,23 @@ function stripHTML(html) {
     return tmp.textContent || tmp.innerText || "";
 }
 
-// Fonction de vérification des permissions pour une catégorie donnée
+// Vérifie si l'utilisateur peut modifier/interagir avec une catégorie
 function canEditCategory(category) {
     if (!appState.currentUser) return false;
     if (appState.userRole === 'admin') return true;
     if (appState.userRole === 'journalist') {
         return (category === 'hero' || category === 'news' || category === 'actus');
+    }
+    return false;
+}
+
+// Vérifie si l'utilisateur peut CRÉER un nouvel élément dans une catégorie
+function canCreateInCategory(category) {
+    if (!appState.currentUser) return false;
+    if (appState.userRole === 'admin') return true;
+    if (appState.userRole === 'journalist') {
+        // Le journaliste PEUT créer dans les actus, mais PAS dans le carrousel (hero)
+        return (category === 'news' || category === 'actus');
     }
     return false;
 }
@@ -338,36 +349,14 @@ async function togglePublish(tableName, id, currentStatus) {
     }
 }
 
-function formatDate(dateString) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-    });
-}
-
-async function publishAllDrafts() {
-    if (appState.userRole === 'admin') {
-        await Promise.all([
-            supabaseClient.from('hero').update({ is_published: true }).eq('is_published', false),
-            supabaseClient.from('actus').update({ is_published: true }).eq('is_published', false),
-            supabaseClient.from('emissions').update({ is_published: true }).eq('is_published', false),
-            supabaseClient.from('animateurs').update({ is_published: true }).eq('is_published', false)
-        ]);
-    } else if (appState.userRole === 'journalist') {
-        await Promise.all([
-            supabaseClient.from('hero').update({ is_published: true }).eq('is_published', false),
-            supabaseClient.from('actus').update({ is_published: true }).eq('is_published', false)
-        ]);
-    }
-    await fetchAllFromSupabase();
-}
-
 function openEditorModal(category, id = null) {
-    if (!canEditCategory(category)) {
+    // Vérification : modification vs création
+    if (id && !canEditCategory(category)) {
         alert("Vous n'avez pas la permission d'éditer cette section.");
+        return;
+    }
+    if (!id && !canCreateInCategory(category)) {
+        alert("Les journalistes ne sont pas autorisés à créer de nouveaux éléments dans le carrousel.");
         return;
     }
 
@@ -453,8 +442,15 @@ async function handleCardFormSubmit(e) {
     e.preventDefault();
 
     const category = document.getElementById('editor-category')?.value;
-    if (!canEditCategory(category)) {
+    const id = document.getElementById('editor-item-id')?.value;
+
+    // Contrôle strict des permissions au moment de soumettre le formulaire
+    if (id && !canEditCategory(category)) {
         alert("Action non autorisée.");
+        return;
+    }
+    if (!id && !canCreateInCategory(category)) {
+        alert("Création non autorisée dans cette section pour les journalistes.");
         return;
     }
 
@@ -464,7 +460,6 @@ async function handleCardFormSubmit(e) {
         btnSave.disabled = true;
     }
 
-    const id = document.getElementById('editor-item-id')?.value;
     const title = document.getElementById('editor-title')?.value;
     const text = document.getElementById('editor-text')?.value;
 
