@@ -20,6 +20,7 @@ let appState = {
 let currentAuthMode = "login";
 let mainSwiperInstance = null;
 let selectedFile = null;
+let sortableInstances = []; // Stocke les instances de Sortable.js pour les réinitialiser
 
 /* ==========================================================================
    3. UTILITIES
@@ -72,19 +73,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     await fetchAllFromSupabase();
     updateAuthUI();
-    initDragAndDrop();
+    initFileUploadDragAndDrop();
     initRadioPlayer();
 });
 
 /* ==========================================================================
-   5. RECUPÉRATION DES DONNÉES SUPABASE
+   5. RECUPÉRATION DES DONNÉES SUPABASE (TRIÉES PAR POSITION)
    ========================================================================== */
 async function fetchAllFromSupabase() {
     try {
         const isAdmin = Boolean(appState.editMode && appState.currentUser);
 
         const getQuery = (table) => {
-            let q = supabaseClient.from(table).select('*');
+            // Trie systématiquement par la colonne position ascendant
+            let q = supabaseClient.from(table).select('*').order('position', { ascending: true });
             if (!isAdmin) {
                 q = q.eq('is_published', true);
             }
@@ -99,7 +101,7 @@ async function fetchAllFromSupabase() {
             appState.hero = heroData.data.map(h => ({
                 id: h.id, title: h.titre || '', text: h.texte || '', 
                 img: h.imageUrl || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=1200',
-                is_published: Boolean(h.is_published)
+                is_published: Boolean(h.is_published), position: h.position || 0
             }));
         }
 
@@ -107,7 +109,7 @@ async function fetchAllFromSupabase() {
             appState.news = actusData.data.map(a => ({
                 id: a.id, title: a.titre || '', text: a.texte || a.contenu || '', 
                 img: a.imageUrl || 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600',
-                is_published: Boolean(a.is_published)
+                is_published: Boolean(a.is_published), position: a.position || 0
             }));
         }
 
@@ -115,7 +117,7 @@ async function fetchAllFromSupabase() {
             appState.shows = emissionsData.data.map(e => ({
                 id: e.id, title: e.titre || '', text: e.description || '', 
                 img: e.image_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&q=80',
-                is_published: Boolean(e.is_published)
+                is_published: Boolean(e.is_published), position: e.position || 0
             }));
         }
 
@@ -123,7 +125,7 @@ async function fetchAllFromSupabase() {
             appState.team = animateursData.data.map(anim => ({
                 id: anim.id, title: anim.nom || '', text: anim.description || '', 
                 img: anim.image_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400',
-                is_published: Boolean(anim.is_published)
+                is_published: Boolean(anim.is_published), position: anim.position || 0
             }));
         }
 
@@ -196,7 +198,7 @@ function renderAll() {
         });
     }
 
-    // 2. RENDU DES GRILLES (TEXTE EXPURGÉ DES BALISES PARAGRAPHES)
+    // 2. RENDU DES GRILLES
     const renderGrid = (gridElement, dataArray, category, tableName) => {
         if (!gridElement) return;
 
@@ -210,8 +212,9 @@ function renderAll() {
             const truncatedText = cleanText.length > 120 ? cleanText.substring(0, 120) + '...' : cleanText;
 
             return `
-            <div class="card ${!item.is_published ? 'draft-card' : ''}" onclick="openArticleView('${category}', '${item.id}')">
+            <div class="card ${!item.is_published ? 'draft-card' : ''} ${isEdit ? 'draggable-card' : ''}" data-id="${item.id}" onclick="openArticleView('${category}', '${item.id}')">
                 ${isEdit ? `
+                    <div class="drag-handle" title="Glisser pour réordonner">☰</div>
                     <span class="card-status-tag ${item.is_published ? 'tag-published' : 'tag-draft'}">
                         ${item.is_published ? 'Publié' : 'Brouillon'}
                     </span>
@@ -235,17 +238,83 @@ function renderAll() {
     renderGrid(newsGrid, appState.news, 'news', 'actus');
     renderGrid(showsGrid, appState.shows, 'shows', 'emissions');
     renderGrid(teamGrid, appState.team, 'team', 'animateurs');
+
+    // Ré-initialise le Drag & Drop si l'administrateur est connecté
+    if (isEdit) {
+        initGridsDragAndDrop();
+    }
 }
 
 /* ==========================================================================
-   7. BASCULE PUBLIER / DÉPUBLIER & TOUT PUBLIER
+   7. DRAG & DROP DES CARTES DANS LES GRILLES (SORTABLEJS)
+   ========================================================================== */
+function initGridsDragAndDrop() {
+    // Détruit les anciennes instances pour éviter les doublons
+    sortableInstances.forEach(inst => inst.destroy());
+    sortableInstances = [];
+
+    if (typeof Sortable === 'undefined') return;
+
+    const setupSortable = (gridId, tableName) => {
+        const el = document.getElementById(gridId);
+        if (!el) return;
+
+        const sortable = new Sortable(el, {
+            animation: 150,
+            handle: '.drag-handle', // On attrape la carte via la poignée ☰
+            ghostClass: 'sortable-ghost',
+            onEnd: async function () {
+                const cards = el.querySelectorAll('.card');
+                const updatedOrders = Array.from(cards).map((card, index) => ({
+                    id: card.getAttribute('data-id'),
+                    position: index + 1
+                }));
+
+                await saveNewOrderInDB(tableName, updatedOrders);
+            }
+        });
+
+        sortableInstances.push(sortable);
+    };
+
+    setupSortable('news-grid', 'actus');
+    setupSortable('shows-grid', 'emissions');
+    setupSortable('team-grid', 'animateurs');
+}
+
+async function saveNewOrderInDB(tableName, items) {
+    for (const item of items) {
+        const { error } = await supabaseClient
+            .from(tableName)
+            .update({ position: item.position })
+            .eq('id', item.id);
+
+        if (error) {
+            console.error(`Erreur de réorganisation pour ${tableName} (${item.id}) :`, error.message);
+        }
+    }
+}
+
+/* ==========================================================================
+   8. PUBLICATION & MODALE ÉDITION
    ========================================================================== */
 async function togglePublish(tableName, id, currentStatus) {
     const newStatus = !currentStatus;
+    
+    // Obtenir la date actuelle au format ISO
+    const now = new Date().toISOString();
+
+    // Objet de mise à jour
+    let updatePayload = { is_published: newStatus };
+    
+    // Si on passe en "Publié", on met à jour la date de publication
+    if (newStatus) {
+        updatePayload.created_at = now; // Mettre à jour avec l'heure exacte du clic
+    }
 
     const { error } = await supabaseClient
         .from(tableName)
-        .update({ is_published: newStatus })
+        .update(updatePayload)
         .eq('id', id);
 
     if (error) {
@@ -253,6 +322,16 @@ async function togglePublish(tableName, id, currentStatus) {
     } else {
         await fetchAllFromSupabase();
     }
+}
+
+function formatDate(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
 }
 
 async function publishAllDrafts() {
@@ -265,9 +344,6 @@ async function publishAllDrafts() {
     await fetchAllFromSupabase();
 }
 
-/* ==========================================================================
-   8. MODALE ÉDITION & DRAG & DROP
-   ========================================================================== */
 function openEditorModal(category, id = null) {
     selectedFile = null;
     const catInput = document.getElementById('editor-category');
@@ -322,7 +398,7 @@ function previewFile(file) {
     reader.readAsDataURL(file);
 }
 
-function initDragAndDrop() {
+function initFileUploadDragAndDrop() {
     const dropZone = document.getElementById('drop-zone');
     if (!dropZone) return;
 
@@ -389,6 +465,17 @@ async function handleCardFormSubmit(e) {
     const tableMap = { hero: 'hero', news: 'actus', shows: 'emissions', team: 'animateurs' };
     const tableName = tableMap[category] || 'actus';
 
+    // Détermination automatique du nom de l'admin
+    let authorDisplayName = "Hugo"; // Valeur par défaut si c'est toi
+    if (appState.currentUser) {
+        const email = (appState.currentUser.email || "").toLowerCase();
+        if (email.includes("hugo")) {
+            authorDisplayName = "Hugo";
+        } else {
+            authorDisplayName = appState.currentUser.user_metadata?.full_name || email.split('@')[0] || "Admin";
+        }
+    }
+
     let payload = {
         [category === 'team' ? 'nom' : 'titre']: title,
         [category === 'shows' || category === 'team' ? 'description' : (category === 'hero' ? 'texte' : 'contenu')]: text,
@@ -402,8 +489,12 @@ async function handleCardFormSubmit(e) {
 
     let dbResult;
     if (id) {
+        // En cas de modification, on ne touche pas à l'auteur d'origine
         dbResult = await supabaseClient.from(tableName).update(payload).eq('id', id);
     } else {
+        // En cas de création, on enregistre l'auteur et la date de création
+        payload.author_name = authorDisplayName;
+        payload.created_at = new Date().toISOString();
         dbResult = await supabaseClient.from(tableName).insert([payload]);
     }
 
@@ -584,7 +675,7 @@ function closeModal(id) {
 }
 
 /* ==========================================================================
-   11. LECTEUR AUDIO & MÉTADONNÉES (STABLE & SANS PROXY EXTERNE)
+   11. LECTEUR AUDIO & MÉTADONNÉES
    ========================================================================== */
 function initRadioPlayer() {
     const audio = document.getElementById("radio-audio");
@@ -603,22 +694,18 @@ function initRadioPlayer() {
         currentShow.textContent = "En direct : Le meilleur du son !";
     }
 
-    // 1. GESTION DU PLAY / STOP
     playBtn.addEventListener("click", async () => {
         try {
             if (audio.paused) {
                 audio.src = STREAM_URL;
                 audio.load();
-                
                 await audio.play();
                 audio.volume = 1;
-                
                 if (playIcon) playIcon.textContent = "⏸";
                 playBtn.classList.add("playing");
             } else {
                 audio.pause();
                 audio.src = "";
-                
                 if (playIcon) playIcon.textContent = "▶";
                 playBtn.classList.remove("playing");
             }
@@ -631,14 +718,12 @@ function initRadioPlayer() {
         }
     });
 
-    // 2. EFFET DÉFILEMENT TYPE "RADIO VOITURE"
     let animTimeout = null;
 
     function lancerDefilementVoiture(titre) {
         if (!marquee || !trackSpan) return;
 
         clearTimeout(animTimeout);
-
         trackSpan.textContent = titre;
         trackSpan.style.transition = "none";
         trackSpan.style.transform = "translateX(0)";
@@ -663,7 +748,6 @@ function initRadioPlayer() {
         }, 1000);
     }
 
-    // 3. RÉCUPÉRATION DU TITRE (EN DIRECT SANS PROXY TIERS)
     async function updateCurrentTitle() {
         try {
             const response = await fetch(`${STATS_URL}?nocache=${Date.now()}`);
@@ -688,58 +772,11 @@ function initRadioPlayer() {
             const formattedTitle = rawTitle.replace(" - ", " – ");
             lancerDefilementVoiture(formattedTitle);
 
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.metadata = new MediaMetadata({
-                    title: formattedTitle,
-                    artist: 'VAFM',
-                    album: 'En Direct',
-                    artwork: [
-                        { src: 'VAFM logo rouge.png', sizes: '512x512', type: 'image/png' }
-                    ]
-                });
-            }
-
         } catch (error) {
-            // Si le navigateur bloque l'accès direct (CORS strict), on affiche un titre par défaut propre sans planter
             lancerDefilementVoiture("VAFM – En Direct");
         }
     }
 
     updateCurrentTitle();
     setInterval(updateCurrentTitle, 15000);
-}
-
-/* ==========================================================================
-   ANIMATION & REPLIEMENT DU LECTEUR AU SCROLL (FOOTER)
-   ========================================================================== */
-function setupPlayerCollapse() {
-    const footer = document.getElementById('main-footer');
-    // Sélectionne la barre du lecteur (toolbar studio ou lecteur général)
-    const player = document.querySelector('.vafm-player-toolbar') 
-                || document.querySelector('[class*="player"]') 
-                || document.getElementById('vafm-audio-player');
-
-    if (!footer || !player) return;
-
-    // Détection de l'intersection avec le footer
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                // Ajoute la classe déclenchant l'animation de réduction
-                player.classList.add('player-collapsed');
-            } else {
-                // Rétablit le lecteur dans son état d'origine
-                player.classList.remove('player-collapsed');
-            }
-        });
-    }, { threshold: 0.1 });
-
-    observer.observe(footer);
-}
-
-// Initialisation au chargement de la page
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setupPlayerCollapse);
-} else {
-    setupPlayerCollapse();
 }

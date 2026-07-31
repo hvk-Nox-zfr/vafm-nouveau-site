@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GESTION DES ARTICLES ET ÉDITION (CANVA STUDIO ADVANCED)
+   GESTION DES ARTICLES ET ÉDITION (CANVA STUDIO ADVANCED + ADSENSE & SIZING)
    ========================================================================== */
 
 let currentArticleData = null;
@@ -7,11 +7,23 @@ let currentCategory = null;
 let currentId = null;
 let activeBlock = null;
 
+// Config Google AdSense
+const ADSENSE_CONFIG = {
+    client: 'ca-pub-8497430727637938',
+    slot: '4676661462'
+};
+
 /* --------------------------------------------------------------------------
    1. NAVIGATION ET AFFICHAGE (CANVA STUDIO)
    -------------------------------------------------------------------------- */
 async function openArticleView(category, id) {
-    const tableMap = { hero: 'hero', news: 'actus', actus: 'actus', shows: 'emissions', team: 'animateurs' };
+    // ❌ Bloquer l'affichage de la page article pour les émissions et les animateurs
+    if (category === 'shows' || category === 'emissions' || category === 'team' || category === 'animateurs') {
+        console.warn(`[VAFM] Les éléments de type '${category}' ne s'ouvrent pas dans une page article.`);
+        return;
+    }
+
+    const tableMap = { hero: 'hero', news: 'actus', actus: 'actus' };
     const tableName = tableMap[category] || 'actus';
 
     const { data, error } = await supabaseClient
@@ -34,20 +46,21 @@ async function openArticleView(category, id) {
     const rawText = data.texte || data.contenu || data.description || '';
     const isPublished = Boolean(data.is_published);
     
-    // Formatting de la date : utilise published_at si disponible, sinon created_at
-    let publicationText = "Non publié (Brouillon)";
-    const dateSource = data.published_at || (isPublished ? data.created_at : null);
+    // Détermination de l'auteur
+    const authorName = data.author_name || (data.author_email && data.author_email.toLowerCase().includes('hugo') ? 'Hugo' : 'Hugo');
 
-    if (dateSource) {
+    let publicationText = "Non publié (Brouillon)";
+    const dateSource = data.published_at || data.created_at;
+
+    if (dateSource && isPublished) {
         const dateObj = new Date(dateSource);
-        publicationText = dateObj.toLocaleDateString('fr-FR', {
+        publicationText = `Publié le ${dateObj.toLocaleDateString('fr-FR', {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric'
-        });
+        })}`;
     }
 
-    // Détection session admin
     const isAdmin = Boolean(
         (window.appState && window.appState.editMode) || 
         document.body.classList.contains('admin-logged-in') || 
@@ -88,7 +101,7 @@ async function openArticleView(category, id) {
                 gap: 4px !important;
                 z-index: 999999 !important;
                 flex-wrap: nowrap !important;
-                overflow-x: auto !important;
+                overflow: visible !important;
                 max-width: 95vw !important;
                 box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5) !important;
             }
@@ -144,6 +157,29 @@ async function openArticleView(category, id) {
                 transform: translateY(-2px) !important;
             }
 
+            /* --- STYLE DU TOOLTIP POPUP DYNAMIQUE --- */
+            .vafm-dynamic-tooltip {
+                position: fixed;
+                background: #000000;
+                color: #ffffff;
+                font-size: 0.72rem;
+                font-weight: 700;
+                padding: 5px 10px;
+                border-radius: 6px;
+                white-space: nowrap;
+                pointer-events: none;
+                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                z-index: 10000000 !important;
+                transform: translateX(-50%) translateY(-100%);
+                opacity: 0;
+                transition: opacity 0.15s ease;
+            }
+
+            .vafm-dynamic-tooltip.visible {
+                opacity: 1;
+            }
+
             .vafm-tb-btn.status-published { color: #34c759 !important; }
             .vafm-tb-btn.status-draft { color: #ff9500 !important; }
 
@@ -167,6 +203,12 @@ async function openArticleView(category, id) {
                 user-select: none;
             }
 
+            .article-author-info {
+                margin-top: 4px;
+                font-weight: 600;
+                color: #e50914;
+            }
+
             .canva-admin-active .canva-block {
                 position: relative;
                 margin-bottom: 12px;
@@ -177,42 +219,35 @@ async function openArticleView(category, id) {
                 transition: border-color 0.15s ease, box-shadow 0.15s ease;
             }
 
-            .canva-admin-active .canva-block:hover {
-                border-color: rgba(229, 9, 20, 0.4);
-            }
-
-            .canva-admin-active .canva-block.selected {
-                border: 2px solid #E50914 !important;
-                box-shadow: 0 0 10px rgba(229, 9, 20, 0.15);
-            }
-
-            .canva-admin-active .canva-block.dragging {
-                opacity: 0.35;
-                border: 2px dashed #E50914 !important;
-            }
-
-            .canva-admin-active .canva-block.editing {
-                cursor: text !important;
-                border: 2px solid #34c759 !important;
-            }
+            .canva-admin-active .canva-block:hover { border-color: rgba(229, 9, 20, 0.4); }
+            .canva-admin-active .canva-block.selected { border: 2px solid #E50914 !important; box-shadow: 0 0 10px rgba(229, 9, 20, 0.15); }
+            .canva-admin-active .canva-block.dragging { opacity: 0.35; border: 2px dashed #E50914 !important; }
+            .canva-admin-active .canva-block.editing { cursor: text !important; border: 2px solid #34c759 !important; }
 
             .canva-drop-indicator {
-                height: 4px;
-                background-color: #E50914;
-                border-radius: 2px;
-                margin: 6px 0;
-                box-shadow: 0 0 8px rgba(229, 9, 20, 0.8);
-                transition: all 0.1s ease;
-                pointer-events: none;
-                clear: both;
+                height: 4px; background-color: #E50914; border-radius: 2px; margin: 6px 0;
+                box-shadow: 0 0 8px rgba(229, 9, 20, 0.8); transition: all 0.1s ease; pointer-events: none; clear: both;
             }
 
-            .canva-block.img-left { float: left !important; width: 45% !important; margin-right: 20px !important; margin-bottom: 15px !important; clear: left; }
-            .canva-block.img-right { float: right !important; width: 45% !important; margin-left: 20px !important; margin-bottom: 15px !important; clear: right; }
-            .canva-block.img-full { float: none !important; width: 100% !important; margin: 15px 0 !important; clear: both; }
+            /* --- ALIGNEMENT & TAILLES DES IMAGES/PUBS --- */
+            .canva-block.img-left { float: left !important; margin-right: 20px !important; margin-bottom: 15px !important; clear: left; }
+            .canva-block.img-right { float: right !important; margin-left: 20px !important; margin-bottom: 15px !important; clear: right; }
+            .canva-block.img-center { float: none !important; margin-left: auto !important; margin-right: auto !important; margin-top: 20px !important; margin-bottom: 20px !important; clear: both; }
+            .canva-block.img-full { float: none !important; width: 100% !important; margin: 20px 0 !important; clear: both; }
+
+            .canva-block.size-sm { width: 30% !important; }
+            .canva-block.size-md { width: 50% !important; }
+            .canva-block.size-lg { width: 75% !important; }
+            .canva-block.size-full { width: 100% !important; }
 
             .canva-block img { width: 100%; border-radius: 8px; display: block; }
             blockquote.canva-quote { border-left: 4px solid #E50914; padding-left: 16px; margin: 20px 0; font-style: italic; color: #555; }
+            
+            .vafm-ad-placeholder {
+                background: #f8f9fa; border: 2px dashed #E50914; border-radius: 8px;
+                padding: 15px; text-align: center; color: #555; font-weight: 600; font-size: 0.85rem;
+                user-select: none;
+            }
         </style>
 
         <div class="canva-layout ${isAdmin ? 'canva-admin-active' : ''}">
@@ -222,12 +257,13 @@ async function openArticleView(category, id) {
                         <span class="article-category-badge" style="display:inline-block; padding:4px 12px; background:#f0f0f5; border-radius:20px; font-weight:700; font-size:0.75rem; text-transform:uppercase; margin-bottom:15px;">${category}</span>
                         <h1 class="article-title" id="canva-doc-title" ${isAdmin ? 'contenteditable="true"' : ''} style="font-size: 2.5rem; font-weight: 800; margin-bottom: 10px; outline: none;">${title}</h1>
                         <div class="article-meta" style="color: #8e8e93; font-size:0.85rem;">
-                            ${isPublished ? `Publié le ${publicationText}` : publicationText}
+                            <div class="article-date">${publicationText}</div>
+                            ${authorName ? `<div class="article-author-info">Par <span>${authorName}</span></div>` : ''}
                         </div>
                     </header>
 
                     <div class="article-content" id="canva-doc-content">
-                        ${formatContentToCanvaBlocks(rawText)}
+                        ${formatContentToCanvaBlocks(rawText, isAdmin)}
                     </div>
                 </article>
             </main>
@@ -236,50 +272,65 @@ async function openArticleView(category, id) {
                 <div class="vafm-player-toolbar">
                     <span class="vafm-tb-label">Studio</span>
 
-                    <button class="vafm-tb-btn" title="Gras" onclick="applyFormat('bold')">
+                    <!-- Formats de texte -->
+                    <button class="vafm-tb-btn" data-label="Gras" onclick="applyFormat('bold')">
                         <svg viewBox="0 0 24 24"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg>
                     </button>
-                    <button class="vafm-tb-btn" title="Italique" onclick="applyFormat('italic')">
+                    <button class="vafm-tb-btn" data-label="Italique" onclick="applyFormat('italic')">
                         <svg viewBox="0 0 24 24"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg>
                     </button>
-                    <button class="vafm-tb-btn" title="Souligné" onclick="applyFormat('underline')">
+                    <button class="vafm-tb-btn" data-label="Souligné" onclick="applyFormat('underline')">
                         <svg viewBox="0 0 24 24"><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"/><line x1="4" y1="21" x2="20" y2="21"/></svg>
                     </button>
-                    <button class="vafm-tb-btn" title="Insérer un lien" onclick="addLinkToSelection()">
+                    <button class="vafm-tb-btn" data-label="Insérer un lien" onclick="addLinkToSelection()">
                         <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                     </button>
 
                     <div class="vafm-tb-divider"></div>
 
-                    <button class="vafm-tb-btn" title="Ajouter Paragraphe" onclick="addCanvaBlock('p')">
+                    <!-- Ajout de blocs -->
+                    <button class="vafm-tb-btn" data-label="Ajouter Paragraphe" onclick="addCanvaBlock('p')">
                         <svg viewBox="0 0 24 24"><path d="M13 4v16"/><path d="M17 4v16"/><path d="M19 4H9.5a4.5 4.5 0 0 0 0 9H13"/></svg>
                     </button>
-                    <button class="vafm-tb-btn" title="Ajouter Titre" onclick="addCanvaBlock('h2')">
+                    <button class="vafm-tb-btn" data-label="Ajouter Titre" onclick="addCanvaBlock('h2')">
                         <svg viewBox="0 0 24 24"><path d="M4 12h16"/><path d="M4 6h16"/><path d="M4 18h10"/></svg>
                     </button>
-                    <button class="vafm-tb-btn" title="Citation" onclick="addCanvaBlock('quote')">
+                    <button class="vafm-tb-btn" data-label="Citation" onclick="addCanvaBlock('quote')">
                         <svg viewBox="0 0 24 24"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1zM15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/></svg>
                     </button>
-                    <button class="vafm-tb-btn" title="Ajouter une Image" onclick="document.getElementById('canva-file-input').click()">
+                    <button class="vafm-tb-btn" data-label="Ajouter une Image" onclick="document.getElementById('canva-file-input').click()">
                         <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    </button>
+                    <button class="vafm-tb-btn" data-label="Pub AdSense" onclick="addCanvaBlock('ad')">
+                        <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 15h10"/><text x="6" y="11" font-size="6" font-weight="bold" fill="currentColor">ADS</text></svg>
                     </button>
                     <input type="file" id="canva-file-input" style="display:none;" accept="image/*" onchange="handleCanvaImageUpload(event)">
 
                     <div class="vafm-tb-divider"></div>
 
-                    <button class="vafm-tb-btn" title="Placer Image à Gauche (Texte à droite)" onclick="setBlockPosition('left')">
+                    <!-- Alignement -->
+                    <button class="vafm-tb-btn" data-label="Aligner à Gauche" onclick="setBlockPosition('left')">
                         <svg viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="16" rx="1"/><line x1="15" y1="6" x2="21" y2="6"/><line x1="15" y1="10" x2="21" y2="10"/><line x1="15" y1="14" x2="21" y2="14"/></svg>
                     </button>
-                    <button class="vafm-tb-btn" title="Pleine Largeur" onclick="setBlockPosition('full')">
-                        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="10" rx="1"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                    <button class="vafm-tb-btn" data-label="Centrer" onclick="setBlockPosition('center')">
+                        <svg viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="10" rx="1"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
                     </button>
-                    <button class="vafm-tb-btn" title="Placer Image à Droite (Texte à gauche)" onclick="setBlockPosition('right')">
+                    <button class="vafm-tb-btn" data-label="Aligner à Droite" onclick="setBlockPosition('right')">
                         <svg viewBox="0 0 24 24"><rect x="13" y="4" width="8" height="16" rx="1"/><line x1="3" y1="6" x2="9" y2="6"/><line x1="3" y1="10" x2="9" y2="10"/><line x1="3" y1="14" x2="9" y2="14"/></svg>
                     </button>
 
                     <div class="vafm-tb-divider"></div>
 
-                    <button class="vafm-tb-btn ${isPublished ? 'status-published' : 'status-draft'}" title="${isPublished ? 'Passer en brouillon' : 'Publier l\'article'}" onclick="handleTogglePublishInStudio('${tableName}', '${id}', ${isPublished}, '${category}')">
+                    <!-- Changement de taille -->
+                    <button class="vafm-tb-btn" data-label="Taille Petite (30%)" onclick="setBlockSize('sm')">S</button>
+                    <button class="vafm-tb-btn" data-label="Taille Moyenne (50%)" onclick="setBlockSize('md')">M</button>
+                    <button class="vafm-tb-btn" data-label="Taille Grande (75%)" onclick="setBlockSize('lg')">L</button>
+                    <button class="vafm-tb-btn" data-label="Taille Maximale (100%)" onclick="setBlockSize('full')">XL</button>
+
+                    <div class="vafm-tb-divider"></div>
+
+                    <!-- Publication & Actions -->
+                    <button class="vafm-tb-btn ${isPublished ? 'status-published' : 'status-draft'}" data-label="${isPublished ? 'Passer en brouillon' : 'Publier l\'article'}" onclick="handleTogglePublishInStudio('${tableName}', '${id}', ${isPublished}, '${category}')">
                         ${isPublished 
                             ? `<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`
                             : `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
@@ -288,10 +339,10 @@ async function openArticleView(category, id) {
 
                     <div class="vafm-tb-divider"></div>
 
-                    <button class="vafm-tb-btn btn-save" title="Enregistrer" onclick="saveCanvaArticle('${tableName}', '${id}')">
+                    <button class="vafm-tb-btn btn-save" data-label="Enregistrer" onclick="saveCanvaArticle('${tableName}', '${id}')">
                         <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                     </button>
-                    <button class="vafm-tb-btn btn-delete" title="Supprimer l'élément sélectionné" onclick="deleteSelectedElement()">
+                    <button class="vafm-tb-btn btn-delete" data-label="Supprimer la sélection" onclick="deleteSelectedElement()">
                         <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                     </button>
                 </div>
@@ -307,21 +358,84 @@ async function openArticleView(category, id) {
 
     if (isAdmin) {
         initCanvaInteractions();
+        initDynamicTooltips();
+    } else {
+        setTimeout(() => {
+            try {
+                (adsbygoogle = window.adsbygoogle || []).push({});
+            } catch (e) {
+                console.error("Erreur d'initialisation AdSense:", e);
+            }
+        }, 300);
     }
 
     history.pushState({ page: 'article', category, id }, title, `?article=${category}&id=${id}`);
 }
 
 /* --------------------------------------------------------------------------
-   2. FORMATAGE DES BLOCS
+   2. POPUPS DYNAMIQUES (GESTION SURVOL SUR LA BARRE ADMIN)
    -------------------------------------------------------------------------- */
-function formatContentToCanvaBlocks(htmlContent) {
+function initDynamicTooltips() {
+    let tooltipEl = document.getElementById('vafm-global-tooltip');
+    if (!tooltipEl) {
+        tooltipEl = document.createElement('div');
+        tooltipEl.id = 'vafm-global-tooltip';
+        tooltipEl.className = 'vafm-dynamic-tooltip';
+        document.body.appendChild(tooltipEl);
+    }
+
+    const buttons = document.querySelectorAll('.vafm-tb-btn[data-label]');
+
+    buttons.forEach(btn => {
+        btn.addEventListener('mouseenter', (e) => {
+            const label = btn.getAttribute('data-label');
+            if (!label) return;
+
+            tooltipEl.textContent = label;
+            
+            const rect = btn.getBoundingClientRect();
+            tooltipEl.style.left = `${rect.left + (rect.width / 2)}px`;
+            tooltipEl.style.top = `${rect.top - 8}px`;
+            
+            tooltipEl.classList.add('visible');
+        });
+
+        btn.addEventListener('mouseleave', () => {
+            tooltipEl.classList.remove('visible');
+        });
+
+        btn.addEventListener('click', () => {
+            tooltipEl.classList.remove('visible');
+        });
+    });
+}
+
+/* --------------------------------------------------------------------------
+   3. FORMATAGE DES BLOCS ET PUBS ADSENSE
+   -------------------------------------------------------------------------- */
+function formatContentToCanvaBlocks(htmlContent, isAdmin = false) {
     if (!htmlContent || htmlContent.trim() === '') {
         return '<div class="canva-block"><p>Écrivez votre texte ici...</p></div>';
     }
     
     const temp = document.createElement('div');
     temp.innerHTML = htmlContent;
+
+    temp.querySelectorAll('.vafm-ad-placeholder').forEach(adNode => {
+        if (!isAdmin) {
+            const adContainer = document.createElement('div');
+            adContainer.className = 'adsense-rendered-block';
+            adContainer.innerHTML = `
+                <ins class="adsbygoogle"
+                     style="display:block; text-align:center;"
+                     data-ad-layout="in-article"
+                     data-ad-format="fluid"
+                     data-ad-client="${ADSENSE_CONFIG.client}"
+                     data-ad-slot="${ADSENSE_CONFIG.slot}"></ins>
+            `;
+            adNode.parentNode.replaceChild(adContainer, adNode);
+        }
+    });
     
     let result = '';
     temp.childNodes.forEach(node => {
@@ -375,9 +489,11 @@ function initCanvaInteractions() {
 
         block.addEventListener('dblclick', (e) => {
             e.stopPropagation();
-            block.classList.add('editing');
-            block.setAttribute('contenteditable', 'true');
-            block.focus();
+            if (!block.querySelector('.vafm-ad-placeholder')) {
+                block.classList.add('editing');
+                block.setAttribute('contenteditable', 'true');
+                block.focus();
+            }
         });
 
         block.addEventListener('dragstart', (e) => {
@@ -452,23 +568,35 @@ function initCanvaInteractions() {
 
 function setBlockPosition(position) {
     if (!activeBlock) {
-        alert("Cliquez d'abord sur un bloc ou une image !");
+        alert("Cliquez d'abord sur une image ou un encadré de pub !");
         return;
     }
 
-    activeBlock.classList.remove('img-left', 'img-right', 'img-full');
+    activeBlock.classList.remove('img-left', 'img-right', 'img-center', 'img-full');
 
     if (position === 'left') {
         activeBlock.classList.add('img-left');
     } else if (position === 'right') {
         activeBlock.classList.add('img-right');
+    } else if (position === 'center') {
+        activeBlock.classList.add('img-center');
     } else {
         activeBlock.classList.add('img-full');
     }
 }
 
+function setBlockSize(size) {
+    if (!activeBlock) {
+        alert("Cliquez d'abord sur l'élément à redimensionner !");
+        return;
+    }
+
+    activeBlock.classList.remove('size-sm', 'size-md', 'size-lg', 'size-full');
+    activeBlock.classList.add(`size-${size}`);
+}
+
 /* --------------------------------------------------------------------------
-   3. OUTILS, LIENS ET SUPPRESSION
+   4. OUTILS, LIENS ET SUPPRESSION
    -------------------------------------------------------------------------- */
 function applyFormat(command) {
     document.execCommand(command, false, null);
@@ -517,10 +645,8 @@ function addLinkToSelection() {
 async function handleTogglePublishInStudio(tableName, id, currentStatus, category) {
     const nextStatus = !currentStatus;
     
-    // Si on passe l'article EN LIGNE (publication), on enregistre l'instant T dans published_at
-    const updateData = {
-        is_published: nextStatus,
-        published_at: nextStatus ? new Date().toISOString() : null
+    let updateData = {
+        is_published: nextStatus
     };
 
     const { error } = await supabaseClient
@@ -534,7 +660,6 @@ async function handleTogglePublishInStudio(tableName, id, currentStatus, categor
         return;
     }
 
-    // Recharger la vue pour afficher immédiatement la nouvelle date
     await openArticleView(category, id);
 }
 
@@ -560,7 +685,7 @@ window.addEventListener('popstate', (e) => {
 });
 
 /* --------------------------------------------------------------------------
-   4. AJOUT DE BLOCS ET SAUVEGARDE
+   5. AJOUT DE BLOCS ET SAUVEGARDE
    -------------------------------------------------------------------------- */
 function addCanvaBlock(type = 'p') {
     const contentBox = document.getElementById('canva-doc-content');
@@ -579,6 +704,11 @@ function addCanvaBlock(type = 'p') {
         inner = document.createElement('blockquote');
         inner.className = 'canva-quote';
         inner.innerText = "Citation ou texte en évidence...";
+    } else if (type === 'ad') {
+        block.className = 'canva-block img-full size-full';
+        inner = document.createElement('div');
+        inner.className = 'vafm-ad-placeholder';
+        inner.innerHTML = `📢 <strong>Emplacement Publicitaire Google AdSense</strong> (Visible uniquement par les lecteurs)`;
     } else {
         inner = document.createElement('p');
         inner.innerText = "Nouveau paragraphe... Cliquez pour écrire.";
@@ -603,7 +733,7 @@ function handleCanvaImageUpload(event) {
             imgEl.src = e.target.result;
         } else {
             const block = document.createElement('div');
-            block.className = 'canva-block img-full';
+            block.className = 'canva-block img-full size-md';
             block.innerHTML = `<img src="${e.target.result}" alt="Image téléchargée">`;
             
             const dropInd = contentBox.querySelector('.canva-drop-indicator');
@@ -632,7 +762,6 @@ async function saveCanvaArticle(tableName, id) {
             return;
         }
 
-        // 1. Upload d'une nouvelle image si sélectionnée
         const fileInput = document.getElementById('canva-file-input');
         let newUploadedUrl = null;
 
@@ -653,7 +782,6 @@ async function saveCanvaArticle(tableName, id) {
             }
         }
 
-        // 2. Nettoyage du HTML
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = contentBox.innerHTML;
 
@@ -669,21 +797,20 @@ async function saveCanvaArticle(tableName, id) {
 
         const content = tempDiv.innerHTML.trim();
 
-        // 3. Normalisation exacte de la table et des colonnes
         const realTable = (tableName === 'news' || tableName === 'actus') ? 'actus' : tableName;
 
-        let titleCol = 'titre';
-        let textCol = 'contenu';
-        let imgCol = 'imageUrl';
+        const titleCol = 'titre';
+        const textCol = 'texte';
+        const imgCol = 'imageUrl';
 
-        if (realTable === 'animateurs' || realTable === 'emissions') {
-            titleCol = (realTable === 'animateurs') ? 'nom' : 'titre';
-            textCol = 'description';
-            imgCol = 'image_url';
-        } else if (realTable === 'hero' || realTable === 'actus') {
-            titleCol = 'titre';
-            textCol = 'texte';
-            imgCol = 'imageUrl';
+        let authorDisplayName = "Hugo";
+        if (window.appState && window.appState.currentUser) {
+            const email = (window.appState.currentUser.email || "").toLowerCase();
+            if (email.includes("hugo")) {
+                authorDisplayName = "Hugo";
+            } else {
+                authorDisplayName = window.appState.currentUser.user_metadata?.full_name || email.split('@')[0] || "Admin";
+            }
         }
 
         const payload = {
@@ -691,12 +818,14 @@ async function saveCanvaArticle(tableName, id) {
             [textCol]: content
         };
 
-        // Si une nouvelle image a été envoyée pour la carte
+        if (!currentArticleData || !currentArticleData.author_name) {
+            payload.author_name = authorDisplayName;
+        }
+
         if (newUploadedUrl) {
             payload[imgCol] = newUploadedUrl;
         }
 
-        // 4. Update Supabase
         const { error } = await supabaseClient
             .from(realTable)
             .update(payload)
@@ -720,16 +849,19 @@ async function saveCanvaArticle(tableName, id) {
 }
 
 /* --------------------------------------------------------------------------
-   5. CHARGEMENT AUTOMATIQUE VIA URL
+   6. CHARGEMENT AUTOMATIQUE VIA URL
    -------------------------------------------------------------------------- */
 document.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const articleCategory = urlParams.get('article') || urlParams.get('type');
     const articleId = urlParams.get('id');
 
+    // Vérification pour ne charger que si ce n'est pas une émission ou un animateur
     if (articleCategory && articleId) {
-        setTimeout(() => {
-            openArticleView(articleCategory, articleId);
-        }, 100);
+        if (articleCategory !== 'shows' && articleCategory !== 'emissions' && articleCategory !== 'team' && articleCategory !== 'animateurs') {
+            setTimeout(() => {
+                openArticleView(articleCategory, articleId);
+            }, 100);
+        }
     }
 });

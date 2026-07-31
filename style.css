@@ -1253,3 +1253,247 @@ height: 180px !important; /* Ajuste la hauteur du logo */
     --webkit-line-clamp: 4;
     -webkit-box-orient: vertical;
 }
+
+/* ==========================================================================
+   ADAPTATION MOBILE - VAFM
+   ========================================================================== */
+
+@media screen and (max-width: 768px) {
+    
+    /* ----------------------------------------------------------------------
+       1. HEADER CLEAN (Maintient exactement le style PC de .navbar)
+       ---------------------------------------------------------------------- */
+    header.navbar {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 10px 16px !important;
+        /* Aucun changement sur la couleur/fond pour conserver le design PC */
+    }
+
+    /* Masquer le menu de liens (Accueil, Actualités, Émissions, Animateurs) */
+    .nav-links {
+        display: none !important;
+    }
+
+   /* ----------------------------------------------------------------------
+   BOUTON PROFIL MOBILE - BONHOMME SVG SANS ÉCHEC
+   ---------------------------------------------------------------------- */
+@media screen and (max-width: 768px) {
+
+    /* 1. On masque TOUT ce qu'il y a à l'intérieur du bouton (texte, spans, etc.) */
+    #user-profile-zone .btn-secondary *,
+    #user-profile-zone .btn-login * {
+        display: none !important;
+    }
+
+    /* 2. Style du conteneur du bouton (transparent, taille fixe) */
+    #user-profile-zone .btn-secondary,
+    #user-profile-zone .btn-login {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 36px !important;
+        height: 36px !important;
+        cursor: pointer !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        /* Cache le texte brut qui traîne sans balise */
+        font-size: 0 !important;
+        color: transparent !important;
+        position: relative !important;
+    }
+
+    /* 3. On dessine l'icône Bonhomme directement en CSS (SVG via background) */
+    #user-profile-zone .btn-secondary::before,
+    #user-profile-zone .btn-login::before {
+        content: "" !important;
+        display: block !important;
+        width: 26px !important;
+        height: 26px !important;
+        background-color: #18181b !important; /* Couleur du bonhomme (Noir/Sombre) */
+        /* Masque SVG de l'utilisateur */
+        -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg>") no-repeat center / contain !important;
+        mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg>") no-repeat center / contain !important;
+    }
+
+    /* 4. Si l'utilisateur est CONNECTÉ (Avatar avec l'initiale) */
+    .user-avatar-btn {
+        background: transparent !important;
+        border: none !important;
+    }
+    
+    .user-avatar {
+        font-size: 1rem !important;
+        color: #ffffff !important;
+        width: 36px !important;
+        height: 36px !important;
+        border-radius: 50% !important;
+        background: #e50914 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-weight: 700 !important;
+    }
+}
+
+    /* ----------------------------------------------------------------------
+       3. GRILLES & CONTENU (1 seule colonne)
+       ---------------------------------------------------------------------- */
+    #content {
+        padding-bottom: 110px !important; /* Dégage la place sous le lecteur floating */
+    }
+
+    .grid {
+        grid-template-columns: 1fr !important;
+        gap: 15px !important;
+    }
+
+   /* ----------------------------------------------------------------------
+   LECTEUR MOBILE - BOUTON TOUT À DROITE + TEXTE PROPRE SANS BUG
+   ---------------------------------------------------------------------- */
+@media screen and (max-width: 768px) {
+
+    footer.vafm-player-premium {
+        position: fixed !important;
+        bottom: 12px !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: calc(100% - 24px) !important;
+        max-width: 460px !important;
+        height: 60px !important;
+        padding: 8px 16px !important;
+        box-sizing: border-box !important;
+        z-index: 99999 !important;
+        
+        /* Force l'alignement : Texte à gauche, Bouton à droite */
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important; 
+        border-radius: 14px !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    /* 1. On cache TOUT ce qui prend de la place inutilement à droite et à gauche */
+    .cover-container, 
+    .player-right, 
+    .style-selector {
+        display: none !important;
+    }
+
+    /* 2. Zone texte : prend TOUT l'espace disponible de gauche jusqu au bouton */
+    .player-left {
+        flex: 1 1 auto !important;
+        min-width: 0 !important; /* Permet au texte de se restreindre sans pousser */
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        margin-right: 12px !important;
+    }
+
+    .metadata-block {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    #marquee {
+        width: 100% !important;
+        overflow: hidden !important;
+    }
+
+    /* Titre : Pas d'animation buggée, coupe propre avec "..." si trop long */
+    #current-track {
+        display: block !important;
+        font-weight: 700 !important;
+        font-size: 0.95rem !important;
+        color: #ffffff !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        animation: none !important; /* Annule l'animation de défilement */
+    }
+
+    .track-artist {
+        font-size: 0.8rem !important;
+        color: #b0b0b5 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        display: block !important;
+    }
+
+    /* 3. Bouton Play / Pause : Collé et bloqué TOUT À DROITE */
+    .player-center {
+        flex: 0 0 auto !important; /* Ne s'étire pas, reste à sa taille */
+        margin-left: auto !important; /* Pousse le bouton à l'extrême droite */
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+    }
+
+    .control-play-btn {
+        width: 42px !important;
+        height: 42px !important;
+    }
+}
+}
+
+/* Poignée Drag & Drop placée en bas à droite */
+.drag-handle {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    top: auto;
+    left: auto;
+    background: rgba(0, 0, 0, 0.75);
+    color: #ffffff;
+    padding: 6px 10px;
+    border-radius: 8px;
+    cursor: grab;
+    z-index: 10;
+    font-size: 14px;
+    user-select: none;
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.drag-handle:hover {
+    background: rgba(229, 9, 20, 0.85); /* Rouge VAFM au survol */
+    transform: scale(1.05);
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+/* Effet sur la carte qu'on déplace */
+.sortable-ghost {
+    opacity: 0.3;
+    transform: scale(0.98);
+    border: 2px dashed #e50914 !important;
+}
+
+.article-meta {
+    margin-bottom: 20px;
+    color: #a1a1aa;
+    font-size: 0.9em;
+}
+
+.article-date {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.article-author {
+    margin: 0;
+    color: #e50914; /* Rouge VAFM */
+    font-weight: 500;
+}

@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 </head>
 <body>
 
@@ -110,8 +111,11 @@
 
     <!-- NAVBAR -->
     <header class="navbar" id="main-navbar">
+        <!-- Dans ton HTML -->
         <div class="logo-container">
-            <img src="VAFM logo rouge.png" alt="VAFM" class="nav-logo">
+            <a href="#" id="home-logo-btn">
+                <img src="VAFM logo rouge.png" alt="VAFM" class="nav-logo">
+            </a>
         </div>
         <nav class="nav-links">
             <a href="#home">Accueil</a>
@@ -121,7 +125,16 @@
         </nav>
         <div class="nav-actions">
             <div id="user-profile-zone">
-                <button class="btn-secondary" onclick="openAuthModal()">Se connecter</button>
+                <!-- BOUTON CONNEXION / BONHOMME SVG -->
+                <button class="btn-secondary btn-login" onclick="openAuthModal()" title="Se connecter">
+                    <span class="btn-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                    </span>
+                    <span class="btn-text">Se connecter</span>
+                </button>
             </div>
         </div>
     </header>
