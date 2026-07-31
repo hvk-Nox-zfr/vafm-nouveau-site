@@ -10,6 +10,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
    ========================================================================== */
 let appState = {
     currentUser: null,
+    userRole: 'member', // 'admin', 'journalist', 'member'
     editMode: false,
     hero: [],       
     news: [],       
@@ -20,7 +21,7 @@ let appState = {
 let currentAuthMode = "login";
 let mainSwiperInstance = null;
 let selectedFile = null;
-let sortableInstances = []; // Stocke les instances de Sortable.js pour les réinitialiser
+let sortableInstances = [];
 
 /* ==========================================================================
    3. UTILITIES
@@ -29,6 +30,16 @@ function stripHTML(html) {
     let tmp = document.createElement("DIV");
     tmp.innerHTML = html || '';
     return tmp.textContent || tmp.innerText || "";
+}
+
+// Fonction de vérification des permissions pour une catégorie donnée
+function canEditCategory(category) {
+    if (!appState.currentUser) return false;
+    if (appState.userRole === 'admin') return true;
+    if (appState.userRole === 'journalist') {
+        return (category === 'hero' || category === 'news' || category === 'actus');
+    }
+    return false;
 }
 
 /* ==========================================================================
@@ -58,6 +69,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             checkAdminRights(session.user);
         } else {
             appState.currentUser = null;
+            appState.userRole = 'member';
             appState.editMode = false;
             document.body.classList.remove('admin-logged-in', 'edit-mode-active');
         }
@@ -82,12 +94,11 @@ document.addEventListener("DOMContentLoaded", async () => {
    ========================================================================== */
 async function fetchAllFromSupabase() {
     try {
-        const isAdmin = Boolean(appState.editMode && appState.currentUser);
+        const canSeeDrafts = Boolean(appState.editMode && appState.currentUser);
 
         const getQuery = (table) => {
-            // Trie systématiquement par la colonne position ascendant
             let q = supabaseClient.from(table).select('*').order('position', { ascending: true });
-            if (!isAdmin) {
+            if (!canSeeDrafts) {
                 q = q.eq('is_published', true);
             }
             return q;
@@ -148,6 +159,8 @@ function renderAll() {
     const adminTopBar = document.getElementById('admin-top-bar');
     if (adminTopBar) adminTopBar.style.display = isEdit ? 'block' : 'none';
 
+    const canEditHero = canEditCategory('hero');
+
     // 1. CARROUSEL HERO
     if (heroWrapper) {
         if (appState.hero.length === 0) {
@@ -155,7 +168,7 @@ function renderAll() {
                 <div class="swiper-slide hero-slide">
                     <div class="slide-content">
                         <h2>Aucun élément disponible</h2>
-                        <p>${isEdit ? 'Ajoutez un élément depuis le panneau d\'administration.' : 'Revenez plus tard pour découvrir nos contenus.'}</p>
+                        <p>${canEditHero ? 'Ajoutez un élément depuis le panneau d\'administration.' : 'Revenez plus tard pour découvrir nos contenus.'}</p>
                     </div>
                 </div>`;
         } else {
@@ -168,7 +181,7 @@ function renderAll() {
                         <p>${stripHTML(slide.text)}</p>
                         <div class="slide-actions">
                             <button class="btn-more" onclick="openArticleView('hero', '${slide.id}')">Voir plus</button>
-                            ${isEdit ? `
+                            ${canEditHero ? `
                                 <button class="btn-admin-action ${slide.is_published ? 'btn-unpublish' : 'btn-publish'}" onclick="togglePublish('hero', '${slide.id}', ${slide.is_published}); event.stopPropagation();">
                                     ${slide.is_published ? '📥 Dépublier' : '🚀 Publier'}
                                 </button>
@@ -207,13 +220,15 @@ function renderAll() {
             return;
         }
 
+        const canEditThisCategory = canEditCategory(category);
+
         gridElement.innerHTML = dataArray.map((item) => {
             const cleanText = stripHTML(item.text);
             const truncatedText = cleanText.length > 120 ? cleanText.substring(0, 120) + '...' : cleanText;
 
             return `
-            <div class="card ${!item.is_published ? 'draft-card' : ''} ${isEdit ? 'draggable-card' : ''}" data-id="${item.id}" onclick="openArticleView('${category}', '${item.id}')">
-                ${isEdit ? `
+            <div class="card ${!item.is_published ? 'draft-card' : ''} ${canEditThisCategory ? 'draggable-card' : ''}" data-id="${item.id}" onclick="openArticleView('${category}', '${item.id}')">
+                ${canEditThisCategory ? `
                     <div class="drag-handle" title="Glisser pour réordonner">☰</div>
                     <span class="card-status-tag ${item.is_published ? 'tag-published' : 'tag-draft'}">
                         ${item.is_published ? 'Publié' : 'Brouillon'}
@@ -239,7 +254,6 @@ function renderAll() {
     renderGrid(showsGrid, appState.shows, 'shows', 'emissions');
     renderGrid(teamGrid, appState.team, 'team', 'animateurs');
 
-    // Ré-initialise le Drag & Drop si l'administrateur est connecté
     if (isEdit) {
         initGridsDragAndDrop();
     }
@@ -249,19 +263,18 @@ function renderAll() {
    7. DRAG & DROP DES CARTES DANS LES GRILLES (SORTABLEJS)
    ========================================================================== */
 function initGridsDragAndDrop() {
-    // Détruit les anciennes instances pour éviter les doublons
     sortableInstances.forEach(inst => inst.destroy());
     sortableInstances = [];
 
     if (typeof Sortable === 'undefined') return;
 
-    const setupSortable = (gridId, tableName) => {
+    const setupSortable = (gridId, tableName, category) => {
         const el = document.getElementById(gridId);
-        if (!el) return;
+        if (!el || !canEditCategory(category)) return;
 
         const sortable = new Sortable(el, {
             animation: 150,
-            handle: '.drag-handle', // On attrape la carte via la poignée ☰
+            handle: '.drag-handle',
             ghostClass: 'sortable-ghost',
             onEnd: async function () {
                 const cards = el.querySelectorAll('.card');
@@ -277,9 +290,9 @@ function initGridsDragAndDrop() {
         sortableInstances.push(sortable);
     };
 
-    setupSortable('news-grid', 'actus');
-    setupSortable('shows-grid', 'emissions');
-    setupSortable('team-grid', 'animateurs');
+    setupSortable('news-grid', 'actus', 'news');
+    setupSortable('shows-grid', 'emissions', 'shows');
+    setupSortable('team-grid', 'animateurs', 'team');
 }
 
 async function saveNewOrderInDB(tableName, items) {
@@ -299,17 +312,18 @@ async function saveNewOrderInDB(tableName, items) {
    8. PUBLICATION & MODALE ÉDITION
    ========================================================================== */
 async function togglePublish(tableName, id, currentStatus) {
+    const categoryMap = { 'hero': 'hero', 'actus': 'news', 'emissions': 'shows', 'animateurs': 'team' };
+    if (!canEditCategory(categoryMap[tableName] || tableName)) {
+        alert("Vous n'avez pas la permission de modifier cet élément.");
+        return;
+    }
+
     const newStatus = !currentStatus;
-    
-    // Obtenir la date actuelle au format ISO
     const now = new Date().toISOString();
 
-    // Objet de mise à jour
     let updatePayload = { is_published: newStatus };
-    
-    // Si on passe en "Publié", on met à jour la date de publication
     if (newStatus) {
-        updatePayload.created_at = now; // Mettre à jour avec l'heure exacte du clic
+        updatePayload.created_at = now;
     }
 
     const { error } = await supabaseClient
@@ -335,16 +349,28 @@ function formatDate(dateString) {
 }
 
 async function publishAllDrafts() {
-    await Promise.all([
-        supabaseClient.from('hero').update({ is_published: true }).eq('is_published', false),
-        supabaseClient.from('actus').update({ is_published: true }).eq('is_published', false),
-        supabaseClient.from('emissions').update({ is_published: true }).eq('is_published', false),
-        supabaseClient.from('animateurs').update({ is_published: true }).eq('is_published', false)
-    ]);
+    if (appState.userRole === 'admin') {
+        await Promise.all([
+            supabaseClient.from('hero').update({ is_published: true }).eq('is_published', false),
+            supabaseClient.from('actus').update({ is_published: true }).eq('is_published', false),
+            supabaseClient.from('emissions').update({ is_published: true }).eq('is_published', false),
+            supabaseClient.from('animateurs').update({ is_published: true }).eq('is_published', false)
+        ]);
+    } else if (appState.userRole === 'journalist') {
+        await Promise.all([
+            supabaseClient.from('hero').update({ is_published: true }).eq('is_published', false),
+            supabaseClient.from('actus').update({ is_published: true }).eq('is_published', false)
+        ]);
+    }
     await fetchAllFromSupabase();
 }
 
 function openEditorModal(category, id = null) {
+    if (!canEditCategory(category)) {
+        alert("Vous n'avez pas la permission d'éditer cette section.");
+        return;
+    }
+
     selectedFile = null;
     const catInput = document.getElementById('editor-category');
     const idInput = document.getElementById('editor-item-id');
@@ -425,13 +451,19 @@ function initFileUploadDragAndDrop() {
    ========================================================================== */
 async function handleCardFormSubmit(e) {
     e.preventDefault();
+
+    const category = document.getElementById('editor-category')?.value;
+    if (!canEditCategory(category)) {
+        alert("Action non autorisée.");
+        return;
+    }
+
     const btnSave = document.getElementById('btn-save-card');
     if (btnSave) {
         btnSave.innerText = "Sauvegarde en cours...";
         btnSave.disabled = true;
     }
 
-    const category = document.getElementById('editor-category')?.value;
     const id = document.getElementById('editor-item-id')?.value;
     const title = document.getElementById('editor-title')?.value;
     const text = document.getElementById('editor-text')?.value;
@@ -465,14 +497,13 @@ async function handleCardFormSubmit(e) {
     const tableMap = { hero: 'hero', news: 'actus', shows: 'emissions', team: 'animateurs' };
     const tableName = tableMap[category] || 'actus';
 
-    // Détermination automatique du nom de l'admin
-    let authorDisplayName = "Hugo"; // Valeur par défaut si c'est toi
+    let authorDisplayName = "Hugo";
     if (appState.currentUser) {
         const email = (appState.currentUser.email || "").toLowerCase();
         if (email.includes("hugo")) {
             authorDisplayName = "Hugo";
         } else {
-            authorDisplayName = appState.currentUser.user_metadata?.full_name || email.split('@')[0] || "Admin";
+            authorDisplayName = appState.currentUser.user_metadata?.full_name || email.split('@')[0] || "Rédaction";
         }
     }
 
@@ -489,10 +520,8 @@ async function handleCardFormSubmit(e) {
 
     let dbResult;
     if (id) {
-        // En cas de modification, on ne touche pas à l'auteur d'origine
         dbResult = await supabaseClient.from(tableName).update(payload).eq('id', id);
     } else {
-        // En cas de création, on enregistre l'auteur et la date de création
         payload.author_name = authorDisplayName;
         payload.created_at = new Date().toISOString();
         dbResult = await supabaseClient.from(tableName).insert([payload]);
@@ -513,6 +542,12 @@ async function handleCardFormSubmit(e) {
 }
 
 async function deleteItem(tableName, id) {
+    const categoryMap = { 'hero': 'hero', 'actus': 'news', 'emissions': 'shows', 'animateurs': 'team' };
+    if (!canEditCategory(categoryMap[tableName] || tableName)) {
+        alert("Vous n'avez pas la permission de supprimer cet élément.");
+        return;
+    }
+
     if (confirm("Supprimer définitivement cet élément ?")) {
         const { error } = await supabaseClient.from(tableName).delete().eq('id', id);
         if (error) alert("Erreur : " + error.message);
@@ -633,15 +668,21 @@ async function logout() {
 
 function checkAdminRights(user) {
     if (!user) { 
-        if (typeof appState !== 'undefined') appState.editMode = false; 
+        if (typeof appState !== 'undefined') {
+            appState.editMode = false;
+            appState.userRole = 'member';
+        }
         return; 
     }
-    const role = user.user_metadata?.role;
+    
+    const role = user.user_metadata?.role || 'member';
     if (typeof appState !== 'undefined') {
-        appState.editMode = (role === 'admin');
+        appState.userRole = role;
+        appState.editMode = (role === 'admin' || role === 'journalist');
     }
-    document.body.classList.toggle('admin-logged-in', role === 'admin');
-    document.body.classList.toggle('edit-mode-active', role === 'admin');
+    
+    document.body.classList.toggle('admin-logged-in', role === 'admin' || role === 'journalist');
+    document.body.classList.toggle('edit-mode-active', role === 'admin' || role === 'journalist');
 }
 
 function updateAuthUI() {
@@ -650,10 +691,14 @@ function updateAuthUI() {
 
     if (appState && appState.currentUser) {
         const initial = appState.currentUser.email[0].toUpperCase();
+        let roleLabel = 'Membre';
+        if (appState.userRole === 'admin') roleLabel = 'Admin';
+        if (appState.userRole === 'journalist') roleLabel = 'Journaliste';
+
         profileZone.innerHTML = `
             <div class="user-badge-container" onclick="toggleAuthModal()" style="cursor:pointer; display:flex; align-items:center; gap:8px;" title="Cliquez pour vous déconnecter">
                 <div class="user-avatar" style="background-color: #E50914; color: #ffffff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">${initial}</div>
-                <span class="user-name-label">${appState.editMode ? 'Admin' : 'Membre'}</span>
+                <span class="user-name-label">${roleLabel}</span>
             </div>
         `;
     } else {
@@ -675,7 +720,7 @@ function closeModal(id) {
 }
 
 /* ==========================================================================
-   11. LECTEUR AUDIO & MÉTADONNÉES (STABLE & SANS PROXY EXTERNE)
+   11. LECTEUR AUDIO & MÉTADONNÉES
    ========================================================================== */
 function initRadioPlayer() {
     const audio = document.getElementById("radio-audio");
@@ -694,7 +739,6 @@ function initRadioPlayer() {
         currentShow.textContent = "En direct : Le meilleur du son !";
     }
 
-    // 1. GESTION DU PLAY / STOP
     playBtn.addEventListener("click", async () => {
         try {
             if (audio.paused) {
@@ -722,7 +766,6 @@ function initRadioPlayer() {
         }
     });
 
-    // 2. EFFET DÉFILEMENT TYPE "RADIO VOITURE"
     let animTimeout = null;
 
     function lancerDefilementVoiture(titre) {
@@ -754,7 +797,6 @@ function initRadioPlayer() {
         }, 1000);
     }
 
-    // 3. RÉCUPÉRATION DU TITRE (EN DIRECT SANS PROXY TIERS)
     async function updateCurrentTitle() {
         try {
             const response = await fetch(`${STATS_URL}?nocache=${Date.now()}`);
@@ -791,7 +833,6 @@ function initRadioPlayer() {
             }
 
         } catch (error) {
-            // Si le navigateur bloque l'accès direct (CORS strict), on affiche un titre par défaut propre sans planter
             lancerDefilementVoiture("VAFM – En Direct");
         }
     }
