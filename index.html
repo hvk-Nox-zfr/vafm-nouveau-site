@@ -24,11 +24,50 @@
     </div>
 
     <!-- BARRE D'ADMINISTRATION SUPERIEURE -->
+    <!-- BARRE D'ADMINISTRATION SUPERIEURE -->
     <div id="admin-top-bar" class="admin-top-bar" style="display: none;">
-        <div class="admin-bar-content">
-            <span class="admin-status">MODE ÉDITION ACTIF</span>
-            <div class="admin-actions">
-                <button class="btn-publish-all" onclick="publishAllDrafts()">🚀 Tout publier</button>
+        <span class="admin-status">MODE ÉDITION ACTIF</span>
+        
+        <div class="admin-actions">
+            <!-- MENU DÉROULANT DE PUBLICATION -->
+            <div class="publish-dropdown-container">
+                <button id="publishDropdownBtn" class="publish-dropdown-btn" onclick="togglePublishMenu(event)">
+                    <span>Publier</span>
+                    <svg class="dropdown-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="18 15 12 9 6 15"></polyline>
+                    </svg>
+                </button>
+
+                <div id="publishMenu" class="publish-menu">
+                    <div class="publish-menu-header">PUBLICATION PAR SECTION</div>
+                    
+                    <div class="publish-menu-item">
+                        <span>News (Carrousel)</span>
+                        <button type="button" class="btn-publish-section" onclick="handleSectionPublish(event, 'hero')">Publier</button>
+                    </div>
+                    
+                    <div class="publish-menu-item">
+                        <span>Actualités</span>
+                        <button type="button" class="btn-publish-section" onclick="handleSectionPublish(event, 'news')">Publier</button>
+                    </div>
+                    
+                    <div class="publish-menu-item">
+                        <span>Émissions</span>
+                        <button type="button" class="btn-publish-section" onclick="handleSectionPublish(event, 'shows')">Publier</button>
+                    </div>
+                    
+                    <div class="publish-menu-item">
+                        <span>Animateurs</span>
+                        <button type="button" class="btn-publish-section" onclick="handleSectionPublish(event, 'team')">Publier</button>
+                    </div>
+
+                    <div class="publish-menu-divider"></div>
+
+                    <div class="publish-menu-item">
+                        <span>Tout le site</span>
+                        <button type="button" class="btn-publish-all" onclick="handlePublishAll(event)">Tout publier</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

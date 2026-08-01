@@ -235,7 +235,7 @@ function renderAll() {
 
         gridElement.innerHTML = dataArray.map((item) => {
             const cleanText = stripHTML(item.text);
-            const truncatedText = cleanText.length > 120 ? cleanText.substring(0, 120) + '...' : cleanText;
+            const truncatedText = cleanText.length > 50 ? cleanText.substring(0, 50) + '...' : cleanText;
 
             return `
             <div class="card ${!item.is_published ? 'draft-card' : ''} ${canEditThisCategory ? 'draggable-card' : ''}" data-id="${item.id}" onclick="openArticleView('${category}', '${item.id}')">
@@ -861,4 +861,148 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', setupPlayerCollapse);
 } else {
     setupPlayerCollapse();
+}
+
+// Gérer l'ouverture / fermeture du menu déroulant
+function togglePublishMenu(event) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    const container = document.querySelector('.publish-dropdown-container');
+    if (container) {
+        container.classList.toggle('open');
+    }
+}
+
+function handleSectionPublish(event, category) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    
+    // Déclenche la vraie publication Supabase
+    publishSection(category);
+
+    // Ferme le menu déroulant
+    const container = document.querySelector('.publish-dropdown-container');
+    if (container) container.classList.remove('open');
+}
+
+function handlePublishAll(event) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+
+    // Déclenche la publication globale
+    publishAllDrafts();
+
+    const container = document.querySelector('.publish-dropdown-container');
+    if (container) container.classList.remove('open');
+}
+
+// Dictionnaire des tables
+const TABLE_MAPPING = {
+    'hero': 'hero',
+    'news': 'actus',
+    'shows': 'emissions',
+    'team': 'animateurs'
+};
+
+// Fonction pour récupérer le bon client Supabase
+function getSupabaseClient() {
+    // 1. Si tu as une variable globale dédiée (ex: supabaseClient ou _supabase)
+    if (typeof supabaseClient !== 'undefined') return supabaseClient;
+    if (typeof _supabase !== 'undefined') return _supabase;
+    if (typeof db !== 'undefined') return db;
+    
+    // 2. Si ta variable s'appelle supabase et qu'elle possède la méthode .from
+    if (typeof supabase !== 'undefined' && typeof supabase.from === 'function') {
+        return supabase;
+    }
+
+    console.error("[VAFM] Impossible de trouver l'client Supabase initialisé !");
+    return null;
+}
+
+async function publishSection(category) {
+    try {
+        const client = getSupabaseClient();
+        
+        if (!client) {
+            alert("Erreur : Le client Supabase n'est pas initialisé correctement.");
+            return;
+        }
+
+        const tableName = TABLE_MAPPING[category] || category;
+        console.log(`[VAFM] Tentative de publication sur la table : ${tableName}`);
+
+        // Construction de la requête selon le type d'ID
+        let query = client.from(tableName).update({ is_published: true });
+
+        if (tableName === 'emissions') {
+            query = query.neq('id', '00000000-0000-0000-0000-000000000000');
+        } else {
+            query = query.neq('id', 0);
+        }
+
+        const { data, error } = await query.select();
+
+        if (error) {
+            console.error(`[VAFM Erreur Supabase] ${tableName} :`, error);
+            alert(`Erreur Supabase : ${error.message}`);
+            return;
+        }
+
+        console.log(`[VAFM Succès] Lignes modifiées dans ${tableName} :`, data);
+
+        if (!data || data.length === 0) {
+            alert(`⚠️ 0 élément modifié. Pense à vérifier la règle RLS (UPDATE) sur la table "${tableName}" dans Supabase.`);
+        } else {
+            alert(`La section "${category.toUpperCase()}" a été publiée (${data.length} élément(s) mis à jour) ! 🚀`);
+            
+            if (typeof loadCards === 'function') {
+                loadCards(); 
+            } else {
+                location.reload();
+            }
+        }
+
+    } catch (err) {
+        console.error("[VAFM Erreur Inattendue]", err);
+    }
+}
+// Fonction pour Tout Publier
+async function publishAllDrafts() {
+    try {
+        const tables = ['hero', 'actus', 'emissions', 'animateurs'];
+
+        const promises = tables.map(table => 
+            supabase
+                .from(table)
+                .update({ is_published: true })
+                .not('id', 'is', null)
+        );
+
+        const results = await Promise.all(promises);
+        const errorResult = results.find(res => res.error);
+
+        if (errorResult) {
+            console.error("Erreur publication globale :", errorResult.error);
+            alert(`Erreur : ${errorResult.error.message || 'Problème de droits RLS Supabase'}`);
+            return;
+        }
+
+        alert("Tout le site a été publié avec succès ! 🔥");
+
+        if (typeof loadCards === 'function') {
+            loadCards();
+        } else {
+            location.reload();
+        }
+
+    } catch (err) {
+        console.error("Erreur inattendue :", err);
+    }
 }

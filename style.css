@@ -87,124 +87,229 @@ body:not(.is-admin) .carousel-item {
 }
 
 /* ==========================================================================
-   3. PANNEAU & BARRE TECHNIQUE ADMIN
+   BARRE ADMIN - DESIGN MINIMALISTE & MENU DÉROULANT
    ========================================================================== */
 .admin-top-bar {
     display: none;
-    background: #121212;
-    color: #fff;
-    padding: 12px 5%;
+    position: sticky;
+    top: 0;
+    z-index: 9999;
+    background: #0a0a0a !important; /* Noir profond mat */
+    border-bottom: 1px solid #222222 !important; /* Ligne de séparation très fine */
+    color: #ededed !important;
+    padding: 10px 5% !important;
     justify-content: space-between;
     align-items: center;
-    font-size: 14px;
-    font-weight: 600;
-    border-bottom: 2px solid var(--accent);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    box-shadow: none !important;
 }
 
 body.admin-logged-in .admin-top-bar { 
-    display: flex; 
+    display: flex !important; 
 }
 
-.admin-actions { 
-    display: flex; 
-    align-items: center; 
-    gap: 12px; 
+/* Texte de statut sobre avec petit point mat */
+.admin-top-bar .admin-status {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.5px !important;
+    text-transform: uppercase !important;
+    color: #a1a1aa !important; /* Gris sobre */
 }
 
-.switch { 
-    position: relative; 
-    display: inline-block; 
-    width: 50px; 
-    height: 26px; 
+/* Petit point rouge discret (non animé) */
+.admin-top-bar .admin-status::before {
+    content: '' !important;
+    display: inline-block !important;
+    width: 6px !important;
+    height: 6px !important;
+    background-color: #e50914 !important;
+    border-radius: 50% !important;
+    box-shadow: none !important;
 }
 
-.switch input { 
-    opacity: 0; 
-    width: 0; 
-    height: 0; 
+.admin-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
-.slider { 
-    position: absolute; 
-    cursor: pointer; 
-    top: 0; left: 0; right: 0; bottom: 0; 
-    background-color: #3a3a3c; 
-    transition: .4s; 
+/* --- DROPDOWN PUBLICATION --- */
+.publish-dropdown-container {
+    position: relative;
+    display: inline-block;
 }
 
-.slider:before { 
-    position: absolute; 
-    content: ""; 
-    height: 18px; width: 18px; 
-    left: 4px; bottom: 4px; 
-    background-color: white; 
-    transition: .4s; 
+/* Bouton déclencheur */
+.publish-dropdown-btn {
+    background: #18181b !important;
+    color: #ffffff !important;
+    border: 1px solid #27272a !important;
+    padding: 6px 14px !important;
+    border-radius: 6px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    transition: all 0.2s ease !important;
 }
 
-input:checked + .slider { 
-    background-color: #34c759; 
+.publish-dropdown-btn:hover {
+    background: #27272a !important;
+    border-color: #3f3f46 !important;
 }
 
-input:checked + .slider:before { 
-    transform: translateX(24px); 
+/* Animation de la flèche (Pointe vers le haut par défaut, tourne vers le bas au clic) */
+.dropdown-arrow {
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.slider.round { 
-    border-radius: 34px; 
+.publish-dropdown-container.open .dropdown-arrow {
+    transform: rotate(180deg);
 }
 
-.slider.round:before { 
-    border-radius: 50%; 
+/* Menu déroulant */
+.publish-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 230px;
+    background: #09090b;
+    border: 1px solid #27272a;
+    border-radius: 8px;
+    padding: 6px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    z-index: 10000;
 }
 
-.admin-editable-ui { 
-    display: none !important; 
+.publish-dropdown-container.open .publish-menu {
+    display: block !important;
+    animation: fadeInMenu 0.15s ease-out;
 }
 
-body.edit-mode-active .admin-editable-ui { 
-    display: block !important; 
+@keyframes fadeInMenu {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-body.edit-mode-active [contenteditable="true"] { 
-    border: 2px dashed var(--accent) !important; 
-    background: rgba(230, 30, 42, 0.02); 
-    padding: 4px; 
+.publish-menu-header {
+    padding: 6px 8px 4px 8px;
+    font-size: 9px;
+    font-weight: 700;
+    color: #71717a;
+    letter-spacing: 0.8px;
 }
 
-.add-btn { 
-    background: #000; 
-    color: #fff; 
-    border: none; 
-    padding: 10px 20px; 
-    border-radius: 8px; 
-    cursor: pointer; 
-    font-weight: 700; 
-    font-size: 13px; 
+.publish-menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border-radius: 5px;
+    font-size: 12px;
+    color: #e4e4e7;
 }
 
-.hero-add { 
-    position: absolute; 
-    bottom: 30px; 
-    right: 5%; 
-    z-index: 10; 
+.publish-menu-item:hover {
+    background: rgba(255, 255, 255, 0.04);
 }
 
-.delete-card-btn { 
-    position: absolute; 
-    top: 15px; right: 15px; 
-    background: rgba(255,255,255,0.9); 
-    border: none; 
-    width: 32px; height: 32px; 
-    border-radius: 50%; 
-    color: var(--accent); 
-    font-weight: bold; 
-    cursor: pointer; 
-    z-index: 5; 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
+.publish-menu-divider {
+    height: 1px;
+    background: #27272a;
+    margin: 4px 0;
 }
 
+/* Boutons dans le menu */
+.btn-publish-section {
+    background: #27272a !important;
+    color: #ffffff !important;
+    border: none !important;
+    padding: 4px 10px !important;
+    border-radius: 4px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    transition: background 0.15s ease !important;
+}
+
+.btn-publish-section:hover {
+    background: #e50914 !important; /* Passe au rouge au survol */
+}
+
+.btn-publish-all {
+    background: #e50914 !important;
+    color: #ffffff !important;
+    border: none !important;
+    padding: 4px 10px !important;
+    border-radius: 4px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+}
+
+.btn-publish-all:hover {
+    background: #b20710 !important;
+}
+
+/* ==========================================================================
+   BOUTONS D'AJOUT DANS LES SECTIONS (+ Ajouter un membre / article / etc.)
+   ========================================================================== */
+
+/* Masquer tous les boutons UI admin par défaut si l'utilisateur n'est pas connecté */
+.admin-editable-ui {
+    display: none !important;
+}
+
+/* Affichage lorsque la classe admin-logged-in est sur <body> */
+body.admin-logged-in .admin-editable-ui {
+    display: inline-flex !important;
+}
+
+.add-btn {
+    align-items: center !important;
+    justify-content: center !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border: 1px solid #e4e4e7 !important;
+    padding: 8px 16px !important;
+    border-radius: 8px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+    transition: all 0.2s ease !important;
+    text-decoration: none !important;
+}
+
+.add-btn:hover {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    border-color: #000000 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Placement spécifique pour le bouton "+ Ajouter une slide" dans le Carrousel */
+.hero-section {
+    position: relative;
+}
+
+body.admin-logged-in .hero-add {
+    display: inline-flex !important;
+    position: absolute !important;
+    bottom: 25px !important; /* Positionné en bas */
+    right: 25px !important;  /* Positionné à droite */
+    z-index: 50 !important;  /* Au-dessus des éléments du carrousel */
+}
 /* ==========================================================================
    HEADER & NAVIGATION - EFFET SURVOL ROUGE (HOVER)
    ========================================================================== */
