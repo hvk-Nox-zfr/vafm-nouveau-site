@@ -23,17 +23,17 @@ async function openArticleView(category, id) {
         return;
     }
 
-    const tableMap = { hero: 'hero', news: 'actus', actus: 'actus' };
-    const tableName = tableMap[category] || 'actus';
+    const collectionMap = { hero: 'hero', news: 'actus', actus: 'actus' };
+    const collectionName = collectionMap[category] || 'actus';
 
-    const { data, error } = await supabaseClient
-        .from(tableName)
-        .select('*')
-        .eq('id', id)
-        .single();
-
-    if (error || !data) {
-        console.error("Erreur de chargement Supabase:", error);
+    // Fetch PocketBase au lieu de Supabase
+    let data = null;
+    try {
+        const response = await fetch(`${POCKETBASE_URL}/api/collections/${collectionName}/records/${id}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        data = await response.json();
+    } catch (err) {
+        console.error("Erreur de chargement PocketBase:", err);
         alert("Impossible de charger cet article.");
         return;
     }
@@ -50,7 +50,7 @@ async function openArticleView(category, id) {
     const authorName = data.author_name || (data.author_email && data.author_email.toLowerCase().includes('hugo') ? 'Hugo' : 'Hugo');
 
     let publicationText = "Non publié (Brouillon)";
-    const dateSource = data.published_at || data.created_at;
+    const dateSource = data.published_at || data.created || data.created_at;
 
     if (dateSource && isPublished) {
         const dateObj = new Date(dateSource);
@@ -330,7 +330,7 @@ async function openArticleView(category, id) {
                     <div class="vafm-tb-divider"></div>
 
                     <!-- Publication & Actions -->
-                    <button class="vafm-tb-btn ${isPublished ? 'status-published' : 'status-draft'}" data-label="${isPublished ? 'Passer en brouillon' : 'Publier l\'article'}" onclick="handleTogglePublishInStudio('${tableName}', '${id}', ${isPublished}, '${category}')">
+                    <button class="vafm-tb-btn ${isPublished ? 'status-published' : 'status-draft'}" data-label="${isPublished ? 'Passer en brouillon' : 'Publier l\'article'}" onclick="handleTogglePublishInStudio('${collectionName}', '${id}', ${isPublished}, '${category}')">
                         ${isPublished 
                             ? `<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`
                             : `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
@@ -339,7 +339,7 @@ async function openArticleView(category, id) {
 
                     <div class="vafm-tb-divider"></div>
 
-                    <button class="vafm-tb-btn btn-save" data-label="Enregistrer" onclick="saveCanvaArticle('${tableName}', '${id}')">
+                    <button class="vafm-tb-btn btn-save" data-label="Enregistrer" onclick="saveCanvaArticle('${collectionName}', '${id}')">
                         <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                     </button>
                     <button class="vafm-tb-btn btn-delete" data-label="Supprimer la sélection" onclick="deleteSelectedElement()">
@@ -387,7 +387,7 @@ function initDynamicTooltips() {
     const buttons = document.querySelectorAll('.vafm-tb-btn[data-label]');
 
     buttons.forEach(btn => {
-        btn.addEventListener('mouseenter', (e) => {
+        btn.addEventListener('mouseenter', () => {
             const label = btn.getAttribute('data-label');
             if (!label) return;
 
@@ -642,25 +642,22 @@ function addLinkToSelection() {
     }
 }
 
-async function handleTogglePublishInStudio(tableName, id, currentStatus, category) {
+async function handleTogglePublishInStudio(collectionName, id, currentStatus, category) {
     const nextStatus = !currentStatus;
-    
-    let updateData = {
-        is_published: nextStatus
-    };
 
-    const { error } = await supabaseClient
-        .from(tableName)
-        .update(updateData)
-        .eq('id', id);
+    try {
+        const response = await fetch(`${POCKETBASE_URL}/api/collections/${collectionName}/records/${id}`, {
+            method: 'PATCH',
+            headers: getAuthHeaders(true),
+            body: JSON.stringify({ is_published: nextStatus })
+        });
 
-    if (error) {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        await openArticleView(category, id);
+    } catch (error) {
         console.error("Erreur lors du changement de statut de publication:", error);
         alert("Impossible de modifier le statut de publication : " + error.message);
-        return;
     }
-
-    await openArticleView(category, id);
 }
 
 function closeArticleView() {
@@ -685,7 +682,7 @@ window.addEventListener('popstate', (e) => {
 });
 
 /* --------------------------------------------------------------------------
-   5. AJOUT DE BLOCS ET SAUVEGARDE
+   5. AJOUT DE BLOCS ET SAUVEGARDE (POCKETBASE)
    -------------------------------------------------------------------------- */
 function addCanvaBlock(type = 'p') {
     const contentBox = document.getElementById('canva-doc-content');
@@ -744,14 +741,13 @@ function handleCanvaImageUpload(event) {
             }
         }
 
-        event.target.value = '';
         initCanvaInteractions();
     };
     
     reader.readAsDataURL(file);
 }
 
-async function saveCanvaArticle(tableName, id) {
+async function saveCanvaArticle(collectionName, id) {
     try {
         const titleElement = document.getElementById('canva-doc-title');
         const title = titleElement ? titleElement.innerText.trim() : '';
@@ -763,25 +759,9 @@ async function saveCanvaArticle(tableName, id) {
         }
 
         const fileInput = document.getElementById('canva-file-input');
-        let newUploadedUrl = null;
+        const hasNewFile = fileInput && fileInput.files && fileInput.files[0];
 
-        if (fileInput && fileInput.files && fileInput.files[0]) {
-            const file = fileInput.files[0];
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Date.now()}.${fileExt}`;
-
-            const { error: uploadError } = await supabaseClient.storage
-                .from('uploads')
-                .upload(fileName, file);
-
-            if (!uploadError) {
-                const { data: publicUrlData } = supabaseClient.storage
-                    .from('uploads')
-                    .getPublicUrl(fileName);
-                newUploadedUrl = publicUrlData.publicUrl;
-            }
-        }
-
+        // Nettoyage des éléments d'édition Canva
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = contentBox.innerHTML;
 
@@ -797,11 +777,11 @@ async function saveCanvaArticle(tableName, id) {
 
         const content = tempDiv.innerHTML.trim();
 
-        const realTable = (tableName === 'news' || tableName === 'actus') ? 'actus' : tableName;
-
-        const titleCol = 'titre';
-        const textCol = 'texte';
-        const imgCol = 'imageUrl';
+        // 1. Détermination exacte de la collection PocketBase
+        let realCollection = collectionName;
+        if (collectionName === 'news' || collectionName === 'article') {
+            realCollection = 'actus';
+        }
 
         let authorDisplayName = "Hugo";
         if (window.appState && window.appState.currentUser) {
@@ -809,42 +789,89 @@ async function saveCanvaArticle(tableName, id) {
             if (email.includes("hugo")) {
                 authorDisplayName = "Hugo";
             } else {
-                authorDisplayName = window.appState.currentUser.user_metadata?.full_name || email.split('@')[0] || "Admin";
+                authorDisplayName = window.appState.currentUser.name || email.split('@')[0] || "Admin";
             }
         }
 
-        const payload = {
-            [titleCol]: title,
-            [textCol]: content
-        };
-
-        if (!currentArticleData || !currentArticleData.author_name) {
-            payload.author_name = authorDisplayName;
+        // 2. Token & Headers d'authentification
+        const token = getAuthToken ? getAuthToken() : (window.appState?.pbToken || (localStorage.getItem('pocketbase_auth') ? JSON.parse(localStorage.getItem('pocketbase_auth')).token : null));
+        
+        let headers = {};
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
         }
 
-        if (newUploadedUrl) {
-            payload[imgCol] = newUploadedUrl;
-        }
+        let bodyPayload;
 
-        const { error } = await supabaseClient
-            .from(realTable)
-            .update(payload)
-            .eq('id', id);
+        // 3. Choix entre Multipart (FormData) et JSON
+        if (hasNewFile) {
+            const formData = new FormData();
+            formData.append('titre', title);
+            formData.append('title', title);
+            formData.append('texte', content);
+            formData.append('contenu', content);
+            formData.append('description', content);
 
-        if (error) {
-            console.error("Erreur Supabase Update:", error);
-            alert(`Erreur de sauvegarde : ` + error.message);
+            if (!currentArticleData || !currentArticleData.author_name) {
+                formData.append('author_name', authorDisplayName);
+            }
+
+            formData.append('image', fileInput.files[0]);
+            bodyPayload = formData;
+            // Note: Ne SURTOUT PAS définir Content-Type pour FormData, le navigateur gère le multipart/form-data boundary
         } else {
-            alert("✨ Enregistré avec succès !");
-            if (fileInput) fileInput.value = '';
-            
-            if (typeof fetchAllFromSupabase === 'function') {
-                await fetchAllFromSupabase();
+            headers['Content-Type'] = 'application/json';
+            const jsonBody = {
+                titre: title,
+                title: title,
+                texte: content,
+                contenu: content,
+                description: content
+            };
+
+            if (!currentArticleData || !currentArticleData.author_name) {
+                jsonBody.author_name = authorDisplayName;
             }
+
+            bodyPayload = JSON.stringify(jsonBody);
         }
+
+        // 4. Envoi de la requête PATCH à PocketBase
+        const response = await fetch(`${POCKETBASE_URL}/api/collections/${realCollection}/records/${id}`, {
+            method: 'PATCH',
+            headers: headers,
+            body: bodyPayload
+        });
+
+        if (!response.ok) {
+            const errJson = await response.json().catch(() => ({}));
+            
+            // Formatage propre du message d'erreur retourné par PocketBase
+            let detailMsg = errJson.message || `Erreur HTTP ${response.status}`;
+            if (errJson.data) {
+                const details = Object.entries(errJson.data)
+                    .map(([field, err]) => `- ${field}: ${err.message || err.code}`)
+                    .join('\n');
+                if (details) detailMsg += `:\n${details}`;
+            }
+            throw new Error(detailMsg);
+        }
+
+        const updatedRecord = await response.json();
+        currentArticleData = updatedRecord;
+
+        alert("✨ Article enregistré avec succès !");
+        
+        if (fileInput) fileInput.value = '';
+        
+        // Rafraîchir les données globales du site
+        if (typeof fetchAllFromPocketBase === 'function') {
+            await fetchAllFromPocketBase();
+        }
+
     } catch (err) {
-        console.error("Erreur inattendue durant la sauvegarde:", err);
-        alert("Une erreur est survenue : " + err.message);
+        console.error("Erreur durant la sauvegarde PocketBase:", err);
+        alert("Une erreur est survenue lors de la sauvegarde :\n" + err.message);
     }
 }
 

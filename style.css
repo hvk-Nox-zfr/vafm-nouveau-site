@@ -1602,3 +1602,44 @@ height: 180px !important; /* Ajuste la hauteur du logo */
     color: #e50914; /* Rouge VAFM */
     font-weight: 500;
 }
+
+/* 1. Assurer le positionnement du conteneur */
+.publish-dropdown-container {
+    position: relative !important;
+    display: inline-block;
+}
+
+/* 2. Style par défaut du menu (caché) */
+.publish-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 220px;
+    background-color: #18181c;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    padding: 10px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    z-index: 999999;
+}
+
+/* 3. QUAND LE MENU EST ACTIF (Force l'affichage) */
+.publish-menu.active {
+    display: flex !important;
+    flex-direction: column;
+    gap: 8px;
+    animation: fadeInMenu 0.15s ease-out;
+}
+
+/* Petite animation fluide (optionnel) */
+@keyframes fadeInMenu {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
