@@ -698,10 +698,13 @@ function closeArticleView() {
         articleContainer.innerHTML = '';
     }
     
+    // Réaffiche impérativement le contenu principal de l'accueil
     const mainContent = document.getElementById('content');
-    if (mainContent) mainContent.style.display = 'block';
+    if (mainContent) {
+        mainContent.style.display = 'block';
+    }
     
-    // Remet proprement l'URL de l'accueil dans le navigateur
+    // Remet proprement l'URL de la racine dans le navigateur
     history.pushState({ page: 'home' }, '', '/');
 }
 
