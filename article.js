@@ -701,7 +701,8 @@ function closeArticleView() {
     const mainContent = document.getElementById('content');
     if (mainContent) mainContent.style.display = 'block';
     
-    history.pushState({ page: 'home' }, '', window.location.pathname);
+    // Remet proprement l'URL de l'accueil dans le navigateur
+    history.pushState({ page: 'home' }, '', '/');
 }
 
 window.addEventListener('popstate', (e) => {
