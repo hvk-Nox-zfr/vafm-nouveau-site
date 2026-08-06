@@ -228,6 +228,22 @@ async function fetchAllFromPocketBase() {
 6. RENDU DU CARROUSEL, GRILLES & VIDÉOS
 ========================================================================== */
 
+document.addEventListener('DOMContentLoaded', () => {
+    // Intercepte le clic sur le lien "Accueil" du menu
+    const homeLinks = document.querySelectorAll('a[href="#home"], .nav-home, nav a');
+    homeLinks.forEach(link => {
+        if (link.textContent.trim().toLowerCase() === 'accueil') {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (typeof closeArticleView === 'function') {
+                    closeArticleView(); // Ferme l'article et remet l'URL à "/"
+                }
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        }
+    });
+});
+
 function togglePublishMenu(event) {
   if (event) event.stopPropagation();
   const container = document.querySelector('.publish-dropdown-container');
