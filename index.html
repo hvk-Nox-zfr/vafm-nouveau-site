@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8497430727637938"
      crossorigin="anonymous"></script>
@@ -198,6 +197,16 @@
             <div class="grid" id="news-grid"></div>
         </section>
 
+        <section class="section" id="videos">
+            <div class="section-header">
+                <h2>Vidéos</h2>
+                <button class="admin-editable-ui add-btn" onclick="openEditorModal('videos')">+ Ajouter une vidéo</button>
+            </div>
+            <div class="vafm-videos-container" id="vafm-dynamic-videos-container">
+                <!-- Les vidéos s'afficheront ici automatiquement -->
+            </div>
+        </section>
+
         <section class="section alt-bg" id="emissions">
             <div class="section-header">
                 <h2>Grille des Émissions</h2>
@@ -245,14 +254,6 @@
                 <svg class="icon-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                 <svg class="icon-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
             </button>
-        </div>
-
-        <div class="player-right">
-            <div class="style-selector">
-                <div class="style-bar" onclick="changeStyle('minimal')"></div>
-                <div class="style-bar" onclick="changeStyle('classic')"></div>
-                <div class="style-bar" onclick="changeStyle('modern')"></div>
-            </div>
         </div>
     </footer>
 

@@ -26,10 +26,10 @@ async function openArticleView(category, id) {
     const collectionMap = { hero: 'hero', news: 'actus', actus: 'actus' };
     const collectionName = collectionMap[category] || 'actus';
 
-    // Fetch PocketBase au lieu de Supabase
+    // Fetch PocketBase
     let data = null;
     try {
-        const response = await fetch(`${POCKETBASE_URL}/api/collections/${collectionName}/records/${id}`);
+        const response = await fetch(`${POCKETBASE_URL}/api/collections/${collectionName}/records/${id}?expand=author,user,user_id`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         data = await response.json();
     } catch (err) {
@@ -46,8 +46,22 @@ async function openArticleView(category, id) {
     const rawText = data.texte || data.contenu || data.description || '';
     const isPublished = Boolean(data.is_published);
     
-    // Détermination de l'auteur
-    const authorName = data.author_name || (data.author_email && data.author_email.toLowerCase().includes('hugo') ? 'Hugo' : 'Hugo');
+// On lit uniquement ce qui est enregistré dans la base de données pour cet article
+    let authorName = data.name || 
+                     data.author_name || 
+                     data.expand?.author?.name || 
+                     data.expand?.user?.name || 
+                     data.expand?.user_id?.name;
+
+    // Valeur de secours si l'article n'a aucun auteur en base
+    if (!authorName || authorName.trim() === '') {
+        authorName = 'Équipe VAFM';
+    }
+
+    // Capitalisation propre de la première lettre
+    if (authorName && authorName !== 'Équipe VAFM') {
+        authorName = authorName.charAt(0).toUpperCase() + authorName.slice(1);
+    }
 
     let publicationText = "Non publié (Brouillon)";
     const dateSource = data.published_at || data.created || data.created_at;
@@ -157,7 +171,6 @@ async function openArticleView(category, id) {
                 transform: translateY(-2px) !important;
             }
 
-            /* --- STYLE DU TOOLTIP POPUP DYNAMIQUE --- */
             .vafm-dynamic-tooltip {
                 position: fixed;
                 background: #000000;
@@ -176,9 +189,7 @@ async function openArticleView(category, id) {
                 transition: opacity 0.15s ease;
             }
 
-            .vafm-dynamic-tooltip.visible {
-                opacity: 1;
-            }
+            .vafm-dynamic-tooltip.visible { opacity: 1; }
 
             .vafm-tb-btn.status-published { color: #34c759 !important; }
             .vafm-tb-btn.status-draft { color: #ff9500 !important; }
@@ -188,7 +199,22 @@ async function openArticleView(category, id) {
 
             .canva-layout { width: 100% !important; min-height: 100vh !important; display: flex !important; flex-direction: column !important; }
             .canva-workspace { width: 100% !important; min-height: 100vh !important; padding: 0 !important; margin: 0 !important; box-sizing: border-box !important; background-color: #f4f4f7 !important; display: flex !important; justify-content: center !important; }
-            .canva-document { width: 100% !important; max-width: 850px !important; min-height: 100vh !important; margin: 0 auto !important; background: #ffffff !important; padding: 40px 50px 180px 50px !important; box-sizing: border-box !important; border-left: 1px solid #e0e0e8 !important; border-right: 1px solid #e0e0e8 !important; box-shadow: -15px 0 25px -10px rgba(0, 0, 0, 0.07), 15px 0 25px -10px rgba(0, 0, 0, 0.07) !important; position: relative; }
+            .canva-document { 
+                width: 100% !important; 
+                max-width: 850px !important; 
+                min-height: 100vh !important; 
+                margin: 0 auto !important; 
+                background: #ffffff !important; 
+                padding: 40px 50px 180px 50px !important; 
+                box-sizing: border-box !important; 
+                border-left: 1px solid #e0e0e8 !important; 
+                border-right: 1px solid #e0e0e8 !important; 
+                box-shadow: -15px 0 25px -10px rgba(0, 0, 0, 0.07), 15px 0 25px -10px rgba(0, 0, 0, 0.07) !important; 
+                position: relative; 
+                /* 👇 AJOUTE CES LIGNES ICI POUR FORCER LE RETOUR À LA LIGNE 👇 */
+                overflow-wrap: break-word !important;
+                word-break: break-word !important;
+            }
 
             .canva-document a { color: #E50914 !important; text-decoration: underline !important; font-weight: 600; cursor: pointer; }
 
@@ -217,6 +243,8 @@ async function openArticleView(category, id) {
                 border-radius: 8px;
                 cursor: grab;
                 transition: border-color 0.15s ease, box-shadow 0.15s ease;
+                overflow-wrap: break-word !important;
+                word-break: break-word !important;
             }
 
             .canva-admin-active .canva-block:hover { border-color: rgba(229, 9, 20, 0.4); }
@@ -229,7 +257,6 @@ async function openArticleView(category, id) {
                 box-shadow: 0 0 8px rgba(229, 9, 20, 0.8); transition: all 0.1s ease; pointer-events: none; clear: both;
             }
 
-            /* --- ALIGNEMENT & TAILLES DES IMAGES/PUBS --- */
             .canva-block.img-left { float: left !important; margin-right: 20px !important; margin-bottom: 15px !important; clear: left; }
             .canva-block.img-right { float: right !important; margin-left: 20px !important; margin-bottom: 15px !important; clear: right; }
             .canva-block.img-center { float: none !important; margin-left: auto !important; margin-right: auto !important; margin-top: 20px !important; margin-bottom: 20px !important; clear: both; }
@@ -255,7 +282,7 @@ async function openArticleView(category, id) {
                 <article class="canva-document">
                     <header class="canva-header-fixed">
                         <span class="article-category-badge" style="display:inline-block; padding:4px 12px; background:#f0f0f5; border-radius:20px; font-weight:700; font-size:0.75rem; text-transform:uppercase; margin-bottom:15px;">news</span>
-                        <h1 class="article-title" id="canva-doc-title" ${isAdmin ? 'contenteditable="true"' : ''} style="font-size: 2.5rem; font-weight: 800; margin-bottom: 10px; outline: none;">${title}</h1>
+                        <h1 class="article-title" id="canva-doc-title" ${isAdmin ? 'contenteditable="true"' : ''} style="font-size: 2.5rem; font-weight: 800; margin-bottom: 10px; outline: none; word-break: break-word;">${title}</h1>
                         <div class="article-meta" style="color: #8e8e93; font-size:0.85rem;">
                             <div class="article-date">${publicationText}</div>
                             ${authorName ? `<div class="article-author-info">Par <span>${authorName}</span></div>` : ''}
@@ -272,7 +299,6 @@ async function openArticleView(category, id) {
                 <div class="vafm-player-toolbar">
                     <span class="vafm-tb-label">Studio</span>
 
-                    <!-- Formats de texte -->
                     <button class="vafm-tb-btn" data-label="Gras" onclick="applyFormat('bold')">
                         <svg viewBox="0 0 24 24"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg>
                     </button>
@@ -288,7 +314,6 @@ async function openArticleView(category, id) {
 
                     <div class="vafm-tb-divider"></div>
 
-                    <!-- Ajout de blocs -->
                     <button class="vafm-tb-btn" data-label="Ajouter Paragraphe" onclick="addCanvaBlock('p')">
                         <svg viewBox="0 0 24 24"><path d="M13 4v16"/><path d="M17 4v16"/><path d="M19 4H9.5a4.5 4.5 0 0 0 0 9H13"/></svg>
                     </button>
@@ -308,7 +333,6 @@ async function openArticleView(category, id) {
 
                     <div class="vafm-tb-divider"></div>
 
-                    <!-- Alignement -->
                     <button class="vafm-tb-btn" data-label="Aligner à Gauche" onclick="setBlockPosition('left')">
                         <svg viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="16" rx="1"/><line x1="15" y1="6" x2="21" y2="6"/><line x1="15" y1="10" x2="21" y2="10"/><line x1="15" y1="14" x2="21" y2="14"/></svg>
                     </button>
@@ -321,7 +345,6 @@ async function openArticleView(category, id) {
 
                     <div class="vafm-tb-divider"></div>
 
-                    <!-- Changement de taille -->
                     <button class="vafm-tb-btn" data-label="Taille Petite (30%)" onclick="setBlockSize('sm')">S</button>
                     <button class="vafm-tb-btn" data-label="Taille Moyenne (50%)" onclick="setBlockSize('md')">M</button>
                     <button class="vafm-tb-btn" data-label="Taille Grande (75%)" onclick="setBlockSize('lg')">L</button>
@@ -329,7 +352,6 @@ async function openArticleView(category, id) {
 
                     <div class="vafm-tb-divider"></div>
 
-                    <!-- Publication & Actions -->
                     <button class="vafm-tb-btn ${isPublished ? 'status-published' : 'status-draft'}" data-label="${isPublished ? 'Passer en brouillon' : 'Publier l\'article'}" onclick="handleTogglePublishInStudio('${collectionName}', '${id}', ${isPublished}, '${category}')">
                         ${isPublished 
                             ? `<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`
@@ -369,11 +391,20 @@ async function openArticleView(category, id) {
         }, 300);
     }
 
-    history.pushState({ page: 'article', category, id }, title, `?article=${category}&id=${id}`);
+    // Nouvelle ligne avec URL propre et slug automatique
+const cleanSlug = title
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Supprime les accents
+    .replace(/[^a-z0-9]+/g, '-')                      // Remplace les caractères spéciaux par des tirets
+    .replace(/^-+|-+$/g, '');                         // Nettoie les tirets au début/fin
+
+const cleanUrl = `/article/${category}/${id}-${cleanSlug}`;
+history.pushState({ page: 'article', category, id }, title, cleanUrl);
+
 }
 
 /* --------------------------------------------------------------------------
-   2. POPUPS DYNAMIQUES (GESTION SURVOL SUR LA BARRE ADMIN)
+   2. POPUPS DYNAMIQUES
    -------------------------------------------------------------------------- */
 function initDynamicTooltips() {
     let tooltipEl = document.getElementById('vafm-global-tooltip');
@@ -783,18 +814,14 @@ async function saveCanvaArticle(collectionName, id) {
             realCollection = 'actus';
         }
 
-        let authorDisplayName = "Hugo";
+        // Récupération directe du nom de l'utilisateur connecté
+        let authorDisplayName = "Équipe VAFM";
         if (window.appState && window.appState.currentUser) {
-            const email = (window.appState.currentUser.email || "").toLowerCase();
-            if (email.includes("hugo")) {
-                authorDisplayName = "Hugo";
-            } else {
-                authorDisplayName = window.appState.currentUser.name || email.split('@')[0] || "Admin";
-            }
+            authorDisplayName = window.appState.currentUser.name || window.appState.currentUser.username || "Équipe VAFM";
         }
 
         // 2. Token & Headers d'authentification
-        const token = getAuthToken ? getAuthToken() : (window.appState?.pbToken || (localStorage.getItem('pocketbase_auth') ? JSON.parse(localStorage.getItem('pocketbase_auth')).token : null));
+        const token = typeof getAuthToken === 'function' ? getAuthToken() : (window.appState?.pbToken || (localStorage.getItem('pocketbase_auth') ? JSON.parse(localStorage.getItem('pocketbase_auth')).token : null));
         
         let headers = {};
         if (token) {
@@ -811,14 +838,16 @@ async function saveCanvaArticle(collectionName, id) {
             formData.append('texte', content);
             formData.append('contenu', content);
             formData.append('description', content);
+            formData.append('name', authorDisplayName);
 
-            if (!currentArticleData || !currentArticleData.author_name) {
-                formData.append('author_name', authorDisplayName);
+            if (window.appState && window.appState.currentUser) {
+                formData.append('author', window.appState.currentUser.id);
+                formData.append('user', window.appState.currentUser.id);
+                formData.append('user_id', window.appState.currentUser.id);
             }
-
+            
             formData.append('image', fileInput.files[0]);
             bodyPayload = formData;
-            // Note: Ne SURTOUT PAS définir Content-Type pour FormData, le navigateur gère le multipart/form-data boundary
         } else {
             headers['Content-Type'] = 'application/json';
             const jsonBody = {
@@ -826,11 +855,14 @@ async function saveCanvaArticle(collectionName, id) {
                 title: title,
                 texte: content,
                 contenu: content,
-                description: content
+                description: content,
+                name: authorDisplayName
             };
 
-            if (!currentArticleData || !currentArticleData.author_name) {
-                jsonBody.author_name = authorDisplayName;
+            if (window.appState && window.appState.currentUser) {
+                jsonBody.author = window.appState.currentUser.id;
+                jsonBody.user = window.appState.currentUser.id;
+                jsonBody.user_id = window.appState.currentUser.id;
             }
 
             bodyPayload = JSON.stringify(jsonBody);
@@ -846,7 +878,6 @@ async function saveCanvaArticle(collectionName, id) {
         if (!response.ok) {
             const errJson = await response.json().catch(() => ({}));
             
-            // Formatage propre du message d'erreur retourné par PocketBase
             let detailMsg = errJson.message || `Erreur HTTP ${response.status}`;
             if (errJson.data) {
                 const details = Object.entries(errJson.data)
@@ -883,7 +914,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const articleCategory = urlParams.get('article') || urlParams.get('type');
     const articleId = urlParams.get('id');
 
-    // Vérification pour ne charger que si ce n'est pas une émission ou un animateur
     if (articleCategory && articleId) {
         if (articleCategory !== 'shows' && articleCategory !== 'emissions' && articleCategory !== 'team' && articleCategory !== 'animateurs') {
             setTimeout(() => {

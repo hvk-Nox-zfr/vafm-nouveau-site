@@ -642,6 +642,94 @@ body.admin-logged-in .hero-section {
     line-height: 1.6; 
 }
 
+/* --- ACTUALITÉS : IMAGE TOTALE + TEXTE DIRECTEMENT EN SURIMPRESSION --- */
+#news-grid .card {
+    position: relative !important;
+    overflow: hidden !important;
+    border-radius: var(--radius-premium, 16px) !important;
+    height: 380px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-end !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
+    border: none !important;
+    cursor: pointer !important;
+    background: #000 !important;
+}
+
+/* Suppression totale de tout fondu ou bordure */
+#news-grid .card::after,
+#news-grid .card::before {
+    content: none !important;
+    display: none !important;
+}
+
+/* L'image remplit toute la carte */
+#news-grid .card img, 
+#news-grid .card .card-img {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    object-position: center !important;
+    z-index: 1 !important;
+    opacity: 1 !important;
+    filter: none !important;
+    transition: transform 0.6s ease !important;
+}
+
+#news-grid .card:hover img, 
+#news-grid .card:hover .card-img {
+    transform: scale(1.04) !important;
+}
+
+/* Texte en surimpression directe sur l'image (sans fond, sans ligne) */
+#news-grid .card .card-body {
+    position: relative !important;
+    z-index: 3 !important;
+    padding: 22px !important;
+    background: transparent !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    border: none !important;
+}
+
+#news-grid .card .card-body h3 {
+    color: #ffffff !important;
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    margin-bottom: 6px !important;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95), 0 0 3px rgba(0, 0, 0, 0.8) !important;
+}
+
+#news-grid .card .card-body p {
+    color: #f1f1f6 !important;
+    font-size: 0.88rem !important;
+    line-height: 1.4 !important;
+    margin-bottom: 8px !important;
+    max-height: 2.8em;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 2;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.95) !important;
+}
+
+#news-grid .card .date-publie, 
+#news-grid .card .date, 
+#news-grid .card .card-body .date {
+    display: block !important;
+    font-size: 0.73rem !important;
+    font-weight: 700 !important;
+    color: #ff334b !important; /* Légèrement plus lumineux pour bien contraster sur l'image */
+    text-transform: uppercase !important;
+    letter-spacing: 0.8px !important;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95) !important;
+}
+
 /* ==========================================================================
    6. FENÊTRES MODALES & FORMULAIRES DE BASE
    ========================================================================== */
@@ -1642,4 +1730,760 @@ height: 180px !important; /* Ajuste la hauteur du logo */
         opacity: 1;
         transform: translateY(0);
     }
+}
+
+/* --- STYLE DU PANNEAU D'HISTORIQUE --- */
+.vafm-history-panel {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    background: rgba(24, 24, 28, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 14px 14px 0 0;
+    padding: 0 20px;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, padding 0.4s ease;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.6);
+    z-index: 99999;
+}
+
+.vafm-player-toolbar.history-active .vafm-history-panel {
+    max-height: 300px;
+    opacity: 1;
+    padding: 15px 20px;
+}
+
+.vafm-history-title {
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #E50914;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.vafm-history-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.vafm-history-list::-webkit-scrollbar {
+    width: 4px;
+}
+.vafm-history-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.vafm-history-item {
+    font-size: 0.82rem;
+    color: #e0e0e6;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.vafm-history-item:last-child {
+    border-bottom: none;
+}
+
+.vafm-history-time {
+    font-size: 0.7rem;
+    color: #8e8e93;
+    background: rgba(255, 255, 255, 0.06);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+/* --- LARGEur ET ALIGNEMENT DU LECTEUR --- */
+.vafm-player-toolbar {
+    position: fixed !important;
+    width: 700px !important;
+    max-width: 92vw !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.vafm-player-toolbar.history-active {
+    width: 750px !important;
+    max-width: 95vw !important;
+}
+
+/* Bouton des 3 points forcé tout à fait à droite */
+.vafm-history-toggle-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #b0b0bb;
+    transition: all 0.2s ease;
+    margin-left: auto !important;
+    flex-shrink: 0;
+    z-index: 100000;
+}
+
+.vafm-history-toggle-btn:hover {
+    background: rgba(229, 9, 20, 0.2);
+    color: #ffffff;
+    border-color: rgba(229, 9, 20, 0.4);
+}
+
+.vafm-history-toggle-btn svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+}
+
+/* ----------------------------------------------------------------------
+   section video
+   ---------------------------------------------------------------------- */
+
+.vafm-videos-section {
+    padding: 60px 0 !important; /* Retire le padding horizontal de la section principale */
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.vafm-videos-header,
+.vafm-videos-container {
+    padding-left: 5% !important; /* Force le même alignement à 5% que les titres des autres sections */
+    padding-right: 5% !important;
+    box-sizing: border-box;
+}
+
+.vafm-videos-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+}
+
+.vafm-videos-title {
+    font-size: 1.8rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: -0.5px;
+    color: #111115;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.vafm-videos-title::before {
+    content: '';
+    display: block;
+    width: 10px;
+    height: 24px;
+    border-radius: 4px;
+}
+
+.vafm-add-video-btn {
+    background: #ffffff;
+    color: #111115;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 10px 22px;
+    border-radius: 50px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.vafm-add-video-btn:hover {
+    background: #f4f4f5;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.vafm-videos-container {
+    display: flex;
+    gap: 20px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-top: 10px;
+    padding-bottom: 25px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
+
+.vafm-videos-container::-webkit-scrollbar {
+    height: 6px;
+}
+
+.vafm-videos-container::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 10px;
+}
+
+/* --- STYLE PROPRE DES CARTES VIDÉOS --- */
+.vafm-video-card {
+    flex: 0 0 220px;
+    height: 380px;
+    border-radius: 20px;
+    overflow: hidden !important;
+    position: relative;
+    scroll-snap-align: start;
+    background: #121218;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.vafm-video-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 15px 40px rgba(229, 9, 20, 0.25);
+}
+
+.vafm-video-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Zone cliquable pour lancer la vidéo */
+.vafm-video-click-zone {
+    position: absolute;
+    inset: 0;
+    cursor: pointer;
+    z-index: 1;
+}
+
+/* Overlay esthétique confiné dans la carte */
+.vafm-video-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 45%, rgba(0,0,0,0.85) 85%);
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 14px;
+    z-index: 2;
+    border-radius: 20px;
+}
+
+.vafm-video-header-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: auto;
+}
+
+/* Correction de l'en-tête de la carte vidéo */
+.vafm-video-header-info {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+    position: relative !important;
+    z-index: 10 !important;
+}
+
+/* S'assure que le badge de statut reste à gauche */
+.vafm-video-header-info .card-status-tag {
+    position: static !important;
+    margin: 0 !important;
+    flex-shrink: 0 !important;
+}
+
+/* Regroupe les boutons Publier/Supprimer et les décale tout à droite */
+.vafm-video-admin-actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    position: static !important;
+    margin-left: auto !important;
+}
+
+.vafm-video-footer-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.vafm-video-caption {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #fff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vafm-video-date {
+    font-size: 0.72rem;
+    color: #a0a0ab;
+    font-weight: 500;
+}
+
+.vafm-video-admin-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+/* Modales d'upload */
+.vafm-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+
+.vafm-modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.vafm-modal-box {
+    background: #181822;
+    color: #fff;
+    width: 100%;
+    max-width: 500px;
+    padding: 30px;
+    border-radius: 24px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.1);
+    box-sizing: border-box;
+}
+
+.vafm-dropzone {
+    border: 2px dashed rgba(255,255,255,0.2);
+    padding: 20px;
+    text-align: center;
+    border-radius: 12px;
+    cursor: pointer;
+    margin-bottom: 15px;
+    background: rgba(255,255,255,0.02);
+    transition: border-color 0.2s;
+}
+
+.vafm-dropzone:hover {
+    border-color: #E50914;
+}
+
+.vafm-modal-box input[type="text"] {
+    width: 100%;
+    padding: 12px 15px;
+    background: #111115;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    color: #fff;
+    font-size: 0.95rem;
+    margin-bottom: 20px;
+    box-sizing: border-box;
+}
+
+.vafm-modal-submit {
+    width: 100%;
+    background: #E50914;
+    color: #fff;
+    border: none;
+    padding: 12px;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* --- LECTEUR MODAL STYLE TIKTOK / REELS (PARFAITEMENT CENTRÉ) --- */
+.vafm-tiktok-overlay {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(0, 0, 0, 0.9) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    z-index: 9999999 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.vafm-tiktok-overlay.active {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+.vafm-tiktok-wrapper {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 100% !important;
+    max-width: 400px !important;
+    height: 85vh !important;
+    max-height: 780px !important;
+    background: #000 !important;
+    border-radius: 28px !important;
+    overflow: hidden !important;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(229, 9, 20, 0.3) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.vafm-tiktok-video {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    cursor: pointer !important;
+}
+
+.vafm-tiktok-close-btn {
+    position: absolute !important;
+    top: 16px !important;
+    left: 16px !important;
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 50% !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    backdrop-filter: blur(10px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    color: #fff !important;
+    font-size: 1.1rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    z-index: 20 !important;
+    transition: transform 0.2s, background 0.2s !important;
+}
+
+.vafm-tiktok-close-btn:hover {
+    transform: scale(1.1) !important;
+    background: rgba(229, 9, 20, 0.85) !important;
+}
+
+.vafm-tiktok-gradient-overlay {
+    position: absolute !important;
+    inset: 0 !important;
+    background: linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.9) 85%) !important;
+    pointer-events: none !important;
+    z-index: 2 !important;
+}
+
+.vafm-tiktok-info {
+    position: absolute !important;
+    bottom: 20px !important;
+    left: 18px !important;
+    right: 80px !important;
+    z-index: 10 !important;
+    pointer-events: none !important;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9) !important;
+}
+
+.vafm-tiktok-author {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin-bottom: 6px !important;
+}
+
+.vafm-tiktok-badge {
+    background: #E50914 !important;
+    color: #fff !important;
+    font-size: 0.68rem !important;
+    font-weight: 800 !important;
+    padding: 3px 9px !important;
+    border-radius: 20px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.8px !important;
+}
+
+.vafm-tiktok-caption-text {
+    font-size: 0.92rem !important;
+    font-weight: 700 !important;
+    color: #fff !important;
+    line-height: 1.35 !important;
+}
+
+.vafm-tiktok-side-actions {
+    position: absolute !important;
+    bottom: 24px !important;
+    right: 14px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 16px !important;
+    z-index: 10 !important;
+}
+
+.vafm-tiktok-action-item {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 3px !important;
+}
+
+.vafm-tiktok-action-btn {
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 50% !important;
+    background: rgba(0, 0, 0, 0.4) !important;
+    backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.22) !important;
+    color: #fff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.vafm-tiktok-action-btn:hover {
+    transform: scale(1.12) !important;
+    background: rgba(255, 255, 255, 0.3) !important;
+}
+
+.vafm-tiktok-action-btn.liked {
+    background: rgba(229, 9, 20, 0.25) !important;
+    border-color: #E50914 !important;
+    color: #E50914 !important;
+}
+
+.vafm-tiktok-action-count {
+    font-size: 0.73rem !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9) !important;
+}
+
+.vafm-tiktok-progress-bar {
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 4px !important;
+    background: rgba(255, 255, 255, 0.2) !important;
+    z-index: 12 !important;
+}
+
+.vafm-tiktok-progress-fill {
+    height: 100% !important;
+    width: 0% !important;
+    background: #E50914 !important;
+    transition: width 0.1s linear !important;
+}
+
+.vafm-tiktok-play-center {
+    position: absolute !important;
+    inset: 0 !important;
+    margin: auto !important;
+    width: 64px !important;
+    height: 64px !important;
+    border-radius: 50% !important;
+    background: rgba(0, 0, 0, 0.6) !important;
+    backdrop-filter: blur(10px) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #fff !important;
+    pointer-events: none !important;
+    opacity: 0;
+    transform: scale(0.7);
+    transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 5;
+}
+
+.vafm-tiktok-play-center.visible {
+    opacity: 1 !important;
+    transform: scale(1) !important;
+}
+
+.vafm-comments-drawer {
+    position: absolute !important;
+    bottom: -100% !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 65% !important;
+    background: #141419 !important;
+    border-radius: 24px 24px 0 0 !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
+    z-index: 30 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    transition: bottom 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.8) !important;
+}
+
+.vafm-comments-drawer.open {
+    bottom: 0 !important;
+}
+
+.vafm-comments-header {
+    padding: 16px 20px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    font-weight: 800 !important;
+    font-size: 0.95rem !important;
+    color: #fff !important;
+}
+
+.vafm-comments-list {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    padding: 16px 20px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 14px !important;
+}
+
+.vafm-comment-item {
+    display: flex !important;
+    gap: 10px !important;
+    font-size: 0.85rem !important;
+}
+
+.vafm-comment-avatar {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    background: #E50914 !important;
+    color: #fff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-weight: 700 !important;
+    flex-shrink: 0 !important;
+}
+
+.vafm-comment-body {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+}
+
+.vafm-comment-user {
+    font-weight: 700 !important;
+    color: #fff !important;
+}
+
+.vafm-comment-text {
+    color: #d1d1d6 !important;
+    line-height: 1.35 !important;
+}
+
+.vafm-comments-input-zone {
+    padding: 12px 16px 20px 16px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+    display: flex !important;
+    gap: 10px !important;
+}
+
+.vafm-comments-input-zone input {
+    flex: 1 !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: 20px !important;
+    padding: 10px 16px !important;
+    color: #fff !important;
+    font-size: 0.85rem !important;
+    outline: none !important;
+}
+
+.vafm-comments-send-btn {
+    background: #E50914 !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: 20px !important;
+    padding: 0 16px !important;
+    font-weight: 700 !important;
+    font-size: 0.85rem !important;
+    cursor: pointer !important;
+}
+
+.vafm-share-toast {
+    position: absolute !important;
+    top: 75px !important;
+    left: 50% !important;
+    transform: translateX(-50%) translateY(-20px) !important;
+    background: rgba(0, 0, 0, 0.85) !important;
+    backdrop-filter: blur(10px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: #fff !important;
+    padding: 8px 18px !important;
+    border-radius: 20px !important;
+    font-size: 0.8rem !important;
+    font-weight: 700 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: all 0.3s ease !important;
+    z-index: 40 !important;
+}
+
+.vafm-share-toast.show {
+    opacity: 1 !important;
+    transform: translateX(-50%) translateY(0) !important;
+}
+
+.vafm-video-header-info {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+    position: relative !important;
+    z-index: 10 !important;
+}
+
+.card-status-tag {
+    flex-shrink: 0;
+}
+
+.vafm-video-admin-actions {
+    display: flex !important;
+    gap: 6px !important;
+    align-items: center !important;
+}
+
+/* Nettoyage radical des débordements sur les coins arrondis */
+.vafm-video-card {
+    overflow: hidden !important;
+    -webkit-mask-image: -webkit-radial-gradient(white, black); /* Force le masquage des angles sous WebKit/Safari */
+    transform: translateZ(0);
+}
+
+.vafm-video-card img {
+    border-radius: 20px !important;
+}
+
+.vafm-video-overlay {
+    border-radius: 20px !important;
 }
