@@ -1512,28 +1512,28 @@ function initRadioPlayer() {
   let lastTitleSeen = songHistory.length > 0 ? songHistory[0].title : "";
 
 // 1. Récupération simple des 10 derniers morceaux depuis PocketBase
-  async function fetchServerHistoryDirectly() {
-      try {
-          const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=10`);
-          if (res.ok) {
-              const data = await res.json();
-              if (data.items && data.items.length > 0) {
-                  lastTitleSeen = data.items[0].title;
+async function fetchServerHistoryDirectly() {
+    try {
+        const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=10`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.items && data.items.length > 0) {
+                lastTitleSeen = data.items[0].title;
 
-                  // TRONCATURE STRICTE : On force 10 éléments max dans le tableau
-                  songHistory = data.items.slice(0, 10).map(item => ({
-                      title: item.title,
-                      time: item.time,
-                      cover: item.cover || 'LOGO - VAFM.png'
-                  }));
+                // On ne garde strictement que les 10 plus récents
+                songHistory = data.items.slice(0, 10).map(item => ({
+                    title: item.title,
+                    time: item.time,
+                    cover: item.cover || 'LOGO - VAFM.png'
+                }));
 
-                  renderHistoryList();
-              }
-          }
-      } catch (e) {
-          console.warn("Erreur chargement PocketBase:", e);
-      }
-  }
+                renderHistoryList();
+            }
+        }
+    } catch (e) {
+        console.warn("Erreur chargement PocketBase:", e);
+    }
+}
 
   // Structuration du conteneur
   const playerBar = playBtn.closest('.player, .audio-player, div[style*="background"], footer') || playBtn.parentElement;
