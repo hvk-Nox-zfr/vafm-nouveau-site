@@ -1512,38 +1512,28 @@ function initRadioPlayer() {
   let lastTitleSeen = songHistory.length > 0 ? songHistory[0].title : "";
 
   // Recherche de l'historique serveur
+// Charge directement les 10 derniers morceaux depuis PocketBase
   async function fetchServerHistoryDirectly() {
-      let rawHistoryList = [];
-
       try {
-          const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(PLAYED_URL + '?nocache=' + Date.now())}`;
-          const res = await fetch(proxyUrl);
+          const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=10`);
           if (res.ok) {
               const data = await res.json();
-              if (data && data.contents) {
-                  const parser = new DOMParser();
-                  const doc = parser.parseFromString(data.contents, 'text/html');
-                  const rows = doc.querySelectorAll('table tr');
+              if (data.items && data.items.length > 0) {
+                  // Synchronise lastTitleSeen avec le morceau le plus récent en BDD
+                  lastTitleSeen = data.items[0].title;
 
-                  rows.forEach((row, idx) => {
-                      if (idx === 0) return;
-                      const cols = row.querySelectorAll('td');
-                      if (cols.length >= 2) {
-                          const timeRaw = cols[0].textContent.trim();
-                          const titleRaw = cols[1].textContent.trim().replace(/\s+[\-\–\—]\s+/, " – ");
-
-                          if (titleRaw && titleRaw !== "VAFM – En Direct") {
-                              const timeFormatted = timeRaw.includes(" ") ? timeRaw.split(" ")[1] : timeRaw;
-                              const shortTime = timeFormatted.substring(0, 5);
-                              rawHistoryList.push({ title: titleRaw, time: shortTime || "Récent" });
-                          }
-                      }
-                  });
+                  songHistory = data.items.map(item => ({
+                      title: item.title,
+                      time: item.time,
+                      cover: item.cover || 'LOGO - VAFM.png'
+                  }));
+                  renderHistoryList();
               }
           }
       } catch (e) {
-          console.warn("Couche 1 ignorée:", e);
+          console.warn("Impossible de charger l'historique PocketBase:", e);
       }
+
 
       try {
           const res = await fetch(`${STATS_URL}?nocache=${Date.now()}`);
@@ -1792,7 +1782,7 @@ function initRadioPlayer() {
     }, 1000);
   }
 
-  async function updateCurrentTitle() {
+async function updateCurrentTitle() {
     try {
       const response = await fetch(`${STATS_URL}?nocache=${Date.now()}`);
       if (!response.ok) return;
@@ -1830,18 +1820,39 @@ function initRadioPlayer() {
       const coverUrl = await fetchTrackCover(formattedTitle);
       if (liveCoverEl) liveCoverEl.src = coverUrl;
 
-      if (formattedTitle !== lastTitleSeen && formattedTitle !== "VAFM – En Direct") {
+      // ==========================================================================
+      // VÉRIFICATION ANTI-DOUBLON STRICTE
+      // ==========================================================================
+      const isNewSong = formattedTitle.toLowerCase().trim() !== lastTitleSeen.toLowerCase().trim();
+      const isNotDefault = formattedTitle !== "VAFM – En Direct";
+
+      if (isNewSong && isNotDefault) {
           const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          
-          if (!songHistory.some(s => s.title.toLowerCase() === formattedTitle.toLowerCase())) {
-              songHistory.unshift({ title: formattedTitle, time: nowTime, cover: coverUrl });
-              if (songHistory.length > 10) songHistory.pop();
-              
-              localStorage.setItem("vafm_song_history", JSON.stringify(songHistory));
+          lastTitleSeen = formattedTitle; // Verrouille immédiatement pour éviter les requêtes doublons rapides
+
+          try {
+              // 1. Envoie le morceau dans PocketBase
+              await fetch(`${POCKETBASE_URL}/api/collections/song_history/records`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                      title: formattedTitle,
+                      time: nowTime,
+                      cover: coverUrl
+                  })
+              });
+
+              // 2. Recharge l'affichage
+              await fetchServerHistoryDirectly();
+
+              // 3. Nettoie les anciens morceaux
+              cleanOldSongsFromPocketBase();
+
+          } catch (e) {
+              console.error("Erreur lors de la sauvegarde PocketBase:", e);
           }
-          lastTitleSeen = formattedTitle;
-          renderHistoryList();
       }
+      // ==========================================================================
 
       if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({
@@ -1862,6 +1873,27 @@ function initRadioPlayer() {
   fetchServerHistoryDirectly();
   updateCurrentTitle();
   setInterval(updateCurrentTitle, 15000);
+}
+
+// Nettoie PocketBase pour ne garder QUE les 10 plus récents
+async function cleanOldSongsFromPocketBase() {
+    try {
+        // Récupère les morceaux en sautant les 10 premiers (permet d'isoler les vieux morceaux)
+        const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&offset=10&limit=50`);
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const oldItems = data.items || [];
+
+        // Supprime chaque ancien morceau
+        for (const item of oldItems) {
+            await fetch(`${POCKETBASE_URL}/api/collections/song_history/records/${item.id}`, {
+                method: 'DELETE'
+            });
+        }
+    } catch (e) {
+        console.warn("Erreur lors du nettoyage PocketBase :", e);
+    }
 }
 
 /* ==========================================================================
