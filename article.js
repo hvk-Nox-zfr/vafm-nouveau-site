@@ -43,10 +43,47 @@ async function openArticleView(category, id) {
     currentId = id;
 
     const title = data.titre || data.title || data.nom || 'Sans titre';
+
+    // ==========================================================================
+    // INJECTION DES DONNÉES STRUCTURÉES (SEO GOOGLE NEWS)
+    // ==========================================================================
+    const rawImg = data.image || data.img;
+    let articleImageUrl = "https://vafmlaradio.fr/LOGO-VAFM.png";
+
+    if (rawImg) {
+        articleImageUrl = typeof getPocketBaseImageUrl === 'function' 
+            ? getPocketBaseImageUrl(collectionName, id, rawImg) 
+            : (rawImg.startsWith('http') ? rawImg : `https://vafmlaradio.fr${rawImg}`);
+    }
+
+    const jsonLd = {
+      "@context": "https://schema.org",
+      "@type": "NewsArticle",
+      "headline": title,
+      "image": [articleImageUrl],
+      "datePublished": data.published_at || data.created,
+      "dateModified": data.updated || data.created,
+      "author": [{
+          "@type": "Organization",
+          "name": "VAFM",
+          "url": "https://vafmlaradio.fr"
+      }]
+    };
+
+    let script = document.getElementById('news-schema');
+    if (!script) {
+      script = document.createElement('script');
+      script.id = 'news-schema';
+      script.type = 'application/ld+json';
+      document.head.appendChild(script);
+    }
+    script.textContent = JSON.stringify(jsonLd);
+    // ==========================================================================
+
     const rawText = data.texte || data.contenu || data.description || '';
     const isPublished = Boolean(data.is_published);
     
-// On lit uniquement ce qui est enregistré dans la base de données pour cet article
+    // On lit uniquement ce qui est enregistré dans la base de données pour cet article
     let authorName = data.name || 
                      data.author_name || 
                      data.expand?.author?.name || 
@@ -211,7 +248,6 @@ async function openArticleView(category, id) {
                 border-right: 1px solid #e0e0e8 !important; 
                 box-shadow: -15px 0 25px -10px rgba(0, 0, 0, 0.07), 15px 0 25px -10px rgba(0, 0, 0, 0.07) !important; 
                 position: relative; 
-                /* 👇 AJOUTE CES LIGNES ICI POUR FORCER LE RETOUR À LA LIGNE 👇 */
                 overflow-wrap: break-word !important;
                 word-break: break-word !important;
             }
@@ -340,7 +376,7 @@ async function openArticleView(category, id) {
                         <svg viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="10" rx="1"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
                     </button>
                     <button class="vafm-tb-btn" data-label="Aligner à Droite" onclick="setBlockPosition('right')">
-                        <svg viewBox="0 0 24 24"><rect x="13" y="4" width="8" height="16" rx="1"/><line x1="3" y1="6" x2="9" y2="6"/><line x1="3" y1="10" x2="9" y2="10"/><line x1="3" y1="14" x2="9" y2="14"/></svg>
+                        <svg viewBox="0 0 24 24"><rect x="13" y="4" width="8" height="16" rx="1"/><line x1="3" y1="6" x2="9" y2="6"/><line x1="3" y1="14" x2="9" y2="14"/></svg>
                     </button>
 
                     <div class="vafm-tb-divider"></div>
@@ -392,15 +428,14 @@ async function openArticleView(category, id) {
     }
 
     // Nouvelle ligne avec URL propre et slug automatique
-const cleanSlug = title
-    .toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Supprime les accents
-    .replace(/[^a-z0-9]+/g, '-')                      // Remplace les caractères spéciaux par des tirets
-    .replace(/^-+|-+$/g, '');                         // Nettoie les tirets au début/fin
+    const cleanSlug = title
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Supprime les accents
+        .replace(/[^a-z0-9]+/g, '-')                      // Remplace les caractères spéciaux par des tirets
+        .replace(/^-+|-+$/g, '');                         // Nettoie les tirets au début/fin
 
-const cleanUrl = `/article/${category}/${id}-${cleanSlug}`;
-history.pushState({ page: 'article', category, id }, title, cleanUrl);
-
+    const cleanUrl = `/article/${category}/${id}-${cleanSlug}`;
+    history.pushState({ page: 'article', category, id }, title, cleanUrl);
 }
 
 /* --------------------------------------------------------------------------
@@ -698,13 +733,12 @@ function closeArticleView() {
         articleContainer.innerHTML = '';
     }
     
-    // Réaffiche impérativement le contenu principal de l'accueil
+    // Supprime le balisage Schema de l'article fermé
+    document.getElementById('news-schema')?.remove();
+
     const mainContent = document.getElementById('content');
-    if (mainContent) {
-        mainContent.style.display = 'block';
-    }
+    if (mainContent) mainContent.style.display = 'block';
     
-    // Remet proprement l'URL de la racine dans le navigateur
     history.pushState({ page: 'home' }, '', '/');
 }
 
