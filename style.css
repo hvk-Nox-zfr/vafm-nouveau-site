@@ -2487,3 +2487,9 @@ height: 180px !important; /* Ajuste la hauteur du logo */
 .vafm-video-overlay {
     border-radius: 20px !important;
 }
+
+/* Empêche le scroll de la page arrière lorsque la pop-up est ouverte */
+body.vafm-lock-scroll {
+    overflow: hidden !important;
+    touch-action: none;
+}

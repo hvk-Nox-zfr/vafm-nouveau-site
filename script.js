@@ -1511,83 +1511,27 @@ function initRadioPlayer() {
 
   let lastTitleSeen = songHistory.length > 0 ? songHistory[0].title : "";
 
-  // Recherche de l'historique serveur
-// Charge directement les 10 derniers morceaux depuis PocketBase
+// 1. Récupération simple des 10 derniers morceaux depuis PocketBase
   async function fetchServerHistoryDirectly() {
       try {
           const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=10`);
           if (res.ok) {
               const data = await res.json();
               if (data.items && data.items.length > 0) {
-                  // Synchronise lastTitleSeen avec le morceau le plus récent en BDD
                   lastTitleSeen = data.items[0].title;
 
-                  songHistory = data.items.map(item => ({
+                  // TRONCATURE STRICTE : On force 10 éléments max dans le tableau
+                  songHistory = data.items.slice(0, 10).map(item => ({
                       title: item.title,
                       time: item.time,
                       cover: item.cover || 'LOGO - VAFM.png'
                   }));
+
                   renderHistoryList();
               }
           }
       } catch (e) {
-          console.warn("Impossible de charger l'historique PocketBase:", e);
-      }
-
-
-      try {
-          const res = await fetch(`${STATS_URL}?nocache=${Date.now()}`);
-          if (res.ok) {
-              const data = await res.json();
-              if (data && data.icestats) {
-                  let sources = data.icestats.source;
-                  if (!Array.isArray(sources)) sources = [sources];
-
-                  sources.forEach(src => {
-                      if (!src) return;
-                      const hist = src.songhistory || src.history;
-                      if (Array.isArray(hist)) {
-                          hist.forEach(item => {
-                              const t = (item.title || item.song || "").replace(/\s+[\-\–\—]\s+/, " – ");
-                              if (t && t !== "VAFM – En Direct") {
-                                  const itemTime = item.time || item.date || "Récent";
-                                  const shortTime = itemTime.includes(":") ? itemTime.substring(0, 5) : itemTime;
-                                  rawHistoryList.push({ title: t, time: shortTime });
-                              }
-                          });
-                      }
-                  });
-              }
-          }
-      } catch (e) {
-          console.warn("Couche 2 ignorée:", e);
-      }
-
-      if (rawHistoryList.length > 0) {
-          const uniqueNewItems = [];
-          rawHistoryList.forEach(item => {
-              if (!uniqueNewItems.some(u => u.title.toLowerCase() === item.title.toLowerCase())) {
-                  uniqueNewItems.push(item);
-              }
-          });
-
-          const serverItemsWithCovers = await Promise.all(
-              uniqueNewItems.map(async (item) => {
-                  const cover = await fetchTrackCover(item.title);
-                  return { title: item.title, time: item.time, cover };
-              })
-          );
-
-          const merged = [...serverItemsWithCovers];
-          for (const savedSong of songHistory) {
-              if (!merged.some(s => s.title.toLowerCase() === savedSong.title.toLowerCase())) {
-                  merged.push(savedSong);
-              }
-          }
-
-          songHistory = merged.slice(0, 10);
-          localStorage.setItem("vafm_song_history", JSON.stringify(songHistory));
-          renderHistoryList();
+          console.warn("Erreur chargement PocketBase:", e);
       }
   }
 
@@ -1648,6 +1592,7 @@ function initRadioPlayer() {
       document.getElementById("vafm-collapse-btn")?.addEventListener("click", (e) => {
           e.stopPropagation();
           playerBar.classList.remove("history-active");
+          document.body.classList.remove("vafm-lock-scroll"); // Débloque le scroll de la page
       });
 
       const historyBtn = document.createElement('button');
@@ -1659,13 +1604,18 @@ function initRadioPlayer() {
 
       historyBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          playerBar.classList.toggle('history-active');
-          renderHistoryList();
+          const isActive = playerBar.classList.toggle('history-active');
+          
+          if (isActive) {
+              document.body.classList.add("vafm-lock-scroll"); // Bloque le scroll de la page
+              renderHistoryList();
+          } else {
+              document.body.classList.remove("vafm-lock-scroll"); // Débloque le scroll
+          }
       });
 
       controlsWrapper.appendChild(historyBtn);
 
-      // Bouton Play/Pause de remplacement en bas à droite quand la pop-up est ouverte
       miniPlayBtn = document.createElement('button');
       miniPlayBtn.className = 'vafm-mini-play-btn';
       miniPlayBtn.title = "Lecture / Pause";
@@ -1673,7 +1623,7 @@ function initRadioPlayer() {
 
       miniPlayBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          playBtn.click(); // Déclenche le bouton play principal pour synchroniser
+          playBtn.click();
       });
 
       controlsWrapper.appendChild(miniPlayBtn);
@@ -1700,7 +1650,7 @@ function initRadioPlayer() {
           const parts = song.title.split(' – ');
           const trackTitle = parts[1] || parts[0];
           const artistName = parts[1] ? parts[0] : 'VAFM Direct';
-          const coverImage = isVafmIdent(song.title) ? 'LOGO - VAFM.png' : (song.cover || 'LOGO VAFM.png');
+          const coverImage = isVafmIdent(song.title) ? 'LOGO - VAFM.png' : (song.cover || 'LOGO - VAFM.png');
 
           return `
               <li class="vafm-history-item">
@@ -1782,7 +1732,8 @@ function initRadioPlayer() {
     }, 1000);
   }
 
-async function updateCurrentTitle() {
+  // 2. Mise à jour de l'affichage du titre en cours et rafraîchissement de la liste
+  async function updateCurrentTitle() {
     try {
       const response = await fetch(`${STATS_URL}?nocache=${Date.now()}`);
       if (!response.ok) return;
@@ -1820,39 +1771,11 @@ async function updateCurrentTitle() {
       const coverUrl = await fetchTrackCover(formattedTitle);
       if (liveCoverEl) liveCoverEl.src = coverUrl;
 
-      // ==========================================================================
-      // VÉRIFICATION ANTI-DOUBLON STRICTE
-      // ==========================================================================
-      const isNewSong = formattedTitle.toLowerCase().trim() !== lastTitleSeen.toLowerCase().trim();
-      const isNotDefault = formattedTitle !== "VAFM – En Direct";
-
-      if (isNewSong && isNotDefault) {
-          const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          lastTitleSeen = formattedTitle; // Verrouille immédiatement pour éviter les requêtes doublons rapides
-
-          try {
-              // 1. Envoie le morceau dans PocketBase
-              await fetch(`${POCKETBASE_URL}/api/collections/song_history/records`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                      title: formattedTitle,
-                      time: nowTime,
-                      cover: coverUrl
-                  })
-              });
-
-              // 2. Recharge l'affichage
-              await fetchServerHistoryDirectly();
-
-              // 3. Nettoie les anciens morceaux
-              cleanOldSongsFromPocketBase();
-
-          } catch (e) {
-              console.error("Erreur lors de la sauvegarde PocketBase:", e);
-          }
+      // Si un nouveau morceau démarre, on recharge l'historique PocketBase mis à jour par le Cron Vercel
+      if (formattedTitle.toLowerCase().trim() !== lastTitleSeen.toLowerCase().trim() && formattedTitle !== "VAFM – En Direct") {
+          lastTitleSeen = formattedTitle;
+          await fetchServerHistoryDirectly();
       }
-      // ==========================================================================
 
       if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({
