@@ -2,6 +2,22 @@ export default async function handler(req, res) {
   const POCKETBASE_URL = "https://api.vafmlaradio.fr";
   const SITE_URL = "https://vafmlaradio.fr";
 
+  // Fonction utilitaire pour formater n'importe quelle date au format YYYY-MM-DD
+  function formatDate(rawDate) {
+    if (!rawDate) return new Date().toISOString().split('T')[0];
+    try {
+      // Remplace l'espace classique de PocketBase par "T" si présent
+      const cleanDateStr = String(rawDate).replace(' ', 'T');
+      const d = new Date(cleanDateStr);
+      if (isNaN(d.getTime())) {
+        return new Date().toISOString().split('T')[0];
+      }
+      return d.toISOString().split('T')[0];
+    } catch (e) {
+      return new Date().toISOString().split('T')[0];
+    }
+  }
+
   try {
     let articles = [];
     try {
@@ -26,19 +42,20 @@ export default async function handler(req, res) {
   </url>`).join("");
 
     articles.forEach(article => {
-      const articleDate = article.updated ? article.updated.split('T')[0] : today;
+      // Utilisation de la fonction formatDate sécurisée
+      const articleDate = formatDate(article.updated || article.created);
       
-      // 1. Récupération du titre depuis n'importe quel champ francophone ou anglophone
+      // 1. Récupération du titre
       const rawTitle = article.slug || article.titre || article.title || article.nom || article.subject || "";
 
-      // 2. Transformaion en slug propre si présent
+      // 2. Transformation en slug propre
       let slugPart = "";
       if (rawTitle) {
         slugPart = rawTitle
           .toLowerCase()
           .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Supprime les accents
           .replace(/[^a-z0-9]+/g, "-")                     // Remplace espaces et ponctuation par des tirets
-          .replace(/^-|-$/g, "");                           // Supprime les tirets au début et à la fin
+          .replace(/^-|-$/g, "");                           // Supprime les tirets au début/fin
       }
 
       // 3. Construction de l'URL finale
