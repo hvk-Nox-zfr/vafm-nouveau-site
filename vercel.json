@@ -1,7 +1,17 @@
 {
   "rewrites": [
-    { "source": "/ads.txt", "destination": "/ads.txt" },
-    { "source": "/((?!api/|ads.txt).*)", "destination": "/index.html" }
+    {
+      "source": "/ads.txt",
+      "destination": "/ads.txt"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
+    },
+    {
+      "source": "/:path*",
+      "destination": "/index.html"
+    }
   ],
   "crons": [
     {
