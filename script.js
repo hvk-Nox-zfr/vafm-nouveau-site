@@ -2262,3 +2262,27 @@ async function openVideoPlayerModal(url, title, videoId) {
         if (e.target === modal) closePlayer();
     });
 }
+
+// 1. Définition du routeur de la SPA
+function checkRoute() {
+  const path = window.location.pathname;
+
+  // Si l'URL commence par /article/news/
+  if (path.startsWith('/article/news/')) {
+    const slugWithId = path.replace('/article/news/', ''); // Ex: "v2jlv12y0i06v0d-eclipse-solaire..."
+    const articleId = slugWithId.substring(0, 15); // Les ID PocketBase font 15 caractères
+
+    if (articleId) {
+      // Remplace 'loadArticle' par le nom de ta fonction qui charge l'article depuis PocketBase
+      loadArticle(articleId); 
+      return;
+    }
+  }
+
+  // Si on est sur l'accueil ou autre route par défaut
+  showHomePage();
+}
+
+// 2. Écouteurs d'événements
+window.addEventListener('DOMContentLoaded', checkRoute);
+window.addEventListener('popstate', checkRoute);
