@@ -116,22 +116,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // 1. Charger d'abord les données PocketBase
+  // 1. Charger d'abord toutes les données depuis PocketBase
   await fetchAllFromPocketBase();
   updateAuthUI();
   initFileUploadDragAndDrop();
   initRadioPlayer();
 
-  // 2. Vérifier l'URL une fois les données chargées en mémoire
-  checkUrlForArticle();
+  // 2. Vérifier l'URL et charger l'article si présent
+  await checkUrlForArticle();
 });
 
-function checkUrlForArticle() {
+async function checkUrlForArticle() {
   const path = window.location.pathname;
   let articleId = null;
-  let category = 'news';
 
-  // Format URL propre : /article/news/ID-SLUG
+  // Format URL SEO : /article/news/ID-SLUG
   if (path.startsWith('/article/news/')) {
     const slugWithId = path.replace('/article/news/', '');
     articleId = slugWithId.substring(0, 15);
@@ -140,13 +139,12 @@ function checkUrlForArticle() {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('id')) {
       articleId = urlParams.get('id');
-      category = urlParams.get('article') || 'news';
     }
   }
 
   if (articleId && articleId.length === 15) {
     if (typeof openArticleView === 'function') {
-      openArticleView(category, articleId);
+      openArticleView('news', articleId);
     }
   }
 }
@@ -243,14 +241,13 @@ async function fetchAllFromPocketBase() {
 ========================================================================== */
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Intercepte le clic sur le lien "Accueil" du menu
     const homeLinks = document.querySelectorAll('a[href="#home"], .nav-home, nav a');
     homeLinks.forEach(link => {
         if (link.textContent.trim().toLowerCase() === 'accueil') {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
                 if (typeof closeArticleView === 'function') {
-                    closeArticleView(); // Ferme l'article et remet l'URL à "/"
+                    closeArticleView();
                 }
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             });
@@ -333,7 +330,7 @@ function renderAll() {
     });
   }
 
-// 2. RENDU DES GRILLES CLASSIQUES
+  // 2. RENDU DES GRILLES CLASSIQUES
   const renderGrid = (gridElement, dataArray, category, collectionName) => {
     if (!gridElement) return;
 
@@ -408,13 +405,8 @@ function renderVideosContainer() {
 
     return `
       <div class="vafm-video-card ${!video.is_published ? 'draft-card' : ''}" data-id="${video.id}">
-        <!-- Image de fond -->
         <img src="${video.img}" alt="${video.title}">
-        
-        <!-- Zone cliquable pour ouvrir le lecteur vidéo -->
         <div class="vafm-video-click-zone" onclick="if('${video.videoUrl}') openVideoPlayerModal('${video.videoUrl}', '${safeTitle}', '${video.id}')"></div>
-        
-        <!-- Overlay graphique et informations -->
         <div class="vafm-video-overlay">
             <div class="vafm-video-header-info">
                 <span class="card-status-tag ${video.is_published ? 'tag-published' : 'tag-draft'}">
@@ -521,8 +513,6 @@ async function togglePublish(collectionName, id, currentStatus) {
   const targetCollection = collectionMap[collectionName] || collectionName;
   const newStatus = !currentStatus;
 
-  console.log(`Tentative de modification : ${targetCollection}/${id} -> is_published: ${newStatus}`);
-
   try {
     const res = await fetch(`${POCKETBASE_URL}/api/collections/${targetCollection}/records/${id}`, {
       method: 'PATCH',
@@ -532,11 +522,9 @@ async function togglePublish(collectionName, id, currentStatus) {
 
     if (!res.ok) {
       const errData = await res.json();
-      console.error("Erreur renvoyée par PocketBase :", errData);
       throw new Error(errData.message || JSON.stringify(errData.data) || "Erreur de mise à jour");
     }
     
-    console.log("Mise à jour réussie ! Rechargement des données...");
     await fetchAllFromPocketBase();
   } catch (error) {
     console.error("Erreur critique togglePublish :", error);
@@ -1060,7 +1048,6 @@ function initRadioPlayer() {
 
   const STREAM_URL = "https://manager10.streamradio.fr:1555/stream";
   const STATS_URL = "https://manager10.streamradio.fr:1555/status-json.xsl";
-  const PLAYED_URL = "https://manager10.streamradio.fr:1555/played.html";
 
   if (!audio || !playBtn) return;
 
@@ -1068,7 +1055,6 @@ function initRadioPlayer() {
     currentShow.textContent = "En direct : Le meilleur du son !";
   }
 
-  // Détection des jingles et annonces VAFM
   function isVafmIdent(title) {
       if (!title) return true;
       const clean = title.toLowerCase().replace(/['’`]/g, "'");
@@ -1077,7 +1063,6 @@ function initRadioPlayer() {
              clean.includes("vafm");
   }
 
-  // --- STYLES AVEC MASQUAGE DU BOUTON CENTRAL EN MODE POP-UP ---
   if (!document.getElementById('vafm-history-dynamic-style')) {
       const styleEl = document.createElement('style');
       styleEl.id = 'vafm-history-dynamic-style';
@@ -1100,7 +1085,6 @@ function initRadioPlayer() {
                           box-shadow 0.45s ease !important;
           }
 
-          /* Mode carte dépliée */
           .vafm-player-transformed.history-active {
               width: 420px !important;
               max-width: 92vw !important;
@@ -1144,13 +1128,11 @@ function initRadioPlayer() {
               max-width: 150px !important;
           }
 
-          /* MASQUER LE BOUTON CENTRAL QUAND LA POP-UP EST OUVERTE */
           .vafm-player-transformed.history-active #play-btn,
           .vafm-player-transformed.history-active #playBtn {
               display: none !important;
           }
 
-          /* Panneau interne global */
           .vafm-history-inside-panel {
               position: absolute;
               top: 0;
@@ -1171,7 +1153,6 @@ function initRadioPlayer() {
               pointer-events: auto;
           }
 
-          /* Navigation supérieure fixe */
           .vafm-top-nav {
               position: absolute;
               top: 0;
@@ -1212,7 +1193,6 @@ function initRadioPlayer() {
               color: rgba(255, 255, 255, 0.7);
           }
 
-          /* SECTION DIRECT : FIXÉE EN ARRIÈRE-PLAN */
           .vafm-nowplaying-fixed-bg {
               position: absolute;
               top: 54px;
@@ -1267,7 +1247,6 @@ function initRadioPlayer() {
               white-space: nowrap;
           }
 
-          /* CONTENEUR DE SCROLL UNIQUE ET UNIFIÉ */
           .vafm-scroll-content {
               position: absolute;
               top: 54px;
@@ -1287,7 +1266,6 @@ function initRadioPlayer() {
               pointer-events: none;
           }
 
-          /* FEUILLE D'HISTORIQUE TRANSPARENTE */
           .vafm-history-overlay-sheet {
               background: transparent !important;
               backdrop-filter: none;
@@ -1354,7 +1332,6 @@ function initRadioPlayer() {
               overflow: visible !important;
           }
 
-          /* CARTES AVEC FOND TRANSPARENT ET UN LÉGER FLOU */
           .vafm-history-item {
               padding: 10px 14px;
               background: rgba(18, 18, 24, 0.35) !important;
@@ -1435,7 +1412,6 @@ function initRadioPlayer() {
               gap: 8px;
           }
 
-          /* GESTION DE L'AFFICHAGE DES BOUTONS BAS DROITE */
           .vafm-history-toggle-btn {
               background: rgba(255, 255, 255, 0.08);
               border: 1px solid rgba(255, 255, 255, 0.12);
@@ -1484,7 +1460,6 @@ function initRadioPlayer() {
               border-color: rgba(229, 9, 20, 0.6);
           }
 
-          /* Alternance active / inactive */
           .vafm-player-transformed.history-active .vafm-history-toggle-btn {
               display: none !important;
           }
@@ -1496,16 +1471,16 @@ function initRadioPlayer() {
       document.head.appendChild(styleEl);
   }
 
-  // Recherche de pochette iTunes
+  // Utilisation d'un chemin d'accès absolu
   async function fetchTrackCover(title) {
       if (isVafmIdent(title)) {
-          return 'LOGO - VAFM.png';
+          return '/LOGO - VAFM.png';
       }
 
       try {
           const query = title.split(' – ')[0] || title;
           const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1`);
-          if (!res.ok) return 'LOGO - VAFM.png';
+          if (!res.ok) return '/LOGO - VAFM.png';
           const data = await res.json();
           if (data.results && data.results.length > 0) {
               return data.results[0].artworkUrl100.replace('100x100bb', '300x300bb');
@@ -1513,7 +1488,7 @@ function initRadioPlayer() {
       } catch (e) {
           console.warn("Erreur recherche pochette:", e);
       }
-      return 'LOGO - VAFM.png';
+      return '/LOGO - VAFM.png';
   }
 
   let songHistory = [];
@@ -1525,33 +1500,29 @@ function initRadioPlayer() {
 
   let lastTitleSeen = songHistory.length > 0 ? songHistory[0].title : "";
 
-// 1. Récupération simple des 10 derniers morceaux depuis PocketBase
-async function fetchServerHistoryDirectly() {
-    try {
-        const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=10`);
-        if (res.ok) {
-            const data = await res.json();
-            if (data.items && data.items.length > 0) {
-                lastTitleSeen = data.items[0].title;
+  async function fetchServerHistoryDirectly() {
+      try {
+          const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=10`);
+          if (res.ok) {
+              const data = await res.json();
+              if (data.items && data.items.length > 0) {
+                  lastTitleSeen = data.items[0].title;
 
-                // On ne garde strictement que les 10 plus récents
-                songHistory = data.items.slice(0, 10).map(item => ({
-                    title: item.title,
-                    time: item.time,
-                    cover: item.cover || 'LOGO - VAFM.png'
-                }));
+                  songHistory = data.items.slice(0, 10).map(item => ({
+                      title: item.title,
+                      time: item.time,
+                      cover: item.cover || '/LOGO - VAFM.png'
+                  }));
 
-                renderHistoryList();
-            }
-        }
-    } catch (e) {
-        console.warn("Erreur chargement PocketBase:", e);
-    }
-}
+                  renderHistoryList();
+              }
+          }
+      } catch (e) {
+          console.warn("Erreur chargement PocketBase:", e);
+      }
+  }
 
-  // Structuration du conteneur
   const playerBar = playBtn.closest('.player, .audio-player, div[style*="background"], footer') || playBtn.parentElement;
-  
   let miniPlayBtn = null;
 
   if (playerBar && !playerBar.classList.contains('vafm-player-transformed')) {
@@ -1576,7 +1547,7 @@ async function fetchServerHistoryDirectly() {
           </div>
 
           <div class="vafm-nowplaying-fixed-bg">
-              <img id="vafm-live-cover" class="vafm-nowplaying-img" src="LOGO - VAFM.png" alt="Direct Cover" onerror="this.src='LOGO - VAFM.png'">
+              <img id="vafm-live-cover" class="vafm-nowplaying-img" src="/LOGO - VAFM.png" alt="Direct Cover" onerror="this.src='/LOGO - VAFM.png'">
               <div class="vafm-nowplaying-details">
                   <span id="vafm-live-title" class="vafm-nowplaying-title">VAFM Direct</span>
                   <span id="vafm-live-artist" class="vafm-nowplaying-artist">Le meilleur du son</span>
@@ -1606,7 +1577,7 @@ async function fetchServerHistoryDirectly() {
       document.getElementById("vafm-collapse-btn")?.addEventListener("click", (e) => {
           e.stopPropagation();
           playerBar.classList.remove("history-active");
-          document.body.classList.remove("vafm-lock-scroll"); // Débloque le scroll de la page
+          document.body.classList.remove("vafm-lock-scroll");
       });
 
       const historyBtn = document.createElement('button');
@@ -1621,10 +1592,10 @@ async function fetchServerHistoryDirectly() {
           const isActive = playerBar.classList.toggle('history-active');
           
           if (isActive) {
-              document.body.classList.add("vafm-lock-scroll"); // Bloque le scroll de la page
+              document.body.classList.add("vafm-lock-scroll");
               renderHistoryList();
           } else {
-              document.body.classList.remove("vafm-lock-scroll"); // Débloque le scroll
+              document.body.classList.remove("vafm-lock-scroll");
           }
       });
 
@@ -1664,12 +1635,12 @@ async function fetchServerHistoryDirectly() {
           const parts = song.title.split(' – ');
           const trackTitle = parts[1] || parts[0];
           const artistName = parts[1] ? parts[0] : 'VAFM Direct';
-          const coverImage = isVafmIdent(song.title) ? 'LOGO - VAFM.png' : (song.cover || 'LOGO - VAFM.png');
+          const coverImage = isVafmIdent(song.title) ? '/LOGO - VAFM.png' : (song.cover || '/LOGO - VAFM.png');
 
           return `
               <li class="vafm-history-item">
                   <div class="vafm-history-song-left">
-                      <img class="vafm-history-cover" src="${coverImage}" alt="Cover" onerror="this.src='LOGO - VAFM.png'">
+                      <img class="vafm-history-cover" src="${coverImage}" alt="Cover" onerror="this.src='/LOGO - VAFM.png'">
                       <div class="vafm-history-song-details">
                           <span class="vafm-history-song-title">${trackTitle}</span>
                           <span class="vafm-history-song-artist">${artistName}</span>
@@ -1746,7 +1717,6 @@ async function fetchServerHistoryDirectly() {
     }, 1000);
   }
 
-  // 2. Mise à jour de l'affichage du titre en cours et rafraîchissement de la liste
   async function updateCurrentTitle() {
     try {
       const response = await fetch(`${STATS_URL}?nocache=${Date.now()}`);
@@ -1785,7 +1755,6 @@ async function fetchServerHistoryDirectly() {
       const coverUrl = await fetchTrackCover(formattedTitle);
       if (liveCoverEl) liveCoverEl.src = coverUrl;
 
-      // Si un nouveau morceau démarre, on recharge l'historique PocketBase mis à jour par le Cron Vercel
       if (formattedTitle.toLowerCase().trim() !== lastTitleSeen.toLowerCase().trim() && formattedTitle !== "VAFM – En Direct") {
           lastTitleSeen = formattedTitle;
           await fetchServerHistoryDirectly();
@@ -1810,27 +1779,6 @@ async function fetchServerHistoryDirectly() {
   fetchServerHistoryDirectly();
   updateCurrentTitle();
   setInterval(updateCurrentTitle, 15000);
-}
-
-// Nettoie PocketBase pour ne garder QUE les 10 plus récents
-async function cleanOldSongsFromPocketBase() {
-    try {
-        // Récupère les morceaux en sautant les 10 premiers (permet d'isoler les vieux morceaux)
-        const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&offset=10&limit=50`);
-        if (!res.ok) return;
-
-        const data = await res.json();
-        const oldItems = data.items || [];
-
-        // Supprime chaque ancien morceau
-        for (const item of oldItems) {
-            await fetch(`${POCKETBASE_URL}/api/collections/song_history/records/${item.id}`, {
-                method: 'DELETE'
-            });
-        }
-    } catch (e) {
-        console.warn("Erreur lors du nettoyage PocketBase :", e);
-    }
 }
 
 /* ==========================================================================
@@ -1898,7 +1846,6 @@ function createUploadModal() {
         if (posterFile) formData.append('poster', posterFile);
 
         try {
-            // Utilise getAuthHeaders(false) pour transmettre le Token de connexion admin
             const res = await fetch(`${POCKETBASE_URL}/api/collections/videos/records`, {
                 method: 'POST',
                 headers: getAuthHeaders(false),
@@ -1907,7 +1854,6 @@ function createUploadModal() {
 
             if (!res.ok) {
                 const errData = await res.json();
-                console.error("Détails refus PocketBase :", errData);
                 let messageDetails = "";
                 if (errData.data) {
                     messageDetails = Object.entries(errData.data)
@@ -1947,10 +1893,8 @@ async function openVideoPlayerModal(url, title, videoId) {
     let likeCount = 0;
     let commentsList = [];
 
-    // 1. Chargement des Likes ET des Commentaires depuis PocketBase
     if (videoId) {
         try {
-            // Chargement des Likes
             const likesRes = await fetch(`${POCKETBASE_URL}/api/collections/video_likes/records?filter=(video='${videoId}')`);
             if (likesRes.ok) {
                 const likesData = await likesRes.json();
@@ -1965,7 +1909,6 @@ async function openVideoPlayerModal(url, title, videoId) {
                 }
             }
 
-            // Chargement des Commentaires
             const commentsRes = await fetch(`${POCKETBASE_URL}/api/collections/video_comments/records?filter=(video='${videoId}')&sort=-created`);
             if (commentsRes.ok) {
                 const commentsData = await commentsRes.json();
@@ -1996,9 +1939,7 @@ async function openVideoPlayerModal(url, title, videoId) {
                 <div class="vafm-tiktok-caption-text">${title}</div>
             </div>
 
-            <!-- Actions Latérales -->
             <div class="vafm-tiktok-side-actions">
-                <!-- Bouton Like persistent -->
                 <div class="vafm-tiktok-action-item">
                     <button class="vafm-tiktok-action-btn ${isLiked ? 'liked' : ''}" id="vafm-like-btn" title="J'aime">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none">
@@ -2008,7 +1949,6 @@ async function openVideoPlayerModal(url, title, videoId) {
                     <span class="vafm-tiktok-action-count" id="vafm-like-count">${likeCount}</span>
                 </div>
 
-                <!-- Bouton Commentaires persistent -->
                 <div class="vafm-tiktok-action-item">
                     <button class="vafm-tiktok-action-btn" id="vafm-comments-btn" title="Commentaires">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2018,7 +1958,6 @@ async function openVideoPlayerModal(url, title, videoId) {
                     <span class="vafm-tiktok-action-count" id="vafm-comments-count">${commentsList.length}</span>
                 </div>
 
-                <!-- Bouton Partager Natif -->
                 <div class="vafm-tiktok-action-item">
                     <button class="vafm-tiktok-action-btn" id="vafm-share-btn" title="Partager">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2032,7 +1971,6 @@ async function openVideoPlayerModal(url, title, videoId) {
                     <span class="vafm-tiktok-action-count">Partager</span>
                 </div>
 
-                <!-- Bouton Mute -->
                 <div class="vafm-tiktok-action-item">
                     <button class="vafm-tiktok-action-btn" id="vafm-toggle-mute" title="Son">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
@@ -2040,15 +1978,12 @@ async function openVideoPlayerModal(url, title, videoId) {
                 </div>
             </div>
 
-            <!-- Tiroir de Commentaires -->
             <div class="vafm-comments-drawer" id="vafm-comments-drawer">
                 <div class="vafm-comments-header">
                     <span id="vafm-drawer-title">Commentaires (${commentsList.length})</span>
                     <button id="close-comments-drawer" style="background:none; border:none; color:#fff; font-size:1.2rem; cursor:pointer;">✕</button>
                 </div>
-                <div class="vafm-comments-list" id="vafm-comments-list">
-                    <!-- Génération dynamique des commentaires -->
-                </div>
+                <div class="vafm-comments-list" id="vafm-comments-list"></div>
                 <div class="vafm-comments-input-zone">
                     <input type="text" id="vafm-comment-input" placeholder="Ajouter un commentaire...">
                     <button class="vafm-comments-send-btn" id="vafm-send-comment">Envoyer</button>
@@ -2079,7 +2014,6 @@ async function openVideoPlayerModal(url, title, videoId) {
     const shareBtn = document.getElementById('vafm-share-btn');
     const muteBtn = document.getElementById('vafm-toggle-mute');
 
-    // Rendu initial de la liste des commentaires
     function renderComments() {
         if (!commentsList || commentsList.length === 0) {
             listEl.innerHTML = `<p style="color: #8e8e93; font-size: 0.85rem; text-align: center; margin-top: 20px;">Aucun commentaire pour le moment. Soyez le premier !</p>`;
@@ -2124,7 +2058,6 @@ async function openVideoPlayerModal(url, title, videoId) {
         }
     });
 
-    // Enregistrement / Retrait des Likes dans PocketBase
     likeBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         if (!appState || !appState.currentUser) {
@@ -2193,7 +2126,6 @@ async function openVideoPlayerModal(url, title, videoId) {
         }
     });
 
-    // 2. Enregistrement des Commentaires dans PocketBase
     sendCommentBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         if (!appState || !appState.currentUser) {
@@ -2222,7 +2154,7 @@ async function openVideoPlayerModal(url, title, videoId) {
 
             if (res.ok) {
                 const newComment = await res.json();
-                commentsList.unshift(newComment); // Ajouter au début
+                commentsList.unshift(newComment);
                 renderComments();
                 
                 commentInput.value = "";
@@ -2278,43 +2210,6 @@ async function openVideoPlayerModal(url, title, videoId) {
 }
 
 /* ==========================================================================
-14. ROUTEUR SPA (CHARGEMENT DIRECT DE L'ARTICLE DEPUIS L'URL)
+14. GESTION DU ROUTAGE (ÉCOUTE DES BOUTONS DE NAVIGATION DU NAVIGATEUR)
 ========================================================================== */
-
-async function checkUrlForArticle() {
-  const path = window.location.pathname;
-  let articleId = null;
-
-  // 1. Extraire l'ID PocketBase de l'URL (/article/news/ID-SLUG)
-  if (path.startsWith('/article/news/')) {
-    const slugWithId = path.replace('/article/news/', '');
-    articleId = slugWithId.substring(0, 15); // L'ID fait toujours 15 caractères
-  } else {
-    // Cas de secours avec paramètres d'URL (?article=news&id=ID)
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('id')) {
-      articleId = urlParams.get('id');
-    }
-  }
-
-  // 2. Si on a trouvé un ID valide
-  if (articleId && articleId.length === 15) {
-    // On appelle directement openArticleView qui utilise déjà la collection 'actus'
-    setTimeout(() => {
-      if (typeof openArticleView === 'function') {
-        openArticleView('news', articleId);
-      }
-    }, 200);
-  }
-}
-
-// Lancement au chargement complet de la page et lors de la navigation (précédent/suivant)
-window.addEventListener('load', checkRoute);
-window.addEventListener('popstate', checkRoute);
-
-// À la fin de ton fichier JS
-if (document.readyState === 'complete' || document.readyState === 'interactive') {
-  checkUrlForArticle();
-} else {
-  window.addEventListener('DOMContentLoaded', checkUrlForArticle);
-}
+window.addEventListener('popstate', checkUrlForArticle);
