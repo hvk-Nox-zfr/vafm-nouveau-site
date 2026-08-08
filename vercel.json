@@ -12,11 +12,5 @@
       "source": "/:path*",
       "destination": "/index.html"
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron-history",
-      "schedule": "* * * * *"
-    }
   ]
 }
