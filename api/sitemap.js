@@ -28,18 +28,20 @@ export default async function handler(req, res) {
     articles.forEach(article => {
       const articleDate = article.updated ? article.updated.split('T')[0] : today;
       
-      // Si tu as un champ 'slug' dans PocketBase, on l'utilise,
-      // sinon on génère le slug à partir du titre
-      let slugPart = article.slug;
-      if (!slugPart && article.title) {
-        slugPart = article.title
+      // 1. Récupération du titre depuis n'importe quel champ francophone ou anglophone
+      const rawTitle = article.slug || article.titre || article.title || article.nom || article.subject || "";
+
+      // 2. Transformaion en slug propre si présent
+      let slugPart = "";
+      if (rawTitle) {
+        slugPart = rawTitle
           .toLowerCase()
           .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Supprime les accents
-          .replace(/[^a-z0-9]+/g, "-")                     // Remplace espaces et ponctuation par tirets
-          .replace(/^-|-$/g, "");                           // Nettoie les tirets au début/fin
+          .replace(/[^a-z0-9]+/g, "-")                     // Remplace espaces et ponctuation par des tirets
+          .replace(/^-|-$/g, "");                           // Supprime les tirets au début et à la fin
       }
 
-      // Reconstruit l'URL exacte : ID-slug
+      // 3. Construction de l'URL finale
       const fullSlug = slugPart ? `${article.id}-${slugPart}` : article.id;
       const articlePath = `/article/news/${fullSlug}`;
 
