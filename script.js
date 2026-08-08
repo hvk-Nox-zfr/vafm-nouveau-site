@@ -135,7 +135,7 @@ async function checkUrlForArticle() {
     const slugWithId = path.replace('/article/news/', '');
     articleId = slugWithId.substring(0, 15);
   } else {
-    // Format secours : ?article=news&id=ID
+    // Format de secours : ?article=news&id=ID
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('id')) {
       articleId = urlParams.get('id');
@@ -143,8 +143,17 @@ async function checkUrlForArticle() {
   }
 
   if (articleId && articleId.length === 15) {
+    // Attend jusqu'à 2 secondes que article.js soit chargé si nécessaire
+    let retries = 20;
+    while (typeof openArticleView !== 'function' && retries > 0) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      retries--;
+    }
+
     if (typeof openArticleView === 'function') {
       openArticleView('news', articleId);
+    } else {
+      console.error("article.js n'a pas pu être chargé à temps pour ouvrir l'article.");
     }
   }
 }
