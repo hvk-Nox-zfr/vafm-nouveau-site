@@ -9,10 +9,6 @@
       "destination": "/ads.txt"
     },
     {
-      "source": "/article/news/:path*",
-      "destination": "/article.html"
-    },
-    {
       "source": "/api/:path*",
       "destination": "/api/:path*"
     },
