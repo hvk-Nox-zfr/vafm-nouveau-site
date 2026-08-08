@@ -2264,18 +2264,18 @@ async function openVideoPlayerModal(url, title, videoId) {
 }
 
 /* ==========================================================================
-14. ROUTEUR SPA (GÉRATION DES DEEP LINKS D'ARTICLES)
+14. ROUTEUR SPA (CHARGEMENT DIRECT DE L'ARTICLE DEPUIS L'URL)
 ========================================================================== */
-function checkRoute() {
+
+function checkUrlForArticle() {
   const path = window.location.pathname;
 
-  // Si l'URL est de la forme /article/news/ID-SLUG
+  // 1. Détection des nouvelles URLs SEO : /article/news/ID-SLUG
   if (path.startsWith('/article/news/')) {
-    const slugWithId = path.replace('/article/news/', ''); 
-    const articleId = slugWithId.substring(0, 15); // Les ID PocketBase font 15 caractères
+    const slugWithId = path.replace('/article/news/', '');
+    const articleId = slugWithId.substring(0, 15); // L'ID PocketBase fait toujours 15 caractères
 
-    if (articleId) {
-      // Petite temporisation pour s'assurer que l'application est bien chargée
+    if (articleId && articleId.length === 15) {
       setTimeout(() => {
         if (typeof openArticleView === 'function') {
           openArticleView('news', articleId);
@@ -2285,14 +2285,20 @@ function checkRoute() {
     }
   }
 
-  // Si l'URL est / ou qu'aucun article n'est spécifié
-  if (path === '/' || path === '') {
-    if (typeof closeArticleView === 'function') {
-      closeArticleView();
-    }
+  // 2. Ancien système (fallback avec paramètres ?article=...&id=...)
+  const urlParams = new URLSearchParams(window.location.search);
+  const articleCategory = urlParams.get('article');
+  const articleId = urlParams.get('id');
+
+  if (articleCategory && articleId) {
+    setTimeout(() => {
+      if (typeof openArticleView === 'function') {
+        openArticleView(articleCategory, articleId);
+      }
+    }, 300);
   }
 }
 
-// Écouteurs d'événements pour le chargement et les boutons Précédent/Suivant du navigateur
-window.addEventListener('DOMContentLoaded', checkRoute);
+// Lancement au chargement complet de la page et lors de la navigation (précédent/suivant)
+window.addEventListener('load', checkRoute);
 window.addEventListener('popstate', checkRoute);
