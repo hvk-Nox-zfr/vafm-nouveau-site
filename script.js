@@ -116,24 +116,38 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  // 1. Charger d'abord les données PocketBase
   await fetchAllFromPocketBase();
   updateAuthUI();
   initFileUploadDragAndDrop();
   initRadioPlayer();
+
+  // 2. Vérifier l'URL une fois les données chargées en mémoire
   checkUrlForArticle();
 });
 
 function checkUrlForArticle() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const articleCategory = urlParams.get('article');
-  const articleId = urlParams.get('id');
+  const path = window.location.pathname;
+  let articleId = null;
+  let category = 'news';
 
-  if (articleCategory && articleId) {
-    setTimeout(() => {
-      if (typeof openArticleView === 'function') {
-        openArticleView(articleCategory, articleId);
-      }
-    }, 300);
+  // Format URL propre : /article/news/ID-SLUG
+  if (path.startsWith('/article/news/')) {
+    const slugWithId = path.replace('/article/news/', '');
+    articleId = slugWithId.substring(0, 15);
+  } else {
+    // Format secours : ?article=news&id=ID
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('id')) {
+      articleId = urlParams.get('id');
+      category = urlParams.get('article') || 'news';
+    }
+  }
+
+  if (articleId && articleId.length === 15) {
+    if (typeof openArticleView === 'function') {
+      openArticleView(category, articleId);
+    }
   }
 }
 
