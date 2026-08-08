@@ -1,9 +1,9 @@
 export default async function handler(req, res) {
   const POCKETBASE_URL = "https://api.vafmlaradio.fr";
-  // Endpoint standard Icecast / Streamradio
-  const STATS_URL = "https://manager10.streamradio.fr:1540/status-json.xsl";
+  const STATS_URL = "https://manager10.streamradio.fr:1555/status-json.xsl";
 
   try {
+    // 1. Récupération des données Icecast / Streamradio
     const response = await fetch(`${STATS_URL}?nocache=${Date.now()}`, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
@@ -17,28 +17,26 @@ export default async function handler(req, res) {
     const data = await response.json();
     let currentTitle = "";
 
-    // Extraction du titre selon la structure Icecast
+    // Extraction du titre à partir du JSON Icecast
     if (data && data.icestats && data.icestats.source) {
       const source = Array.isArray(data.icestats.source) 
         ? data.icestats.source[0] 
         : data.icestats.source;
       currentTitle = source.title || source.yp_currently_playing || "";
-    } else if (data && data.title) {
-      currentTitle = data.title;
     }
 
     if (!currentTitle || currentTitle === "VAFM – En Direct") {
-      return res.status(200).json({ message: "Aucun titre valide extrait", raw: data });
+      return res.status(200).json({ message: "Aucun titre valide extrait pour le moment" });
     }
 
     const formattedTitle = currentTitle.replace(/\s+[\-\–\—]\s+/, " – ");
 
-    // 2. Vérification dans PocketBase
+    // 2. Vérification du dernier titre dans PocketBase
     const pbCheck = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=1`);
     const pbData = await pbCheck.json();
     const lastSavedTitle = pbData.items && pbData.items.length > 0 ? pbData.items[0].title : "";
 
-    // 3. Enregistrement si nouveau titre
+    // 3. Si nouveau titre, enregistrement + pochette Deezer
     if (formattedTitle.toLowerCase().trim() !== lastSavedTitle.toLowerCase().trim()) {
       const nowTime = new Date().toLocaleTimeString('fr-FR', { 
         hour: '2-digit', 
@@ -57,6 +55,7 @@ export default async function handler(req, res) {
         }
       } catch (e) {}
 
+      // Ajout dans PocketBase
       await fetch(`${POCKETBASE_URL}/api/collections/song_history/records`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -67,7 +66,7 @@ export default async function handler(req, res) {
         })
       });
 
-      // Nettoyage des anciens enregistrements (> 10)
+      // Purge des morceaux au-delà des 10 plus récents
       const oldRecordsRes = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&offset=10&limit=50`);
       if (oldRecordsRes.ok) {
         const oldRecordsData = await oldRecordsRes.json();
