@@ -1,17 +1,27 @@
 export default async function handler(req, res) {
   const POCKETBASE_URL = "https://api.vafmlaradio.fr";
+  // On utilise l'URL d'API sans le port 1540 si elle existe, ou le flux JSON direct
   const STATS_URL = "https://manager10.streamradio.fr:1540/api/v1/widget/status";
 
   try {
     // 1. Récupère le morceau en cours sur Streamradio
-    const response = await fetch(`${STATS_URL}?nocache=${Date.now()}`);
-    if (!response.ok) return res.status(500).json({ error: "Erreur Streamradio" });
+    const response = await fetch(`${STATS_URL}?nocache=${Date.now()}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+      }
+    });
+
+    if (!response.ok) {
+      return res.status(500).json({ error: `Erreur Streamradio (Statut: ${response.status})` });
+    }
 
     const data = await response.json();
     let currentTitle = "";
 
     if (data && data.history && data.history.length > 0) {
       currentTitle = data.history[0].title || data.history[0].song || "";
+    } else if (data && data.song) {
+      currentTitle = data.song;
     }
 
     if (!currentTitle || currentTitle === "VAFM – En Direct") {
