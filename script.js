@@ -2267,38 +2267,63 @@ async function openVideoPlayerModal(url, title, videoId) {
 14. ROUTEUR SPA (CHARGEMENT DIRECT DE L'ARTICLE DEPUIS L'URL)
 ========================================================================== */
 
-function checkUrlForArticle() {
+async function checkUrlForArticle() {
   const path = window.location.pathname;
 
-  // 1. Détection des nouvelles URLs SEO : /article/news/ID-SLUG
+  // Détection du chemin /article/news/ID-SLUG
   if (path.startsWith('/article/news/')) {
     const slugWithId = path.replace('/article/news/', '');
-    const articleId = slugWithId.substring(0, 15); // L'ID PocketBase fait toujours 15 caractères
+    const articleId = slugWithId.substring(0, 15); // L'ID PocketBase (ex: m8auabxx2uo9f7p)
 
     if (articleId && articleId.length === 15) {
-      setTimeout(() => {
-        if (typeof openArticleView === 'function') {
-          openArticleView('news', articleId);
+      try {
+        // 1. On va chercher directement l'article dans PocketBase
+        // (évite de devoir attendre le chargement de toute la liste de la page d'accueil)
+        const article = await pb.collection('news').getOne(articleId);
+
+        if (article) {
+          // 2. Si ta fonction d'affichage dédiée existe, on l'utilise
+          if (typeof renderArticleDetails === 'function') {
+            renderArticleDetails(article);
+            
+            // Masquer la grille principale et afficher le conteneur de l'article
+            const mainContainer = document.getElementById('news-grid') || document.querySelector('.news-section');
+            const articleView = document.getElementById('article-view') || document.getElementById('article-details');
+            
+            if (mainContainer) mainContainer.style.display = 'none';
+            if (articleView) articleView.style.display = 'block';
+            
+            window.scrollTo(0, 0);
+          } else if (typeof openArticleView === 'function') {
+            openArticleView('news', articleId);
+          }
         }
-      }, 300);
+      } catch (err) {
+        console.error("Impossible de charger l'article depuis l'URL :", err);
+      }
       return;
     }
   }
 
-  // 2. Ancien système (fallback avec paramètres ?article=...&id=...)
+  // Fallback si paramètres ?article=...&id=...
   const urlParams = new URLSearchParams(window.location.search);
   const articleCategory = urlParams.get('article');
   const articleId = urlParams.get('id');
 
   if (articleCategory && articleId) {
-    setTimeout(() => {
-      if (typeof openArticleView === 'function') {
-        openArticleView(articleCategory, articleId);
-      }
-    }, 300);
+    if (typeof openArticleView === 'function') {
+      openArticleView(articleCategory, articleId);
+    }
   }
 }
 
 // Lancement au chargement complet de la page et lors de la navigation (précédent/suivant)
 window.addEventListener('load', checkRoute);
 window.addEventListener('popstate', checkRoute);
+
+// À la fin de ton fichier JS
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  checkUrlForArticle();
+} else {
+  window.addEventListener('DOMContentLoaded', checkUrlForArticle);
+}
