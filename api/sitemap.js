@@ -26,24 +26,22 @@ export default async function handler(req, res) {
   </url>`).join("");
 
     articles.forEach(article => {
-      // Formatage de la date en AAAA-MM-JJ
       const articleDate = article.updated ? article.updated.split('T')[0] : today;
       
-      // Construction du slug propre à partir du champ 'slug' ou du titre
-      let slug = article.slug;
-      if (!slug && article.title) {
-        slug = article.title
+      // Si tu as un champ 'slug' dans PocketBase, on l'utilise,
+      // sinon on génère le slug à partir du titre
+      let slugPart = article.slug;
+      if (!slugPart && article.title) {
+        slugPart = article.title
           .toLowerCase()
           .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Supprime les accents
-          .replace(/[^a-z0-9]/g, "-") // Remplace caractères spéciaux par tirets
-          .replace(/-+/g, "-") // Évite les tirets doubles
-          .replace(/^-|-$/g, ""); // Nettoie les tirets aux extrémités
+          .replace(/[^a-z0-9]+/g, "-")                     // Remplace espaces et ponctuation par tirets
+          .replace(/^-|-$/g, "");                           // Nettoie les tirets au début/fin
       }
 
-      // Format final : /article/news/ID-SLUG
-      const articlePath = slug 
-        ? `/article/news/${article.id}-${slug}` 
-        : `/article/news/${article.id}`;
+      // Reconstruit l'URL exacte : ID-slug
+      const fullSlug = slugPart ? `${article.id}-${slugPart}` : article.id;
+      const articlePath = `/article/news/${fullSlug}`;
 
       urlsXml += `
   <url>
