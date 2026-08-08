@@ -2283,51 +2283,28 @@ async function openVideoPlayerModal(url, title, videoId) {
 
 async function checkUrlForArticle() {
   const path = window.location.pathname;
+  let articleId = null;
 
-  // Détection du chemin /article/news/ID-SLUG
+  // 1. Extraire l'ID PocketBase de l'URL (/article/news/ID-SLUG)
   if (path.startsWith('/article/news/')) {
     const slugWithId = path.replace('/article/news/', '');
-    const articleId = slugWithId.substring(0, 15); // L'ID PocketBase (ex: m8auabxx2uo9f7p)
-
-    if (articleId && articleId.length === 15) {
-      try {
-        // 1. On va chercher directement l'article dans PocketBase
-        // (évite de devoir attendre le chargement de toute la liste de la page d'accueil)
-        const article = await pb.collection('news').getOne(articleId);
-
-        if (article) {
-          // 2. Si ta fonction d'affichage dédiée existe, on l'utilise
-          if (typeof renderArticleDetails === 'function') {
-            renderArticleDetails(article);
-            
-            // Masquer la grille principale et afficher le conteneur de l'article
-            const mainContainer = document.getElementById('news-grid') || document.querySelector('.news-section');
-            const articleView = document.getElementById('article-view') || document.getElementById('article-details');
-            
-            if (mainContainer) mainContainer.style.display = 'none';
-            if (articleView) articleView.style.display = 'block';
-            
-            window.scrollTo(0, 0);
-          } else if (typeof openArticleView === 'function') {
-            openArticleView('news', articleId);
-          }
-        }
-      } catch (err) {
-        console.error("Impossible de charger l'article depuis l'URL :", err);
-      }
-      return;
+    articleId = slugWithId.substring(0, 15); // L'ID fait toujours 15 caractères
+  } else {
+    // Cas de secours avec paramètres d'URL (?article=news&id=ID)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('id')) {
+      articleId = urlParams.get('id');
     }
   }
 
-  // Fallback si paramètres ?article=...&id=...
-  const urlParams = new URLSearchParams(window.location.search);
-  const articleCategory = urlParams.get('article');
-  const articleId = urlParams.get('id');
-
-  if (articleCategory && articleId) {
-    if (typeof openArticleView === 'function') {
-      openArticleView(articleCategory, articleId);
-    }
+  // 2. Si on a trouvé un ID valide
+  if (articleId && articleId.length === 15) {
+    // On appelle directement openArticleView qui utilise déjà la collection 'actus'
+    setTimeout(() => {
+      if (typeof openArticleView === 'function') {
+        openArticleView('news', articleId);
+      }
+    }, 200);
   }
 }
 
