@@ -3,25 +3,22 @@ export default async function handler(req, res) {
   const SITE_URL = "https://vafmlaradio.fr";
 
   try {
-    // 1. Récupération dynamique de la liste de tes articles depuis PocketBase
+    // 1. Récupération des articles depuis la collection 'actus'
     let articles = [];
     try {
-      const response = await fetch(`${POCKETBASE_URL}/api/collections/articles/records?sort=-created`);
+      const response = await fetch(`${POCKETBASE_URL}/api/collections/actus/records?sort=-created`);
       if (response.ok) {
         const data = await response.json();
         articles = data.items || [];
+      } else {
+        console.error(`Erreur PocketBase API: ${response.status}`);
       }
     } catch (e) {
-      console.error("Erreur récupération articles pour le sitemap:", e);
+      console.error("Erreur de connexion PocketBase:", e);
     }
 
-    // 2. Construction de la liste des URLs (Pages fixes + Articles dynamiques)
-    const staticPages = [
-      "",
-      "/articles",
-      "/contact"
-    ];
-
+    // 2. Pages statiques
+    const staticPages = ["", "/articles", "/contact"];
     const today = new Date().toISOString().split('T')[0];
 
     let urlsXml = staticPages.map(page => `
@@ -32,11 +29,13 @@ export default async function handler(req, res) {
     <priority>${page === "" ? "1.0" : "0.8"}</priority>
   </url>`).join("");
 
-    // Ajout automatique de chaque article présent dans PocketBase
+    // 3. Génération dynamique des URLs pour chaque article
     articles.forEach(article => {
       const articleDate = article.updated ? article.updated.split('T')[0] : today;
-      // Remplace 'slug' par 'id' ou la propriété correspondant au lien de l'article sur ton site
-      const articleUrl = `${SITE_URL}/article.html?id=${article.id}`;
+      
+      // Utilise le champ 'slug' s'il existe, sinon l'identifiant 'id'
+      const path = article.slug ? `/article/${article.slug}` : `/article.html?id=${article.id}`;
+      const articleUrl = `${SITE_URL}${path}`;
 
       urlsXml += `
   <url>
@@ -47,15 +46,14 @@ export default async function handler(req, res) {
   </url>`;
     });
 
-    // 3. Assemblage du XML complet
+    // 4. Sortie XML
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urlsXml}
 </urlset>`;
 
-    // 4. Envoi de la réponse avec le Content-Type XML
     res.setHeader("Content-Type", "text/xml");
-    res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate");
+    res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate");
     return res.status(200).send(xml);
 
   } catch (err) {
