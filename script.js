@@ -2263,26 +2263,36 @@ async function openVideoPlayerModal(url, title, videoId) {
     });
 }
 
-// 1. Définition du routeur de la SPA
+/* ==========================================================================
+14. ROUTEUR SPA (GÉRATION DES DEEP LINKS D'ARTICLES)
+========================================================================== */
 function checkRoute() {
   const path = window.location.pathname;
 
-  // Si l'URL commence par /article/news/
+  // Si l'URL est de la forme /article/news/ID-SLUG
   if (path.startsWith('/article/news/')) {
-    const slugWithId = path.replace('/article/news/', ''); // Ex: "v2jlv12y0i06v0d-eclipse-solaire..."
+    const slugWithId = path.replace('/article/news/', ''); 
     const articleId = slugWithId.substring(0, 15); // Les ID PocketBase font 15 caractères
 
     if (articleId) {
-      // Remplace 'loadArticle' par le nom de ta fonction qui charge l'article depuis PocketBase
-      loadArticle(articleId); 
+      // Petite temporisation pour s'assurer que l'application est bien chargée
+      setTimeout(() => {
+        if (typeof openArticleView === 'function') {
+          openArticleView('news', articleId);
+        }
+      }, 300);
       return;
     }
   }
 
-  // Si on est sur l'accueil ou autre route par défaut
-  showHomePage();
+  // Si l'URL est / ou qu'aucun article n'est spécifié
+  if (path === '/' || path === '') {
+    if (typeof closeArticleView === 'function') {
+      closeArticleView();
+    }
+  }
 }
 
-// 2. Écouteurs d'événements
+// Écouteurs d'événements pour le chargement et les boutons Précédent/Suivant du navigateur
 window.addEventListener('DOMContentLoaded', checkRoute);
 window.addEventListener('popstate', checkRoute);
