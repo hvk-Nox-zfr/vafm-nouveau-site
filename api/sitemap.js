@@ -3,21 +3,17 @@ export default async function handler(req, res) {
   const SITE_URL = "https://vafmlaradio.fr";
 
   try {
-    // 1. Récupération des articles depuis la collection 'actus'
     let articles = [];
     try {
       const response = await fetch(`${POCKETBASE_URL}/api/collections/actus/records?sort=-created`);
       if (response.ok) {
         const data = await response.json();
         articles = data.items || [];
-      } else {
-        console.error(`Erreur PocketBase API: ${response.status}`);
       }
     } catch (e) {
       console.error("Erreur de connexion PocketBase:", e);
     }
 
-    // 2. Pages statiques
     const staticPages = ["", "/articles", "/contact"];
     const today = new Date().toISOString().split('T')[0];
 
@@ -29,24 +25,35 @@ export default async function handler(req, res) {
     <priority>${page === "" ? "1.0" : "0.8"}</priority>
   </url>`).join("");
 
-    // 3. Génération dynamique des URLs pour chaque article
     articles.forEach(article => {
+      // Formatage de la date en AAAA-MM-JJ
       const articleDate = article.updated ? article.updated.split('T')[0] : today;
       
-      // Utilise le champ 'slug' s'il existe, sinon l'identifiant 'id'
-      const path = article.slug ? `/article/${article.slug}` : `/article.html?id=${article.id}`;
-      const articleUrl = `${SITE_URL}${path}`;
+      // Construction du slug propre à partir du champ 'slug' ou du titre
+      let slug = article.slug;
+      if (!slug && article.title) {
+        slug = article.title
+          .toLowerCase()
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Supprime les accents
+          .replace(/[^a-z0-9]/g, "-") // Remplace caractères spéciaux par tirets
+          .replace(/-+/g, "-") // Évite les tirets doubles
+          .replace(/^-|-$/g, ""); // Nettoie les tirets aux extrémités
+      }
+
+      // Format final : /article/news/ID-SLUG
+      const articlePath = slug 
+        ? `/article/news/${article.id}-${slug}` 
+        : `/article/news/${article.id}`;
 
       urlsXml += `
   <url>
-    <loc>${articleUrl}</loc>
+    <loc>${SITE_URL}${articlePath}</loc>
     <lastmod>${articleDate}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>`;
     });
 
-    // 4. Sortie XML
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urlsXml}
