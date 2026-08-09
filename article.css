@@ -198,49 +198,35 @@ body.admin-logged-in .article-page-container {
     cursor: move;
 }
 
-/* Barre d'outils fixe Studio Canva - Correctif Mobile Swipe */
+/* Barre d'outils fixe Studio Canva - Version Mobile Scroll Garanti */
 .vafm-player-toolbar {
-    position: fixed;
-    bottom: 110px;
-    left: 5%;
-    right: 5%;
-    width: 90%;
-    max-width: 600px;
-    margin: 0 auto;
-    transform: none !important; /* Désactive le translate qui bloque le scroll sur iOS */
-    background: #121218;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 40px;
-    padding: 8px 14px;
-    display: flex !important;
-    align-items: center;
-    gap: 8px;
-    z-index: 999999;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    
-    /* Active le scroll horizontal */
-    overflow-x: scroll !important;
-    overflow-y: hidden;
-    white-space: nowrap;
-    -webkit-overflow-scrolling: touch;
-    box-sizing: border-box;
+    position: fixed !important;
+    bottom: 110px !important;
+    left: 5% !important;
+    width: 90% !important;
+    max-width: 500px !important;
+    background: #121218 !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: 40px !important;
+    padding: 8px 14px !important;
+    z-index: 999999 !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+
+    /* --- FORCE LE SCROLL TACTILE --- */
+    display: block !important;           /* Utilisation du block pour éviter les bugs flexbox scroll sur WebKit */
+    overflow-x: scroll !important;       /* Affiche la zone de défilement */
+    overflow-y: hidden !important;
+    white-space: nowrap !important;      /* Garde tout sur une seule ligne */
+    -webkit-overflow-scrolling: touch !important; /* Inertes de scroll sous iOS */
+    touch-action: pan-x !important;      /* Indique explicitement au navigateur d'autoriser le swipe horizontal */
+    box-sizing: border-box !important;
 }
 
-/* Cache les scrollbars pour garder l'aspect épuré */
-.vafm-player-toolbar::-webkit-scrollbar {
-    display: none;
-}
-.vafm-player-toolbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-}
-
-/* Force tous les enfants à conserver leur taille minimale sans s'écraser */
-.vafm-tb-label,
-.vafm-tb-btn,
-.vafm-tb-divider {
+/* Alignement interne des boutons en ligne */
+.vafm-player-toolbar > * {
+    display: inline-flex !important;
+    vertical-align: middle;
     flex-shrink: 0 !important;
-    white-space: nowrap;
 }
 
 .vafm-tb-label {
@@ -260,6 +246,7 @@ body.admin-logged-in .article-page-container {
     font-size: 0.85rem;
     cursor: pointer;
     transition: background 0.2s;
+    white-space: nowrap !important;
 }
 
 .vafm-tb-btn:hover {
@@ -270,7 +257,7 @@ body.admin-logged-in .article-page-container {
     width: 1px;
     height: 18px;
     background: rgba(255, 255, 255, 0.15);
-    margin: 0 4px;
+    margin: 0 6px;
 }
 
 .vafm-tb-btn.status-published { color: #00e676; }

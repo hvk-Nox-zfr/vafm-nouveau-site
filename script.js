@@ -24,6 +24,15 @@ let mainSwiperInstance = null;
 let selectedFile = null;
 let sortableInstances = [];
 
+document.addEventListener('DOMContentLoaded', () => {
+  const toolbar = document.querySelector('.vafm-player-toolbar');
+  if (toolbar) {
+    toolbar.addEventListener('touchstart', (e) => {
+      e.stopPropagation(); // Empeche les scripts parents d'intercepter le touch
+    }, { passive: true });
+  }
+});
+
 /* ==========================================================================
 3. UTILITIES & DROITS (TOKEN & ROLES)
 ========================================================================== */
