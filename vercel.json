@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/article/news/:id*",
+      "destination": "/api/article?id=:id"
+    },
+    {
       "source": "/sitemap.xml",
       "destination": "/api/sitemap"
     },
