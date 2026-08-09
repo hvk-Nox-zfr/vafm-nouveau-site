@@ -198,38 +198,49 @@ body.admin-logged-in .article-page-container {
     cursor: move;
 }
 
-/* Barre d'outils fixe Studio Canva */
+/* Barre d'outils fixe Studio Canva - Correctif Mobile Swipe */
 .vafm-player-toolbar {
     position: fixed;
     bottom: 110px;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 5%;
+    right: 5%;
+    width: 90%;
+    max-width: 600px;
+    margin: 0 auto;
+    transform: none !important; /* Désactive le translate qui bloque le scroll sur iOS */
     background: #121218;
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 40px;
-    padding: 8px 18px;
-    display: flex;
+    padding: 8px 14px;
+    display: flex !important;
     align-items: center;
     gap: 8px;
     z-index: 999999;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-
-    /* --- NOUVEAU : Gestion du Swipe sur Mobile --- */
-    max-width: 90vw;                   /* Empêche la barre de dépasser de l'écran */
-    overflow-x: auto !important;       /* Active le défilement horizontal */
+    
+    /* Active le scroll horizontal */
+    overflow-x: scroll !important;
     overflow-y: hidden;
-    white-space: nowrap;               /* Garde tous les boutons sur une seule ligne */
-    -webkit-overflow-scrolling: touch; /* Rend le swipe fluide sur iOS/Android */
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
     box-sizing: border-box;
 }
 
-/* Masquer la barre de défilement pour garder un style épuré */
+/* Cache les scrollbars pour garder l'aspect épuré */
 .vafm-player-toolbar::-webkit-scrollbar {
     display: none;
 }
 .vafm-player-toolbar {
-    -ms-overflow-style: none;  /* IE et Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Force tous les enfants à conserver leur taille minimale sans s'écraser */
+.vafm-tb-label,
+.vafm-tb-btn,
+.vafm-tb-divider {
+    flex-shrink: 0 !important;
+    white-space: nowrap;
 }
 
 .vafm-tb-label {
@@ -238,7 +249,6 @@ body.admin-logged-in .article-page-container {
     font-weight: 700;
     text-transform: uppercase;
     margin-right: 6px;
-    flex-shrink: 0;                    /* Empêche le texte d'être compressé */
 }
 
 .vafm-tb-btn {
@@ -250,8 +260,6 @@ body.admin-logged-in .article-page-container {
     font-size: 0.85rem;
     cursor: pointer;
     transition: background 0.2s;
-    flex-shrink: 0;                    /* --- NOUVEAU : Empêche les boutons de rétrécir --- */
-    white-space: nowrap;
 }
 
 .vafm-tb-btn:hover {
@@ -263,7 +271,6 @@ body.admin-logged-in .article-page-container {
     height: 18px;
     background: rgba(255, 255, 255, 0.15);
     margin: 0 4px;
-    flex-shrink: 0;                    /* Empêche les séparateurs de s'écraser */
 }
 
 .vafm-tb-btn.status-published { color: #00e676; }
