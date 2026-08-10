@@ -69,6 +69,37 @@ async function cleanOldSongsFromPocketBase() {
     }
 }
 
+// Compression rapide de l'image miniature pour éviter d'envoyer une photo brute
+async function compressPosterImage(file, maxWidth = 800, quality = 0.8) {
+  if (!file || !file.type.startsWith('image/')) return file;
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (e) => {
+      const img = new Image();
+      img.src = e.target.result;
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxWidth) {
+          h = Math.round((h * maxWidth) / w);
+          w = maxWidth;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob((blob) => {
+          if (!blob) return resolve(file);
+          resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".webp", { type: "image/webp" }));
+        }, 'image/webp', quality);
+      };
+      img.onerror = () => resolve(file);
+    };
+    reader.onerror = () => resolve(file);
+  });
+}
+
 /* ==========================================================================
 3. UTILITIES & DROITS (TOKEN & ROLES)
 ========================================================================== */
