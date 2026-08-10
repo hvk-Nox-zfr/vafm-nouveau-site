@@ -653,6 +653,7 @@ function renderVideosContainer() {
   }
 
   const canEditVideos = canEditCategory('videos');
+  const isEdit = Boolean(appState.editMode && appState.currentUser);
 
   container.innerHTML = appState.videos.map(video => {
     const safeTitle = (video.title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
@@ -669,9 +670,11 @@ function renderVideosContainer() {
         <div class="vafm-video-click-zone" onclick="if('${video.videoUrl}') openVideoPlayerModal('${video.videoUrl}', '${safeTitle}', '${video.id}')"></div>
         <div class="vafm-video-overlay">
             <div class="vafm-video-header-info">
-                <span class="card-status-tag ${video.is_published ? 'tag-published' : 'tag-draft'}">
-                    ${video.is_published ? 'Publié' : 'Brouillon'}
-                </span>
+                ${isEdit ? `
+                  <span class="card-status-tag ${video.is_published ? 'tag-published' : 'tag-draft'}">
+                      ${video.is_published ? 'Publié' : 'Brouillon'}
+                  </span>
+                ` : ''}
                 
                 ${canEditVideos ? `
                   <div class="vafm-video-admin-actions">
