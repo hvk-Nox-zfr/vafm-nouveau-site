@@ -1807,7 +1807,7 @@ async function fetchServerHistoryDirectly() {
     }, 1000);
   }
 
-  async function updateCurrentTitle() {
+async function updateCurrentTitle() {
     try {
       const response = await fetch(`${STATS_URL}?nocache=${Date.now()}`);
       if (!response.ok) return;
@@ -1845,50 +1845,13 @@ async function fetchServerHistoryDirectly() {
       const coverUrl = await fetchTrackCover(formattedTitle);
       if (liveCoverEl) liveCoverEl.src = coverUrl;
 
-      // Enregistrement dans PocketBase à chaque changement de titre
-      // Dans updateCurrentTitle(), lors de la détection d'un titre :
-if (formattedTitle.toLowerCase().trim() !== lastTitleSeen.toLowerCase().trim() && formattedTitle !== "VAFM – En Direct") {
-    
-    try {
-        // Vérification préalable : on demande à PocketBase quel est le tout dernier titre enregistré
-        const checkRes = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=1`);
-        if (checkRes.ok) {
-            const checkData = await checkRes.json();
-            const latestRecord = checkData.items && checkData.items[0];
-            
-            // Si le dernier titre enregistré en BDD est identique, on n'envoie PAS de doublon
-            if (latestRecord && latestRecord.title.toLowerCase().trim() === formattedTitle.toLowerCase().trim()) {
-                lastTitleSeen = formattedTitle;
-                return;
-            }
-        }
-
+      // Détection du changement de titre (Lecture seule côté client)
+      if (formattedTitle.toLowerCase().trim() !== lastTitleSeen.toLowerCase().trim() && formattedTitle !== "VAFM – En Direct") {
         lastTitleSeen = formattedTitle;
-        const now = new Date();
-        const timeFormatted = now.toLocaleTimeString('fr-FR', { 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            timeZone: 'Europe/Paris' 
-        });
-
-        // Envoi dans PocketBase uniquement si c'est un VRAI nouveau morceau
-        await fetch(`${POCKETBASE_URL}/api/collections/song_history/records`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                title: formattedTitle,
-                time: timeFormatted,
-                cover: coverUrl
-            })
-        });
-
-    } catch (err) {
-        console.warn("Erreur enregistrement dans song_history :", err);
-    }
-
-    await fetchServerHistoryDirectly();
-    await cleanOldSongsFromPocketBase();
-}
+        
+        // Rafraîchissement de l'historique généré par le Cron Job
+        await fetchServerHistoryDirectly();
+      }
 
       if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({
