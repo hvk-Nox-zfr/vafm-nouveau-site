@@ -24,14 +24,38 @@ let mainSwiperInstance = null;
 let selectedFile = null;
 let sortableInstances = [];
 
-document.addEventListener('DOMContentLoaded', () => {
-  const toolbar = document.querySelector('.vafm-player-toolbar');
-  if (toolbar) {
-    toolbar.addEventListener('touchstart', (e) => {
-      e.stopPropagation(); // Empeche les scripts parents d'intercepter le touch
-    }, { passive: true });
+// Correction Swipe Mobile : Délégation d'événements globale (fonctionne même pour le contenu dynamique)
+document.addEventListener('touchstart', (e) => {
+  if (e.target.closest('.vafm-tb-scroll-wrapper, .vafm-player-toolbar')) {
+    e.stopPropagation();
   }
-});
+}, { passive: true });
+
+// Nettoyage asynchrone parallèle des morceaux excédentaires dans PocketBase
+async function cleanOldSongsFromPocketBase() {
+    try {
+        const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&offset=10&limit=200`);
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const oldItems = data.items || [];
+
+        if (oldItems.length === 0) return;
+
+        console.log(`Nettoyage : suppression de ${oldItems.length} anciens titres...`);
+
+        await Promise.all(oldItems.map(item => 
+            fetch(`${POCKETBASE_URL}/api/collections/song_history/records/${item.id}`, {
+                method: 'DELETE',
+                headers: getAuthHeaders(true)
+            })
+        ));
+
+        console.log("Nettoyage de l'historique terminé !");
+    } catch (e) {
+        console.warn("Erreur lors du nettoyage PocketBase :", e);
+    }
+}
 
 /* ==========================================================================
 3. UTILITIES & DROITS (TOKEN & ROLES)
@@ -125,13 +149,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // 1. Charger d'abord toutes les données depuis PocketBase
   await fetchAllFromPocketBase();
   updateAuthUI();
   initFileUploadDragAndDrop();
   initRadioPlayer();
 
-  // 2. Vérifier l'URL et charger l'article si présent
   await checkUrlForArticle();
 });
 
@@ -139,12 +161,10 @@ async function checkUrlForArticle() {
   const path = window.location.pathname;
   let articleId = null;
 
-  // Format URL SEO : /article/news/ID-SLUG
   if (path.startsWith('/article/news/')) {
     const slugWithId = path.replace('/article/news/', '');
     articleId = slugWithId.substring(0, 15);
   } else {
-    // Format de secours : ?article=news&id=ID
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('id')) {
       articleId = urlParams.get('id');
@@ -152,7 +172,6 @@ async function checkUrlForArticle() {
   }
 
   if (articleId && articleId.length === 15) {
-    // Attend jusqu'à 2 secondes que article.js soit chargé si nécessaire
     let retries = 20;
     while (typeof openArticleView !== 'function' && retries > 0) {
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -293,7 +312,6 @@ function renderAll() {
 
   const canEditHero = canEditCategory('hero');
 
-  // 1. CARROUSEL HERO
   if (heroWrapper) {
     if (appState.hero.length === 0) {
       heroWrapper.innerHTML = `
@@ -348,7 +366,6 @@ function renderAll() {
     });
   }
 
-  // 2. RENDU DES GRILLES CLASSIQUES
   const renderGrid = (gridElement, dataArray, category, collectionName) => {
     if (!gridElement) return;
 
@@ -393,7 +410,6 @@ function renderAll() {
   renderGrid(showsGrid, appState.shows, 'shows', 'emissions');
   renderGrid(teamGrid, appState.team, 'team', 'animateurs');
 
-  // 3. RENDU DES VIDÉOS DYNAMIQUES
   renderVideosContainer();
 
   if (isEdit) {
@@ -1489,7 +1505,6 @@ function initRadioPlayer() {
       document.head.appendChild(styleEl);
   }
 
-  // Utilisation d'un chemin d'accès absolu
   async function fetchTrackCover(title) {
       if (isVafmIdent(title)) {
           return '/LOGO - VAFM.png';
@@ -1797,6 +1812,9 @@ function initRadioPlayer() {
   fetchServerHistoryDirectly();
   updateCurrentTitle();
   setInterval(updateCurrentTitle, 15000);
+  
+  // Exécution systématique du nettoyage au lancement du lecteur
+  cleanOldSongsFromPocketBase();
 }
 
 /* ==========================================================================

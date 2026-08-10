@@ -198,69 +198,51 @@ body.admin-logged-in .article-page-container {
     cursor: move;
 }
 
-/* Barre d'outils fixe Studio Canva - Version Mobile Scroll Garanti */
+/* Conteneur principal fixe */
 .vafm-player-toolbar {
     position: fixed !important;
-    bottom: 110px !important;
-    left: 5% !important;
-    width: 90% !important;
-    max-width: 500px !important;
+    bottom: 90px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 90vw !important;
+    max-width: 450px !important;
     background: #121218 !important;
     border: 1px solid rgba(255, 255, 255, 0.15) !important;
     border-radius: 40px !important;
-    padding: 8px 14px !important;
+    padding: 6px !important;
     z-index: 999999 !important;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
-
-    /* --- FORCE LE SCROLL TACTILE --- */
-    display: block !important;           /* Utilisation du block pour éviter les bugs flexbox scroll sur WebKit */
-    overflow-x: scroll !important;       /* Affiche la zone de défilement */
-    overflow-y: hidden !important;
-    white-space: nowrap !important;      /* Garde tout sur une seule ligne */
-    -webkit-overflow-scrolling: touch !important; /* Inertes de scroll sous iOS */
-    touch-action: pan-x !important;      /* Indique explicitement au navigateur d'autoriser le swipe horizontal */
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8) !important;
     box-sizing: border-box !important;
 }
 
-/* Alignement interne des boutons en ligne */
-.vafm-player-toolbar > * {
-    display: inline-flex !important;
-    vertical-align: middle;
+/* Zone de défilement interne dédiée */
+.vafm-tb-scroll-wrapper {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    white-space: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x !important; /* Force le geste de swipe horizontal */
+    padding: 4px 8px !important;
+    box-sizing: border-box !important;
+}
+
+/* Cacher la barre de défilement */
+.vafm-tb-scroll-wrapper::-webkit-scrollbar {
+    display: none !important;
+}
+.vafm-tb-scroll-wrapper {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+}
+
+/* Éviter que les boutons ne rétrécissent */
+.vafm-tb-label,
+.vafm-tb-btn,
+.vafm-tb-divider {
     flex-shrink: 0 !important;
-}
-
-.vafm-tb-label {
-    color: #8e8e93;
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    margin-right: 6px;
-}
-
-.vafm-tb-btn {
-    background: rgba(255, 255, 255, 0.08);
-    border: none;
-    color: #fff;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: background 0.2s;
     white-space: nowrap !important;
 }
-
-.vafm-tb-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-}
-
-.vafm-tb-divider {
-    width: 1px;
-    height: 18px;
-    background: rgba(255, 255, 255, 0.15);
-    margin: 0 6px;
-}
-
-.vafm-tb-btn.status-published { color: #00e676; }
-.vafm-tb-btn.status-draft { color: #ff9900; }
-.vafm-tb-btn.btn-save { background: #E50914; font-weight: 700; }
-.vafm-tb-btn.btn-delete { color: #ff3355; }
