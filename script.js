@@ -1560,41 +1560,57 @@ function initRadioPlayer() {
   let lastTitleSeen = songHistory.length > 0 ? songHistory[0].title : "";
 
   // Récupération directe de PocketBase avec conversion en heure française (HH:mm)
-  async function fetchServerHistoryDirectly() {
-      try {
-          const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=10`);
-          if (res.ok) {
-              const data = await res.json();
-              if (data.items && data.items.length > 0) {
-                  lastTitleSeen = data.items[0].title;
+async function fetchServerHistoryDirectly() {
+    try {
+        const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=30`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.items && data.items.length > 0) {
+                
+                // Dédoublonnage : on ne garde que la version la plus récente de chaque titre consécutif
+                const uniqueItems = [];
+                let lastSeenTrack = "";
 
-                  songHistory = data.items.map(item => {
-                      let displayTime = item.time;
-                      if (item.created) {
-                          const d = new Date(item.created);
-                          displayTime = d.toLocaleTimeString('fr-FR', { 
-                              hour: '2-digit', 
-                              minute: '2-digit', 
-                              timeZone: 'Europe/Paris' 
-                          });
-                      }
+                for (const item of data.items) {
+                    const cleanTitle = (item.title || "").toLowerCase().trim();
+                    if (cleanTitle !== lastSeenTrack && cleanTitle !== "vafm – en direct") {
+                        uniqueItems.push(item);
+                        lastSeenTrack = cleanTitle;
+                    }
+                }
 
-                      return {
-                          id: item.id,
-                          title: item.title,
-                          time: displayTime || 'En direct',
-                          cover: item.cover || '/LOGO - VAFM.png'
-                      };
-                  });
+                if (uniqueItems.length > 0) {
+                    lastTitleSeen = uniqueItems[0].title;
+                }
 
-                  localStorage.setItem("vafm_song_history", JSON.stringify(songHistory));
-                  renderHistoryList();
-              }
-          }
-      } catch (e) {
-          console.warn("Erreur chargement PocketBase song_history:", e);
-      }
-  }
+                // On extrait les 10 premiers uniques
+                songHistory = uniqueItems.slice(0, 10).map(item => {
+                    let displayTime = item.time;
+                    if (item.created) {
+                        const d = new Date(item.created);
+                        displayTime = d.toLocaleTimeString('fr-FR', { 
+                            hour: '2-digit', 
+                            minute: '2-digit', 
+                            timeZone: 'Europe/Paris' 
+                        });
+                    }
+
+                    return {
+                        id: item.id,
+                        title: item.title,
+                        time: displayTime || 'En direct',
+                        cover: item.cover || '/LOGO - VAFM.png'
+                    };
+                });
+
+                localStorage.setItem("vafm_song_history", JSON.stringify(songHistory));
+                renderHistoryList();
+            }
+        }
+    } catch (e) {
+        console.warn("Erreur chargement PocketBase song_history :", e);
+    }
+}
 
   const playerBar = playBtn.closest('.player, .audio-player, div[style*="background"], footer') || playBtn.parentElement;
   let miniPlayBtn = null;
@@ -1830,33 +1846,49 @@ function initRadioPlayer() {
       if (liveCoverEl) liveCoverEl.src = coverUrl;
 
       // Enregistrement dans PocketBase à chaque changement de titre
-      if (formattedTitle.toLowerCase().trim() !== lastTitleSeen.toLowerCase().trim() && formattedTitle !== "VAFM – En Direct") {
-          lastTitleSeen = formattedTitle;
-          
-          try {
-              const now = new Date();
-              const timeFormatted = now.toLocaleTimeString('fr-FR', { 
-                  hour: '2-digit', 
-                  minute: '2-digit', 
-                  timeZone: 'Europe/Paris' 
-              });
+      // Dans updateCurrentTitle(), lors de la détection d'un titre :
+if (formattedTitle.toLowerCase().trim() !== lastTitleSeen.toLowerCase().trim() && formattedTitle !== "VAFM – En Direct") {
+    
+    try {
+        // Vérification préalable : on demande à PocketBase quel est le tout dernier titre enregistré
+        const checkRes = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=1`);
+        if (checkRes.ok) {
+            const checkData = await checkRes.json();
+            const latestRecord = checkData.items && checkData.items[0];
+            
+            // Si le dernier titre enregistré en BDD est identique, on n'envoie PAS de doublon
+            if (latestRecord && latestRecord.title.toLowerCase().trim() === formattedTitle.toLowerCase().trim()) {
+                lastTitleSeen = formattedTitle;
+                return;
+            }
+        }
 
-              await fetch(`${POCKETBASE_URL}/api/collections/song_history/records`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                      title: formattedTitle,
-                      time: timeFormatted,
-                      cover: coverUrl
-                  })
-              });
-          } catch (err) {
-              console.warn("Erreur enregistrement dans song_history :", err);
-          }
+        lastTitleSeen = formattedTitle;
+        const now = new Date();
+        const timeFormatted = now.toLocaleTimeString('fr-FR', { 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            timeZone: 'Europe/Paris' 
+        });
 
-          await fetchServerHistoryDirectly();
-          await cleanOldSongsFromPocketBase();
-      }
+        // Envoi dans PocketBase uniquement si c'est un VRAI nouveau morceau
+        await fetch(`${POCKETBASE_URL}/api/collections/song_history/records`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: formattedTitle,
+                time: timeFormatted,
+                cover: coverUrl
+            })
+        });
+
+    } catch (err) {
+        console.warn("Erreur enregistrement dans song_history :", err);
+    }
+
+    await fetchServerHistoryDirectly();
+    await cleanOldSongsFromPocketBase();
+}
 
       if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({

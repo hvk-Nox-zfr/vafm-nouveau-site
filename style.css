@@ -643,11 +643,17 @@ body.admin-logged-in .hero-section {
 }
 
 /* --- ACTUALITÉS : IMAGE TOTALE + TEXTE DIRECTEMENT EN SURIMPRESSION --- */
+#news-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
+    gap: 18px !important;
+}
+
 #news-grid .card {
     position: relative !important;
     overflow: hidden !important;
     border-radius: var(--radius-premium, 16px) !important;
-    height: 380px !important;
+    height: 280px !important; /* Hauteur réduite (au lieu de 380px) */
     display: flex !important;
     flex-direction: column !important;
     justify-content: flex-end !important;
@@ -685,11 +691,11 @@ body.admin-logged-in .hero-section {
     transform: scale(1.04) !important;
 }
 
-/* Texte en surimpression directe sur l'image (sans fond, sans ligne) */
+/* Texte en surimpression directe sur l'image */
 #news-grid .card .card-body {
     position: relative !important;
     z-index: 3 !important;
-    padding: 22px !important;
+    padding: 14px 16px !important; /* Padding ajusté à la nouvelle hauteur */
     background: transparent !important;
     width: 100% !important;
     box-sizing: border-box !important;
@@ -698,18 +704,18 @@ body.admin-logged-in .hero-section {
 
 #news-grid .card .card-body h3 {
     color: #ffffff !important;
-    font-size: 1.15rem !important;
+    font-size: 1rem !important; /* Taille légèrement ajustée pour la nouvelle vignette */
     font-weight: 700 !important;
-    margin-bottom: 6px !important;
+    margin-bottom: 4px !important;
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95), 0 0 3px rgba(0, 0, 0, 0.8) !important;
 }
 
 #news-grid .card .card-body p {
     color: #f1f1f6 !important;
-    font-size: 0.88rem !important;
-    line-height: 1.4 !important;
-    margin-bottom: 8px !important;
-    max-height: 2.8em;
+    font-size: 0.82rem !important;
+    line-height: 1.35 !important;
+    margin-bottom: 6px !important;
+    max-height: 2.7em;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     display: -webkit-box !important;
@@ -722,9 +728,9 @@ body.admin-logged-in .hero-section {
 #news-grid .card .date, 
 #news-grid .card .card-body .date {
     display: block !important;
-    font-size: 0.73rem !important;
+    font-size: 0.7rem !important;
     font-weight: 700 !important;
-    color: #ff334b !important; /* Légèrement plus lumineux pour bien contraster sur l'image */
+    color: #ff334b !important;
     text-transform: uppercase !important;
     letter-spacing: 0.8px !important;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95) !important;
