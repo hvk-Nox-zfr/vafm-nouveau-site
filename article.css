@@ -198,51 +198,55 @@ body.admin-logged-in .article-page-container {
     cursor: move;
 }
 
-/* Conteneur principal fixe */
+/* Barre d'outils fixe Canva Studio - Correction Swipe Mobile */
 .vafm-player-toolbar {
     position: fixed !important;
-    bottom: 90px !important;
+    bottom: 20px !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
-    width: 90vw !important;
-    max-width: 450px !important;
+    
+    /* 1. Limiter la largeur à l'écran du téléphone */
+    width: 92vw !important;
+    max-width: 900px !important;
+    
     background: #121218 !important;
     border: 1px solid rgba(255, 255, 255, 0.15) !important;
     border-radius: 40px !important;
-    padding: 6px !important;
+    padding: 8px 14px !important;
     z-index: 999999 !important;
     box-shadow: 0 10px 30px rgba(0,0,0,0.8) !important;
     box-sizing: border-box !important;
-}
 
-/* Zone de défilement interne dédiée */
-.vafm-tb-scroll-wrapper {
+    /* 2. Activer le défilement horizontal (swipe) */
     display: flex !important;
     align-items: center !important;
-    gap: 8px !important;
-    width: 100% !important;
-    overflow-x: auto !important;
+    justify-content: flex-start !important;
+    gap: 6px !important;
+    
+    overflow-x: auto !important;       /* Active le scroll horizontal */
     overflow-y: hidden !important;
-    white-space: nowrap !important;
-    -webkit-overflow-scrolling: touch !important;
-    touch-action: pan-x !important; /* Force le geste de swipe horizontal */
-    padding: 4px 8px !important;
-    box-sizing: border-box !important;
+    white-space: nowrap !important;     /* Garde tous les boutons alignés */
+    -webkit-overflow-scrolling: touch !important; /* Touch fluide iOS */
+    touch-action: pan-x !important;      /* Autorise uniquement le geste horizontal */
 }
 
-/* Cacher la barre de défilement */
-.vafm-tb-scroll-wrapper::-webkit-scrollbar {
+/* 3. EMPÊCHER LES BOUTONS DE S'ÉCRASER (Règle la plus importante) */
+.vafm-player-toolbar > *,
+.vafm-player-toolbar button,
+.vafm-tb-btn,
+.vafm-tb-label,
+.vafm-tb-divider {
+    flex-shrink: 0 !important;          /* Interdit au navigateur de rétrécir les boutons */
+    min-width: 36px !important;          /* Taille minimale confortable pour le doigt */
+    height: 36px !important;
+    white-space: nowrap !important;
+}
+
+/* 4. Masquer la barre de défilement visuelle sous la barre d'outils */
+.vafm-player-toolbar::-webkit-scrollbar {
     display: none !important;
 }
-.vafm-tb-scroll-wrapper {
+.vafm-player-toolbar {
     -ms-overflow-style: none !important;
     scrollbar-width: none !important;
-}
-
-/* Éviter que les boutons ne rétrécissent */
-.vafm-tb-label,
-.vafm-tb-btn,
-.vafm-tb-divider {
-    flex-shrink: 0 !important;
-    white-space: nowrap !important;
 }
