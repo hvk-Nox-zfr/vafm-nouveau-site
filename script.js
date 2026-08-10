@@ -24,9 +24,18 @@ let mainSwiperInstance = null;
 let selectedFile = null;
 let sortableInstances = [];
 
-// Correction Swipe Mobile : Délégation d'événements globale (fonctionne même pour le contenu dynamique)
+// Déblocage du Swipe sur la barre admin mobile
 document.addEventListener('touchstart', (e) => {
-  if (e.target.closest('.vafm-tb-scroll-wrapper, .vafm-player-toolbar')) {
+  const toolbar = e.target.closest('.vafm-player-toolbar');
+  if (toolbar) {
+    // Permet au geste de scroll horizontal de s'effectuer sans interférence
+    e.stopPropagation();
+  }
+}, { passive: true });
+
+document.addEventListener('touchmove', (e) => {
+  const toolbar = e.target.closest('.vafm-player-toolbar');
+  if (toolbar) {
     e.stopPropagation();
   }
 }, { passive: true });

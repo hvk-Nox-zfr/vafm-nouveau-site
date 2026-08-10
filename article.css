@@ -198,16 +198,16 @@ body.admin-logged-in .article-page-container {
     cursor: move;
 }
 
-/* Barre d'outils fixe Canva Studio - Correction Swipe Mobile */
+/* Correctif Définitif Swipe Mobile Studio Canva */
 .vafm-player-toolbar {
     position: fixed !important;
     bottom: 20px !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    
-    /* 1. Limiter la largeur à l'écran du téléphone */
+    left: 4vw !important;
+    right: 4vw !important;
     width: 92vw !important;
-    max-width: 900px !important;
+    max-width: 600px !important;
+    margin: 0 auto !important;
+    transform: none !important; /* Retirer le translate qui peut bloquer le swipe tactile */
     
     background: #121218 !important;
     border: 1px solid rgba(255, 255, 255, 0.15) !important;
@@ -217,32 +217,30 @@ body.admin-logged-in .article-page-container {
     box-shadow: 0 10px 30px rgba(0,0,0,0.8) !important;
     box-sizing: border-box !important;
 
-    /* 2. Activer le défilement horizontal (swipe) */
+    /* Activation du swipe tactile */
     display: flex !important;
     align-items: center !important;
     justify-content: flex-start !important;
-    gap: 6px !important;
+    gap: 8px !important;
     
-    overflow-x: auto !important;       /* Active le scroll horizontal */
+    overflow-x: scroll !important;               /* Force la scrollbar horizontale */
     overflow-y: hidden !important;
-    white-space: nowrap !important;     /* Garde tous les boutons alignés */
-    -webkit-overflow-scrolling: touch !important; /* Touch fluide iOS */
-    touch-action: pan-x !important;      /* Autorise uniquement le geste horizontal */
+    white-space: nowrap !important;
+    -webkit-overflow-scrolling: touch !important; /* Inertie fluide sur iOS */
+    touch-action: pan-x !important;              /* Autorise le swipe horizontal */
 }
 
-/* 3. EMPÊCHER LES BOUTONS DE S'ÉCRASER (Règle la plus importante) */
+/* Empêche les enfants de se compresser */
 .vafm-player-toolbar > *,
 .vafm-player-toolbar button,
 .vafm-tb-btn,
 .vafm-tb-label,
 .vafm-tb-divider {
-    flex-shrink: 0 !important;          /* Interdit au navigateur de rétrécir les boutons */
-    min-width: 36px !important;          /* Taille minimale confortable pour le doigt */
-    height: 36px !important;
+    flex-shrink: 0 !important;
     white-space: nowrap !important;
 }
 
-/* 4. Masquer la barre de défilement visuelle sous la barre d'outils */
+/* Masquer les barres de défilement visuelles */
 .vafm-player-toolbar::-webkit-scrollbar {
     display: none !important;
 }
