@@ -43,24 +43,28 @@ document.addEventListener('touchmove', (e) => {
 // Nettoyage asynchrone parallèle des morceaux excédentaires dans PocketBase
 async function cleanOldSongsFromPocketBase() {
     try {
-        const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&offset=10&limit=200`);
+        // 1. Récupérer le total et trier du plus récent au plus ancien
+        const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=50`);
         if (!res.ok) return;
 
         const data = await res.json();
-        const oldItems = data.items || [];
+        const items = data.items || [];
 
-        if (oldItems.length === 0) return;
+        // Ne rien toucher s'il y a 10 morceaux ou moins
+        if (items.length <= 10) return;
 
-        console.log(`Nettoyage : suppression de ${oldItems.length} anciens titres...`);
+        // On garde les 10 premiers (index 0 à 9), et on supprime le reste (index 10+)
+        const itemsToDelete = items.slice(10);
+        console.log(`Nettoyage : suppression de ${itemsToDelete.length} anciens titres...`);
 
-        await Promise.all(oldItems.map(item => 
+        await Promise.all(itemsToDelete.map(item => 
             fetch(`${POCKETBASE_URL}/api/collections/song_history/records/${item.id}`, {
                 method: 'DELETE',
                 headers: getAuthHeaders(true)
             })
         ));
 
-        console.log("Nettoyage de l'historique terminé !");
+        console.log("Nettoyage PocketBase effectué !");
     } catch (e) {
         console.warn("Erreur lors du nettoyage PocketBase :", e);
     }
@@ -1542,27 +1546,36 @@ function initRadioPlayer() {
 
   let lastTitleSeen = songHistory.length > 0 ? songHistory[0].title : "";
 
-  async function fetchServerHistoryDirectly() {
-      try {
-          const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=10`);
-          if (res.ok) {
-              const data = await res.json();
-              if (data.items && data.items.length > 0) {
-                  lastTitleSeen = data.items[0].title;
+async function fetchServerHistoryDirectly() {
+    try {
+        const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=10`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.items && data.items.length > 0) {
+                lastTitleSeen = data.items[0].title;
 
-                  songHistory = data.items.slice(0, 10).map(item => ({
-                      title: item.title,
-                      time: item.time,
-                      cover: item.cover || '/LOGO - VAFM.png'
-                  }));
+                songHistory = data.items.slice(0, 10).map(item => {
+                    // Si l'élément a une date 'created' de PocketBase, on la convertit en heure locale française
+                    let displayTime = item.time;
+                    if (item.created) {
+                        const d = new Date(item.created);
+                        displayTime = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+                    }
 
-                  renderHistoryList();
-              }
-          }
-      } catch (e) {
-          console.warn("Erreur chargement PocketBase:", e);
-      }
-  }
+                    return {
+                        title: item.title,
+                        time: displayTime || 'En direct',
+                        cover: item.cover || '/LOGO - VAFM.png'
+                    };
+                });
+
+                renderHistoryList();
+            }
+        }
+    } catch (e) {
+        console.warn("Erreur chargement PocketBase:", e);
+    }
+}
 
   const playerBar = playBtn.closest('.player, .audio-player, div[style*="background"], footer') || playBtn.parentElement;
   let miniPlayBtn = null;
