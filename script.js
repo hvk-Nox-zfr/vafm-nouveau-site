@@ -1915,9 +1915,15 @@ function createUploadModal() {
         modal.classList.remove('active');
     });
 
+    // Affichage simple du nom et de la taille sans aucun blocage ni message
     document.getElementById('vafm-vid-file').addEventListener('change', (e) => {
-        if (e.target.files[0]) document.getElementById('video-file-name').textContent = "📁 " + e.target.files[0].name;
+        const file = e.target.files[0];
+        if (file) {
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+            document.getElementById('video-file-name').textContent = `📁 ${file.name} (${sizeMB} MB)`;
+        }
     });
+
     document.getElementById('vafm-vid-poster').addEventListener('change', (e) => {
         if (e.target.files[0]) document.getElementById('poster-file-name').textContent = "🖼️ " + e.target.files[0].name;
     });
@@ -1925,52 +1931,65 @@ function createUploadModal() {
     document.getElementById('vafm-video-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const submitBtn = document.getElementById('submit-vid-btn');
-        submitBtn.textContent = "Upload en cours...";
         submitBtn.disabled = true;
+        submitBtn.textContent = "Optimisation de l'image...";
 
         const title = document.getElementById('vafm-vid-title').value;
         const videoFile = document.getElementById('vafm-vid-file').files[0];
-        const posterFile = document.getElementById('vafm-vid-poster').files[0];
+        const rawPosterFile = document.getElementById('vafm-vid-poster').files[0];
+
+        // Compression rapide de l'image miniature uniquement (pour ne pas gaspiller de bande passante)
+        const optimizedPoster = await compressPosterImage(rawPosterFile, 800, 0.8);
 
         const formData = new FormData();
         formData.append('title', title);
-        
-        // CRÉATION EN BROUILLON PAR DÉFAUT
-        formData.append('is_published', 'false');
-        
+        formData.append('is_published', 'false'); // Brouillon par défaut
         if (videoFile) formData.append('video_file', videoFile);
-        if (posterFile) formData.append('poster', posterFile);
+        if (optimizedPoster) formData.append('poster', optimizedPoster);
 
-        try {
-            const res = await fetch(`${POCKETBASE_URL}/api/collections/videos/records`, {
-                method: 'POST',
-                headers: getAuthHeaders(false),
-                body: formData
-            });
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${POCKETBASE_URL}/api/collections/videos/records`, true);
 
-            if (!res.ok) {
-                const errData = await res.json();
-                let messageDetails = "";
-                if (errData.data) {
-                    messageDetails = Object.entries(errData.data)
-                        .map(([k, v]) => `${k}: ${v.message}`)
-                        .join(' | ');
-                }
-                throw new Error(messageDetails || errData.message || "Erreur lors de la création");
+        const token = getAuthToken();
+        if (token) {
+            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        }
+
+        // Affichage de la progression réelle en % (idéal pour les fichiers jusqu'à 400 MB)
+        xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+                const percentComplete = Math.round((event.loaded / event.total) * 100);
+                submitBtn.textContent = `Envoi en cours... ${percentComplete}%`;
             }
+        };
 
-            alert("Vidéo ajoutée en brouillon avec succès ! Vous pouvez la publier manuellement.");
-            modal.classList.remove('active');
-            e.target.reset();
-            document.getElementById('video-file-name').textContent = "🎬 Choisir le fichier vidéo";
-            document.getElementById('poster-file-name').textContent = "🖼️ Choisir l'image miniature";
-            await fetchAllFromPocketBase();
-        } catch (err) {
-            alert("Erreur lors de l'upload : " + err.message);
-        } finally {
+        xhr.onload = async () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                alert("Vidéo ajoutée en brouillon avec succès !");
+                modal.classList.remove('active');
+                e.target.reset();
+                document.getElementById('video-file-name').textContent = "🎬 Choisir le fichier vidéo";
+                document.getElementById('poster-file-name').textContent = "🖼️ Choisir l'image miniature";
+                await fetchAllFromPocketBase();
+            } else {
+                let errText = "Erreur lors de l'upload";
+                try {
+                    const resJson = JSON.parse(xhr.responseText);
+                    errText = resJson.message || errText;
+                } catch(e) {}
+                alert("Erreur PocketBase : " + errText);
+            }
             submitBtn.textContent = "Mettre en ligne";
             submitBtn.disabled = false;
-        }
+        };
+
+        xhr.onerror = () => {
+            alert("Erreur d'envoi : vérifiez votre connexion réseau.");
+            submitBtn.textContent = "Mettre en ligne";
+            submitBtn.disabled = false;
+        };
+
+        xhr.send(formData);
     });
 }
 
