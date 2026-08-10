@@ -28,7 +28,6 @@ let sortableInstances = [];
 document.addEventListener('touchstart', (e) => {
   const toolbar = e.target.closest('.vafm-player-toolbar');
   if (toolbar) {
-    // Permet au geste de scroll horizontal de s'effectuer sans interférence
     e.stopPropagation();
   }
 }, { passive: true });
@@ -43,17 +42,14 @@ document.addEventListener('touchmove', (e) => {
 // Nettoyage asynchrone sécurisé des morceaux excédentaires dans PocketBase
 async function cleanOldSongsFromPocketBase() {
     try {
-        // 1. Récupérer les morceaux du plus récent au plus ancien
         const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=50`);
         if (!res.ok) return;
 
         const data = await res.json();
         const items = data.items || [];
 
-        // Conserver les 10 plus récents, ne rien faire s'il y a 10 morceaux ou moins
         if (items.length <= 10) return;
 
-        // Supprimer uniquement les éléments au-delà de la 10ème position
         const itemsToDelete = items.slice(10);
 
         await Promise.all(itemsToDelete.map(item => 
@@ -69,8 +65,8 @@ async function cleanOldSongsFromPocketBase() {
     }
 }
 
-// Compression rapide de l'image miniature pour éviter d'envoyer une photo brute
-async function compressPosterImage(file, maxWidth = 800, quality = 0.8) {
+// Compression universelle d'image (Canvas / WebP)
+async function compressImage(file, maxWidth = 1200, quality = 0.8) {
   if (!file || !file.type.startsWith('image/')) return file;
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -98,6 +94,10 @@ async function compressPosterImage(file, maxWidth = 800, quality = 0.8) {
     };
     reader.onerror = () => resolve(file);
   });
+}
+
+async function compressPosterImage(file, maxWidth = 800, quality = 0.8) {
+  return compressImage(file, maxWidth, quality);
 }
 
 /* ==========================================================================
@@ -142,8 +142,6 @@ function canEditCategory(category) {
   if (!appState.currentUser) return false;
   if (appState.userRole === 'admin') return true;
   if (appState.userRole === 'journaliste' || appState.userRole === 'journalist') {
-    // Les journalistes ne peuvent éditer/publier QUE dans 'hero', 'news' / 'actus'
-    // 'videos', 'emissions' (shows) et 'animateurs' (team) sont strictement réservés aux admins
     return (category === 'hero' || category === 'news' || category === 'actus');
   }
   return false;
@@ -153,7 +151,6 @@ function canCreateInCategory(category) {
   if (!appState.currentUser) return false;
   if (appState.userRole === 'admin') return true;
   if (appState.userRole === 'journaliste' || appState.userRole === 'journalist') {
-    // Seul l'ajout d'actualités est autorisé pour les journalistes
     return (category === 'news' || category === 'actus');
   }
   return false;
@@ -252,12 +249,13 @@ async function fetchAllFromPocketBase() {
       }
     };
 
-    const [heroItems, actusItems, emissionsItems, animateursItems, videosItems] = await Promise.all([
+    const [heroItems, actusItems, emissionsItems, animateursItems, videosItems, actuLikesItems] = await Promise.all([
       getCollectionData('hero'),
       getCollectionData('actus'),
       getCollectionData('emissions'),
       getCollectionData('animateurs'),
-      getCollectionData('videos')
+      getCollectionData('videos'),
+      getCollectionData('actu_likes')
     ]);
 
     const canSeeDrafts = Boolean(appState.editMode && appState.currentUser);
@@ -275,14 +273,20 @@ async function fetchAllFromPocketBase() {
       position: h.position || 0
     }));
 
-    appState.news = filterPublished(actusItems).map(a => ({
-      id: a.id,
-      title: a.titre || a.title || '',
-      text: a.texte || a.description || '',
-      img: getPocketBaseImageUrl('actus', a.id, a.image) || 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600',
-      is_published: a.is_published !== undefined ? Boolean(a.is_published) : true,
-      position: a.position || 0
-    }));
+    appState.news = filterPublished(actusItems).map(a => {
+      const likesForThisActu = actuLikesItems.filter(l => l.actu === a.id);
+
+      return {
+        id: a.id,
+        title: a.titre || a.title || '',
+        text: a.texte || a.description || '',
+        img: getPocketBaseImageUrl('actus', a.id, a.image) || 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600',
+        is_published: a.is_published !== undefined ? Boolean(a.is_published) : true,
+        position: a.position || 0,
+        likesList: likesForThisActu,
+        created: a.created
+      };
+    });
 
     appState.shows = filterPublished(emissionsItems).map(e => ({
       id: e.id,
@@ -348,7 +352,17 @@ function togglePublishMenu(event) {
 
 function renderAll() {
   const heroWrapper = document.getElementById('hero-wrapper');
-  const newsGrid = document.getElementById('news-grid');
+  
+  // Grilles d'actualités
+  const topLikedGrid = document.getElementById('top-liked-news-grid');
+  const topLikedSubsection = document.getElementById('top-liked-subsection');
+  
+  const recentNewsGrid = document.getElementById('recent-news-grid');
+  const recentNewsSubsection = document.getElementById('recent-news-subsection');
+  
+  const oldNewsGrid = document.getElementById('old-news-grid');
+  const oldNewsSubsection = document.getElementById('old-news-subsection');
+
   const showsGrid = document.getElementById('shows-grid');
   const teamGrid = document.getElementById('team-grid');
 
@@ -421,10 +435,22 @@ function renderAll() {
     }
 
     const canEditThisCategory = canEditCategory(category);
+    const isUserLoggedIn = appState && appState.currentUser;
+    const currentUserId = isUserLoggedIn ? appState.currentUser.id : null;
 
     gridElement.innerHTML = dataArray.map((item) => {
       const cleanText = stripHTML(item.text);
       const truncatedText = cleanText.length > 40 ? cleanText.substring(0, 40) + '...' : cleanText;
+
+      const likesList = Array.isArray(item.likesList) ? item.likesList : [];
+      const hasLiked = currentUserId && likesList.some(l => l.user === currentUserId);
+      const likeCount = likesList.length || 0;
+
+      let formattedDate = "";
+      if (item.created) {
+        const d = new Date(item.created);
+        formattedDate = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      }
 
       return `
       <div class="card ${!item.is_published ? 'draft-card' : ''} ${canEditThisCategory ? 'draggable-card' : ''}" 
@@ -443,16 +469,93 @@ function renderAll() {
           <button class="btn-admin-action" onclick="deleteItem('${collectionName}', '${item.id}'); event.stopPropagation();">✕</button>
         </div>
         ` : ''}
+
         <img src="${item.img}" class="card-img" onerror="this.src='https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600'">
+
         <div class="card-body">
+          ${formattedDate ? `<span class="date">${formattedDate}</span>` : ''}
           <h3>${item.title}</h3>
-          <p class="card-text-preview">${truncatedText}</p>
+          <p>${truncatedText}</p>
         </div>
+
+        ${category === 'news' ? `
+        <div class="card-actions" onclick="event.stopPropagation();">
+            <button class="vafm-card-btn ${hasLiked ? 'liked' : ''}" onclick="handleLikeActu('${item.id}')" title="Aimer">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="${hasLiked ? '#ff334b' : 'none'}" stroke="${hasLiked ? '#ff334b' : '#ffffff'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                </svg>
+                <span>${likeCount}</span>
+            </button>
+            <button class="vafm-card-btn" onclick="handleShareActu('${item.id}', '${encodeURIComponent(item.title)}')" title="Partager">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="18" cy="5" r="3"></circle>
+                    <circle cx="6" cy="12" r="3"></circle>
+                    <circle cx="18" cy="19" r="3"></circle>
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                </svg>
+                <span>Partager</span>
+            </button>
+        </div>
+        ` : ''}
       </div>
       `}).join('');
   };
 
-  renderGrid(newsGrid, appState.news, 'news', 'actus');
+  // 1. 🔥 Les plus aimées (Tri par nombre de likes)
+  if (topLikedGrid) {
+    const topLikedNews = [...appState.news]
+      .filter(item => Array.isArray(item.likesList) && item.likesList.length > 0)
+      .sort((a, b) => (b.likesList?.length || 0) - (a.likesList?.length || 0))
+      .slice(0, 3);
+
+    if (topLikedNews.length > 0) {
+      if (topLikedSubsection) topLikedSubsection.style.display = 'block';
+      renderGrid(topLikedGrid, topLikedNews, 'news', 'actus');
+    } else {
+      if (topLikedSubsection) topLikedSubsection.style.display = 'none';
+    }
+  }
+
+  // Calcul du seuil de 2 semaines (14 jours)
+  const now = new Date();
+  const twoWeeksInMs = 14 * 24 * 60 * 60 * 1000;
+
+  // Tri de secours chronologique du plus récent au plus vieux
+  const sortByRecentDate = (a, b) => new Date(b.created || 0) - new Date(a.created || 0);
+
+  // 2. ✨ Nouveautés (< 2 semaines) triées du plus récent au plus vieux
+  const recentNews = appState.news
+    .filter(item => {
+      if (!item.created) return true;
+      const createdDate = new Date(item.created);
+      return (now - createdDate) < twoWeeksInMs;
+    })
+    .sort(sortByRecentDate);
+
+  // 3. 📜 Plus anciennes (>= 2 semaines) triées du plus récent au plus vieux
+  const oldNews = appState.news
+    .filter(item => {
+      if (!item.created) return false;
+      const createdDate = new Date(item.created);
+      return (now - createdDate) >= twoWeeksInMs;
+    })
+    .sort(sortByRecentDate);
+
+  if (recentNewsGrid) {
+    renderGrid(recentNewsGrid, recentNews, 'news', 'actus');
+  }
+
+  if (oldNewsGrid) {
+    if (oldNews.length > 0) {
+      if (oldNewsSubsection) oldNewsSubsection.style.display = 'block';
+      renderGrid(oldNewsGrid, oldNews, 'news', 'actus');
+    } else {
+      if (oldNewsSubsection) oldNewsSubsection.style.display = 'none';
+    }
+  }
+
+  // Rendu des autres grilles
   renderGrid(showsGrid, appState.shows, 'shows', 'emissions');
   renderGrid(teamGrid, appState.team, 'team', 'animateurs');
 
@@ -461,6 +564,83 @@ function renderAll() {
   if (isEdit) {
     initGridsDragAndDrop();
   }
+}
+
+// GESTION DU LIKE SUR ACTU (Via collection dédiée actu_likes)
+async function handleLikeActu(actuId) {
+    if (!appState || !appState.currentUser) {
+        alert("🔒 Vous devez être connecté pour aimer cet article.");
+        openAuthModal();
+        return;
+    }
+
+    const userId = appState.currentUser.id;
+    const actu = appState.news.find(a => a.id === actuId);
+    if (!actu) return;
+
+    if (!Array.isArray(actu.likesList)) {
+        actu.likesList = [];
+    }
+
+    const existingLike = actu.likesList.find(l => l.user === userId);
+
+    try {
+        if (!existingLike) {
+            const res = await fetch(`${POCKETBASE_URL}/api/collections/actu_likes/records`, {
+                method: 'POST',
+                headers: getAuthHeaders(true),
+                body: JSON.stringify({
+                    actu: actuId,
+                    user: userId
+                })
+            });
+
+            if (res.ok) {
+                const newLikeRecord = await res.json();
+                actu.likesList.push(newLikeRecord);
+            } else {
+                console.error("Erreur création actu_like:", await res.text());
+            }
+        } else {
+            const res = await fetch(`${POCKETBASE_URL}/api/collections/actu_likes/records/${existingLike.id}`, {
+                method: 'DELETE',
+                headers: getAuthHeaders(true)
+            });
+
+            if (res.ok) {
+                actu.likesList = actu.likesList.filter(l => l.id !== existingLike.id);
+            } else {
+                console.error("Erreur suppression actu_like:", await res.text());
+            }
+        }
+
+        renderAll();
+
+    } catch (err) {
+        console.error("Erreur réseau handleLikeActu :", err);
+    }
+}
+
+async function handleShareActu(actuId, rawTitle) {
+    const title = decodeURIComponent(rawTitle);
+    const shareUrl = `${window.location.origin}${window.location.pathname}?id=${actuId}`;
+
+    if (navigator.share) {
+        try {
+            await navigator.share({
+                title: title,
+                text: `Découvre cet article sur VAFM : ${title}`,
+                url: shareUrl
+            });
+        } catch (err) {}
+    } else {
+        try {
+            await navigator.clipboard.writeText(shareUrl);
+            alert("📋 Lien de l'article copié dans le presse-papier !");
+        } catch (err) {
+            alert("Lien à partager : " + shareUrl);
+        }
+    }
 }
 
 function renderVideosContainer() {
@@ -613,7 +793,6 @@ async function togglePublish(collectionName, id, currentStatus) {
 }
 
 function openEditorModal(category, id = null) {
-  // Vérification de permission préalable (Affiche la pop-up si non autorisé)
   if (id && !canEditCategory(category)) {
     alert("Vous n'avez pas la permission d'éditer cette section.");
     return;
@@ -623,7 +802,6 @@ function openEditorModal(category, id = null) {
     return;
   }
 
-  // Traitement spécifique à la vidéo si la permission est accordée
   if (category === 'videos') {
     let modal = document.getElementById('vafm-upload-modal');
     if (!modal) {
@@ -741,7 +919,7 @@ async function handleCardFormSubmit(e) {
 
   const btnSave = document.getElementById('btn-save-card');
   if (btnSave) {
-    btnSave.innerText = "Sauvegarde en cours...";
+    btnSave.innerText = "Optimisation...";
     btnSave.disabled = true;
   }
 
@@ -781,25 +959,24 @@ async function handleCardFormSubmit(e) {
     formData.append('author_name', authorDisplayName);
   }
 
-  // --- GESTION DU STATUT BROUILLON/PUBLIC ---
   if (!id) {
-    // Si c'est un nouvel élément, on le crée toujours en brouillon
     formData.append('is_published', 'false');
   } else {
-    // Si c'est une modification, on conserve le statut existant
     const currentItem = appState[category]?.find(x => String(x.id) === String(id));
     const currentStatus = currentItem ? currentItem.is_published : true;
     formData.append('is_published', String(currentStatus));
   }
 
   const fileInput = document.getElementById('file-input');
-  if (selectedFile) {
-    formData.append('image', selectedFile);
-  } else if (fileInput && fileInput.files && fileInput.files[0]) {
-    formData.append('image', fileInput.files[0]);
+  let rawImage = selectedFile || (fileInput && fileInput.files && fileInput.files[0]);
+
+  if (rawImage) {
+    const compressedImage = await compressImage(rawImage, 1200, 0.8);
+    formData.append('image', compressedImage);
   }
 
   try {
+    if (btnSave) btnSave.innerText = "Sauvegarde en cours...";
     let url = `${POCKETBASE_URL}/api/collections/${collectionName}/records`;
     let method = 'POST';
 
@@ -1129,6 +1306,39 @@ function closeModal(id) {
 /* ==========================================================================
 12. LECTEUR AUDIO & MÉTADONNÉES
 ========================================================================== */
+
+async function saveSongToPocketBase(title, coverUrl) {
+    if (!title || title === "VAFM – En Direct") return;
+
+    try {
+        const currentTime = new Date().toLocaleTimeString('fr-FR', { 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            timeZone: 'Europe/Paris' 
+        });
+
+        const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records`, {
+            method: 'POST',
+            headers: getAuthHeaders(true),
+            body: JSON.stringify({
+                title: title,
+                time: currentTime,
+                cover: coverUrl
+            })
+        });
+
+        if (res.ok) {
+            console.log("🎵 Nouveau titre enregistré dans PocketBase :", title);
+            // Déclenche le nettoyage des titres plus anciens que les 10 derniers
+            cleanOldSongsFromPocketBase();
+        } else {
+            console.warn("⚠️ Impossible d'enregistrer le titre dans PocketBase :", await res.text());
+        }
+    } catch (err) {
+        console.error("❌ Erreur lors de l'enregistrement du titre :", err);
+    }
+}
+
 function initRadioPlayer() {
   const audio = document.getElementById("radio-audio");
   const playBtn = document.getElementById("play-btn") || document.getElementById("playBtn");
@@ -1562,23 +1772,37 @@ function initRadioPlayer() {
       document.head.appendChild(styleEl);
   }
 
-  async function fetchTrackCover(title) {
-      if (isVafmIdent(title)) {
-          return '/LOGO - VAFM.png';
-      }
-
-      try {
-          const query = title.split(' – ')[0] || title;
-          const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1`);
-          if (!res.ok) return '/LOGO - VAFM.png';
-          const data = await res.json();
-          if (data.results && data.results.length > 0) {
-              return data.results[0].artworkUrl100.replace('100x100bb', '300x300bb');
+function fetchTrackCover(title) {
+      return new Promise((resolve) => {
+          if (isVafmIdent(title)) {
+              return resolve('/LOGO - VAFM.png');
           }
-      } catch (e) {
-          console.warn("Erreur recherche pochette:", e);
-      }
-      return '/LOGO - VAFM.png';
+
+          const query = title.split(' – ')[0] || title;
+          const callbackName = 'itunesCallback_' + Math.floor(Math.random() * 1000000);
+          const script = document.createElement('script');
+
+          window[callbackName] = function(data) {
+              delete window[callbackName];
+              document.body.removeChild(script);
+
+              if (data && data.results && data.results.length > 0) {
+                  const coverUrl = data.results[0].artworkUrl100.replace('100x100bb', '300x300bb');
+                  resolve(coverUrl);
+              } else {
+                  resolve('/LOGO - VAFM.png');
+              }
+          };
+
+          script.onerror = function() {
+              delete window[callbackName];
+              if (script.parentNode) document.body.removeChild(script);
+              resolve('/LOGO - VAFM.png');
+          };
+
+          script.src = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1&callback=${callbackName}`;
+          document.body.appendChild(script);
+      });
   }
 
   let songHistory = [];
@@ -1590,15 +1814,12 @@ function initRadioPlayer() {
 
   let lastTitleSeen = songHistory.length > 0 ? songHistory[0].title : "";
 
-  // Récupération directe de PocketBase avec conversion en heure française (HH:mm)
-async function fetchServerHistoryDirectly() {
+  async function fetchServerHistoryDirectly() {
     try {
         const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=30`);
         if (res.ok) {
             const data = await res.json();
             if (data.items && data.items.length > 0) {
-                
-                // Dédoublonnage : on ne garde que la version la plus récente de chaque titre consécutif
                 const uniqueItems = [];
                 let lastSeenTrack = "";
 
@@ -1614,7 +1835,6 @@ async function fetchServerHistoryDirectly() {
                     lastTitleSeen = uniqueItems[0].title;
                 }
 
-                // On extrait les 10 premiers uniques
                 songHistory = uniqueItems.slice(0, 10).map(item => {
                     let displayTime = item.time;
                     if (item.created) {
@@ -1641,7 +1861,7 @@ async function fetchServerHistoryDirectly() {
     } catch (e) {
         console.warn("Erreur chargement PocketBase song_history :", e);
     }
-}
+  }
 
   const playerBar = playBtn.closest('.player, .audio-player, div[style*="background"], footer') || playBtn.parentElement;
   let miniPlayBtn = null;
@@ -1680,7 +1900,7 @@ async function fetchServerHistoryDirectly() {
               <div class="vafm-history-overlay-sheet">
                   <div class="vafm-history-header">
                       <div class="vafm-history-title">
-                          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#E50914" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#E50914" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 16 14"/></svg>
                           HISTORIQUE DE DIFFUSION
                       </div>
                       <div class="vafm-live-badge">
@@ -1838,7 +2058,7 @@ async function fetchServerHistoryDirectly() {
     }, 1000);
   }
 
-async function updateCurrentTitle() {
+  async function updateCurrentTitle() {
     try {
       const response = await fetch(`${STATS_URL}?nocache=${Date.now()}`);
       if (!response.ok) return;
@@ -1876,11 +2096,14 @@ async function updateCurrentTitle() {
       const coverUrl = await fetchTrackCover(formattedTitle);
       if (liveCoverEl) liveCoverEl.src = coverUrl;
 
-      // Détection du changement de titre (Lecture seule côté client)
+      // Détection d'un nouveau titre sur le flux radio
       if (formattedTitle.toLowerCase().trim() !== lastTitleSeen.toLowerCase().trim() && formattedTitle !== "VAFM – En Direct") {
         lastTitleSeen = formattedTitle;
         
-        // Rafraîchissement de l'historique généré par le Cron Job
+        // 1. Envoi explicite du nouveau titre à PocketBase
+        await saveSongToPocketBase(formattedTitle, coverUrl);
+        
+        // 2. Rechargement et mise à jour de l'historique local
         await fetchServerHistoryDirectly();
       }
 
@@ -1946,7 +2169,6 @@ function createUploadModal() {
         modal.classList.remove('active');
     });
 
-    // Affichage simple du nom et de la taille sans aucun blocage ni message
     document.getElementById('vafm-vid-file').addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -1969,12 +2191,11 @@ function createUploadModal() {
         const videoFile = document.getElementById('vafm-vid-file').files[0];
         const rawPosterFile = document.getElementById('vafm-vid-poster').files[0];
 
-        // Compression rapide de l'image miniature uniquement (pour ne pas gaspiller de bande passante)
         const optimizedPoster = await compressPosterImage(rawPosterFile, 800, 0.8);
 
         const formData = new FormData();
         formData.append('title', title);
-        formData.append('is_published', 'false'); // Brouillon par défaut
+        formData.append('is_published', 'false');
         if (videoFile) formData.append('video_file', videoFile);
         if (optimizedPoster) formData.append('poster', optimizedPoster);
 
@@ -1986,7 +2207,6 @@ function createUploadModal() {
             xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         }
 
-        // Affichage de la progression réelle en % (idéal pour les fichiers jusqu'à 400 MB)
         xhr.upload.onprogress = (event) => {
             if (event.lengthComputable) {
                 const percentComplete = Math.round((event.loaded / event.total) * 100);

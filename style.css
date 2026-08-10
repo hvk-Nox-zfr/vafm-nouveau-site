@@ -642,7 +642,7 @@ body.admin-logged-in .hero-section {
     line-height: 1.6; 
 }
 
-/* --- ACTUALITÉS : IMAGE TOTALE + TEXTE DIRECTEMENT EN SURIMPRESSION --- */
+/* --- ACTUALITÉS : IMAGE TOTALE + TEXTE DESSUS + BOUTONS ACTION SVG --- */
 #news-grid {
     display: grid !important;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
@@ -653,7 +653,7 @@ body.admin-logged-in .hero-section {
     position: relative !important;
     overflow: hidden !important;
     border-radius: var(--radius-premium, 16px) !important;
-    height: 280px !important; /* Hauteur réduite (au lieu de 380px) */
+    height: 280px !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: flex-end !important;
@@ -663,14 +663,12 @@ body.admin-logged-in .hero-section {
     background: #000 !important;
 }
 
-/* Suppression totale de tout fondu ou bordure */
 #news-grid .card::after,
 #news-grid .card::before {
     content: none !important;
     display: none !important;
 }
 
-/* L'image remplit toute la carte */
 #news-grid .card img, 
 #news-grid .card .card-img {
     position: absolute !important;
@@ -691,11 +689,10 @@ body.admin-logged-in .hero-section {
     transform: scale(1.04) !important;
 }
 
-/* Texte en surimpression directe sur l'image */
 #news-grid .card .card-body {
     position: relative !important;
     z-index: 3 !important;
-    padding: 14px 16px !important; /* Padding ajusté à la nouvelle hauteur */
+    padding: 14px 16px 42px 16px !important; /* Dégagement en bas pour la barre d'action */
     background: transparent !important;
     width: 100% !important;
     box-sizing: border-box !important;
@@ -704,7 +701,7 @@ body.admin-logged-in .hero-section {
 
 #news-grid .card .card-body h3 {
     color: #ffffff !important;
-    font-size: 1rem !important; /* Taille légèrement ajustée pour la nouvelle vignette */
+    font-size: 1rem !important;
     font-weight: 700 !important;
     margin-bottom: 4px !important;
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95), 0 0 3px rgba(0, 0, 0, 0.8) !important;
@@ -724,9 +721,7 @@ body.admin-logged-in .hero-section {
     text-shadow: 0 1px 6px rgba(0, 0, 0, 0.95) !important;
 }
 
-#news-grid .card .date-publie, 
-#news-grid .card .date, 
-#news-grid .card .card-body .date {
+#news-grid .card .date {
     display: block !important;
     font-size: 0.7rem !important;
     font-weight: 700 !important;
@@ -734,6 +729,231 @@ body.admin-logged-in .hero-section {
     text-transform: uppercase !important;
     letter-spacing: 0.8px !important;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95) !important;
+}
+
+/* BOUTONS D'ACTION (SVG + Effet Flou) */
+#news-grid .card-actions {
+    position: absolute !important;
+    bottom: 10px !important;
+    right: 10px !important;
+    display: flex !important;
+    gap: 6px !important;
+    z-index: 10 !important;
+}
+
+.vafm-card-btn {
+    background: rgba(0, 0, 0, 0.55) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+    padding: 4px 10px !important;
+    border-radius: 20px !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    transition: all 0.2s ease !important;
+}
+
+.vafm-card-btn:hover {
+    background: rgba(0, 0, 0, 0.85) !important;
+    transform: scale(1.05) !important;
+}
+
+.vafm-card-btn.liked {
+    color: #ff334b !important;
+    border-color: rgba(255, 51, 75, 0.5) !important;
+}
+
+/* --- SUB-SECTIONS ACTUALITÉS --- */
+.news-subsection {
+    margin-bottom: 35px;
+}
+
+.subsection-title {
+    color: #111827 !important; /* Noir / Gris très sombre */
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Application du style de carte sur la grille des top likes */
+#top-liked-news-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
+    gap: 18px !important;
+}
+
+#top-liked-news-grid .card {
+    position: relative !important;
+    overflow: hidden !important;
+    border-radius: var(--radius-premium, 16px) !important;
+    height: 280px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-end !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
+    border: none !important;
+    cursor: pointer !important;
+    background: #000 !important;
+}
+
+#top-liked-news-grid .card img {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    object-position: center !important;
+    z-index: 1 !important;
+}
+
+#top-liked-news-grid .card .card-body {
+    position: relative !important;
+    z-index: 3 !important;
+    padding: 14px 16px 42px 16px !important;
+    background: transparent !important;
+}
+
+#top-liked-news-grid .card .card-body h3 {
+    color: #ffffff !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    margin-bottom: 4px !important;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.95) !important;
+}
+
+#top-liked-news-grid .card .card-body p {
+    color: #f1f1f6 !important;
+    font-size: 0.82rem !important;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.95) !important;
+}
+
+/* --- HOMOGÉNÉISATION DU STYLE SUR TOUTES LES SOUS-SECTIONS ACTUS --- */
+
+/* Uniformisation des grilles d'actualités */
+#top-liked-news-grid,
+#recent-news-grid,
+#old-news-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
+    gap: 18px !important;
+}
+
+/* Style uniforme pour les cartes d'actualités */
+#top-liked-news-grid .card,
+#recent-news-grid .card,
+#old-news-grid .card {
+    position: relative !important;
+    overflow: hidden !important;
+    border-radius: var(--radius-premium, 16px) !important;
+    height: 280px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-end !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    cursor: pointer !important;
+    background: #000000 !important;
+    transition: transform 0.25s ease, box-shadow 0.25s ease !important;
+}
+
+#top-liked-news-grid .card:hover,
+#recent-news-grid .card:hover,
+#old-news-grid .card:hover {
+    transform: translateY(-4px) !important;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Image en arrière-plan intégrale avec zoom léger au survol */
+#top-liked-news-grid .card .card-img,
+#recent-news-grid .card .card-img,
+#old-news-grid .card .card-img {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    object-position: center !important;
+    z-index: 1 !important;
+    transition: transform 0.4s ease !important;
+}
+
+#top-liked-news-grid .card:hover .card-img,
+#recent-news-grid .card:hover .card-img,
+#old-news-grid .card:hover .card-img {
+    transform: scale(1.05) !important;
+}
+
+/* Dégradé sombre au-dessus de l'image pour lisibilité du texte */
+#top-liked-news-grid .card::after,
+#recent-news-grid .card::after,
+#old-news-grid .card::after {
+    content: '' !important;
+    position: absolute !important;
+    inset: 0 !important;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.85) 75%, rgba(0, 0, 0, 0.95) 100%) !important;
+    z-index: 2 !important;
+    pointer-events: none !important;
+}
+
+/* Contenu textuel positionné au premier plan */
+#top-liked-news-grid .card .card-body,
+#recent-news-grid .card .card-body,
+#old-news-grid .card .card-body {
+    position: relative !important;
+    z-index: 3 !important;
+    padding: 14px 16px 42px 16px !important;
+    background: transparent !important;
+}
+
+#top-liked-news-grid .card .card-body .date,
+#recent-news-grid .card .card-body .date,
+#old-news-grid .card .card-body .date {
+    display: inline-block !important;
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    color: rgba(255, 255, 255, 0.7) !important;
+    margin-bottom: 4px !important;
+}
+
+#top-liked-news-grid .card .card-body h3,
+#recent-news-grid .card .card-body h3,
+#old-news-grid .card .card-body h3 {
+    color: #ffffff !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    margin-bottom: 4px !important;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95) !important;
+}
+
+#top-liked-news-grid .card .card-body p,
+#recent-news-grid .card .card-body p,
+#old-news-grid .card .card-body p {
+    color: #f1f1f6 !important;
+    font-size: 0.82rem !important;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.95) !important;
+}
+
+/* Barre d'actions (like / partage) intégrée en bas de carte */
+#top-liked-news-grid .card .card-actions,
+#recent-news-grid .card .card-actions,
+#old-news-grid .card .card-actions {
+    position: absolute !important;
+    bottom: 10px !important;
+    left: 12px !important;
+    right: 12px !important;
+    z-index: 4 !important;
+    display: flex !important;
+    gap: 8px !important;
 }
 
 /* ==========================================================================

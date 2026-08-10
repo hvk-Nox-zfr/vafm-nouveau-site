@@ -206,10 +206,26 @@
 
         <section class="section" id="actus">
             <div class="section-header">
-                <h2>Toutes les actualités</h2>
+                <h2>Actualités</h2>
                 <button class="admin-editable-ui add-btn" onclick="openEditorModal('news')">+ Ajouter un article</button>
             </div>
-            <div class="grid" id="news-grid"></div>
+
+            <div class="news-subsection" id="recent-news-subsection" style="margin-bottom: 35px;">
+                <h3 class="subsection-title" style="color: #ffffff; font-size: 1.15rem; font-weight: 700; margin-bottom: 14px;">Nouveaux</h3>
+                <div class="grid" id="recent-news-grid"></div>
+            </div>
+
+            <!-- Sous-section 1 : Les plus aimées -->
+            <div class="news-subsection" id="top-liked-subsection" style="display: none; margin-bottom: 35px;">
+                <h3 class="subsection-title" style="color: #ffffff; font-size: 1.15rem; font-weight: 700; margin-bottom: 14px;">Les plus likés</h3>
+                <div class="grid" id="top-liked-news-grid"></div>
+            </div>
+
+            <!-- Sous-section 3 : Actualités plus anciennes (>= 2 semaines) -->
+            <div class="news-subsection" id="old-news-subsection" style="display: none; margin-bottom: 35px;">
+                <h3 class="subsection-title" style="color: #ffffff; font-size: 1.15rem; font-weight: 700; margin-bottom: 14px;">Plus anciennes</h3>
+                <div class="grid" id="old-news-grid"></div>
+            </div>
         </section>
 
         <section class="section" id="videos">
