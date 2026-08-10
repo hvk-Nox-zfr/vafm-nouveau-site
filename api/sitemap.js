@@ -6,7 +6,6 @@ export default async function handler(req, res) {
   function formatDate(rawDate) {
     if (!rawDate) return new Date().toISOString().split('T')[0];
     try {
-      // Remplace l'espace classique de PocketBase par "T" si présent
       const cleanDateStr = String(rawDate).replace(' ', 'T');
       const d = new Date(cleanDateStr);
       if (isNaN(d.getTime())) {
@@ -16,6 +15,20 @@ export default async function handler(req, res) {
     } catch (e) {
       return new Date().toISOString().split('T')[0];
     }
+  }
+
+  // Fonction utilitaire pour échapper les caractères spéciaux XML
+  function escapeXml(str) {
+    if (!str) return "";
+    return String(str).replace(/[<>&'"]/g, function (c) {
+      switch (c) {
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '&': return '&amp;';
+        case '\'': return '&apos;';
+        case '"': return '&quot;';
+      }
+    });
   }
 
   try {
@@ -42,37 +55,49 @@ export default async function handler(req, res) {
   </url>`).join("");
 
     articles.forEach(article => {
-      // Utilisation de la fonction formatDate sécurisée
       const articleDate = formatDate(article.updated || article.created);
       
-      // 1. Récupération du titre
       const rawTitle = article.slug || article.titre || article.title || article.nom || article.subject || "";
 
-      // 2. Transformation en slug propre
       let slugPart = "";
       if (rawTitle) {
         slugPart = rawTitle
           .toLowerCase()
-          .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Supprime les accents
-          .replace(/[^a-z0-9]+/g, "-")                     // Remplace espaces et ponctuation par des tirets
-          .replace(/^-|-$/g, "");                           // Supprime les tirets au début/fin
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "");
       }
 
-      // 3. Construction de l'URL finale
       const fullSlug = slugPart ? `${article.id}-${slugPart}` : article.id;
       const articlePath = `/article/news/${fullSlug}`;
+
+      // Récupération de l'image de l'article depuis PocketBase
+      let imageXmlBlock = "";
+      const imageFileName = article.img || article.image || article.poster;
+      if (imageFileName) {
+        const imageUrl = `${POCKETBASE_URL}/api/files/actus/${article.id}/${imageFileName}`;
+        const imageTitle = escapeXml(rawTitle || "VAFM Actu");
+        
+        imageXmlBlock = `
+    <image:image>
+      <image:loc>${escapeXml(imageUrl)}</image:loc>
+      <image:title>${imageTitle}</image:title>
+    </image:image>`;
+      }
 
       urlsXml += `
   <url>
     <loc>${SITE_URL}${articlePath}</loc>
     <lastmod>${articleDate}</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
+    <priority>0.7</priority>${imageXmlBlock}
   </url>`;
     });
 
+    // Ajout du namespace image requis par Google
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
 ${urlsXml}
 </urlset>`;
 
