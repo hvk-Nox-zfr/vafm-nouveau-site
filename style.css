@@ -956,6 +956,18 @@ body.admin-logged-in .hero-section {
     gap: 8px !important;
 }
 
+/* Espacement propre entre le titre de la sous-section et les cartes */
+.team-sub-section {
+    margin-top: 30px; /* Espace au-dessus de chaque sous-section */
+    margin-bottom: 25px;
+}
+
+.team-sub-title {
+    margin-bottom: 20px !important; /* Espace entre le texte du titre et la grille de vignettes */
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
 /* ==========================================================================
    6. FENÊTRES MODALES & FORMULAIRES DE BASE
    ========================================================================== */

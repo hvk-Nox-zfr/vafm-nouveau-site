@@ -301,6 +301,7 @@ async function fetchAllFromPocketBase() {
       id: anim.id,
       title: anim.nom || anim.name || anim.titre || anim.title || '',
       text: anim.description || anim.role || anim.texte || '',
+      role: anim.role || anim.category || 'animateur', // <--- Important pour les sous-sections
       img: getPocketBaseImageUrl('animateurs', anim.id, anim.image) || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400',
       is_published: anim.is_published !== undefined ? Boolean(anim.is_published) : true,
       position: anim.position || 0
@@ -364,7 +365,11 @@ function renderAll() {
   const oldNewsSubsection = document.getElementById('old-news-subsection');
 
   const showsGrid = document.getElementById('shows-grid');
-  const teamGrid = document.getElementById('team-grid');
+
+  // Sous-sections de l'équipe
+  const teamDirecteurGrid = document.getElementById('vafm-team-directeur');
+  const teamDjGrid = document.getElementById('vafm-team-dj');
+  const teamAnimateurGrid = document.getElementById('vafm-team-animateur');
 
   const isEdit = Boolean(appState.editMode && appState.currentUser);
   const adminTopBar = document.getElementById('admin-top-bar');
@@ -502,7 +507,7 @@ function renderAll() {
       `}).join('');
   };
 
-  // 1. 🔥 Les plus aimées (Tri par nombre de likes)
+  // 1. 🔥 Les plus aimées
   if (topLikedGrid) {
     const topLikedNews = [...appState.news]
       .filter(item => Array.isArray(item.likesList) && item.likesList.length > 0)
@@ -517,14 +522,11 @@ function renderAll() {
     }
   }
 
-  // Calcul du seuil de 2 semaines (14 jours)
   const now = new Date();
   const twoWeeksInMs = 14 * 24 * 60 * 60 * 1000;
-
-  // Tri de secours chronologique du plus récent au plus vieux
   const sortByRecentDate = (a, b) => new Date(b.created || 0) - new Date(a.created || 0);
 
-  // 2. ✨ Nouveautés (< 2 semaines) triées du plus récent au plus vieux
+  // 2. ✨ Nouveautés (< 2 semaines)
   const recentNews = appState.news
     .filter(item => {
       if (!item.created) return true;
@@ -533,7 +535,7 @@ function renderAll() {
     })
     .sort(sortByRecentDate);
 
-  // 3. 📜 Plus anciennes (>= 2 semaines) triées du plus récent au plus vieux
+  // 3. 📜 Plus anciennes (>= 2 semaines)
   const oldNews = appState.news
     .filter(item => {
       if (!item.created) return false;
@@ -555,9 +557,68 @@ function renderAll() {
     }
   }
 
-  // Rendu des autres grilles
+  // Rendu des émissions
   renderGrid(showsGrid, appState.shows, 'shows', 'emissions');
-  renderGrid(teamGrid, appState.team, 'team', 'animateurs');
+
+  // Rendu de l'équipe répartie dans les sous-sections
+  const teamContainers = {
+    directeur: teamDirecteurGrid,
+    dj: teamDjGrid,
+    animateur: teamAnimateurGrid
+  };
+
+  Object.values(teamContainers).forEach(c => {
+    if (c) c.innerHTML = '';
+  });
+
+  if (!appState.team || appState.team.length === 0) {
+    Object.values(teamContainers).forEach(c => {
+      if (c) c.innerHTML = `<p class="empty-msg" style="color: #a1a1aa; padding: 20px;">Aucun membre pour le moment.</p>`;
+    });
+  } else {
+    const canEditTeam = canEditCategory('team');
+
+    appState.team.forEach(member => {
+      const rawRole = (member.text || member.role || '').toLowerCase();
+      let targetKey = 'animateur';
+      if (rawRole.includes('directeur') || rawRole.includes('dir')) targetKey = 'directeur';
+      else if (rawRole.includes('dj') || rawRole.includes('mix')) targetKey = 'dj';
+
+      const targetContainer = teamContainers[targetKey] || teamContainers['animateur'];
+      if (!targetContainer) return;
+
+      const safeName = (member.title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      const cleanText = stripHTML(member.text);
+
+      const cardHTML = `
+      <div class="card team-card ${!member.is_published ? 'draft-card' : ''} ${canEditTeam ? 'draggable-card' : ''}" 
+           data-id="${member.id}">
+        ${canEditTeam ? `
+        <div class="drag-handle" title="Glisser pour réordonner">☰</div>
+        <span class="card-status-tag ${member.is_published ? 'tag-published' : 'tag-draft'}">
+          ${member.is_published ? 'Publié' : 'Brouillon'}
+        </span>
+        <div class="card-admin-actions" onclick="event.stopPropagation();">
+          <button class="btn-admin-action ${member.is_published ? 'btn-unpublish' : 'btn-publish'}" onclick="togglePublish('animateurs', '${member.id}', ${member.is_published}); event.stopPropagation();">
+            ${member.is_published ? 'Dépublier' : 'Publier'}
+          </button>
+          <button class="btn-admin-action" onclick="openEditorModal('team', '${member.id}'); event.stopPropagation();">✏️</button>
+          <button class="btn-admin-action" onclick="deleteItem('animateurs', '${member.id}'); event.stopPropagation();">✕</button>
+        </div>
+        ` : ''}
+
+        <img src="${member.img}" class="card-img" alt="${safeName}" onerror="this.src='https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400'">
+
+        <div class="card-body">
+          <h3>${member.title}</h3>
+          <p>${cleanText}</p>
+        </div>
+      </div>
+      `;
+
+      targetContainer.innerHTML += cardHTML;
+    });
+  }
 
   renderVideosContainer();
 
@@ -729,7 +790,9 @@ function initGridsDragAndDrop() {
 
   setupSortable('news-grid', 'actus', 'news');
   setupSortable('shows-grid', 'emissions', 'shows');
-  setupSortable('team-grid', 'animateurs', 'team');
+  setupSortable('vafm-team-directeur', 'animateurs', 'team');
+  setupSortable('vafm-team-dj', 'animateurs', 'team');
+  setupSortable('vafm-team-animateur', 'animateurs', 'team');
 }
 
 async function saveNewOrderInDB(collectionName, items) {
