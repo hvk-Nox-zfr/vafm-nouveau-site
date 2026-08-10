@@ -111,7 +111,9 @@ function canEditCategory(category) {
   if (!appState.currentUser) return false;
   if (appState.userRole === 'admin') return true;
   if (appState.userRole === 'journaliste' || appState.userRole === 'journalist') {
-    return (category === 'hero' || category === 'news' || category === 'actus' || category === 'videos');
+    // Les journalistes ne peuvent éditer/publier QUE dans 'hero', 'news' / 'actus'
+    // 'videos', 'emissions' (shows) et 'animateurs' (team) sont strictement réservés aux admins
+    return (category === 'hero' || category === 'news' || category === 'actus');
   }
   return false;
 }
@@ -120,7 +122,8 @@ function canCreateInCategory(category) {
   if (!appState.currentUser) return false;
   if (appState.userRole === 'admin') return true;
   if (appState.userRole === 'journaliste' || appState.userRole === 'journalist') {
-    return (category === 'news' || category === 'actus' || category === 'videos');
+    // Seul l'ajout d'actualités est autorisé pour les journalistes
+    return (category === 'news' || category === 'actus');
   }
   return false;
 }
@@ -579,6 +582,17 @@ async function togglePublish(collectionName, id, currentStatus) {
 }
 
 function openEditorModal(category, id = null) {
+  // Vérification de permission préalable (Affiche la pop-up si non autorisé)
+  if (id && !canEditCategory(category)) {
+    alert("Vous n'avez pas la permission d'éditer cette section.");
+    return;
+  }
+  if (!id && !canCreateInCategory(category)) {
+    alert("Création non autorisée dans cette section.");
+    return;
+  }
+
+  // Traitement spécifique à la vidéo si la permission est accordée
   if (category === 'videos') {
     let modal = document.getElementById('vafm-upload-modal');
     if (!modal) {
@@ -586,15 +600,6 @@ function openEditorModal(category, id = null) {
       modal = document.getElementById('vafm-upload-modal');
     }
     if (modal) modal.classList.add('active');
-    return;
-  }
-
-  if (id && !canEditCategory(category)) {
-    alert("Vous n'avez pas la permission d'éditer cette section.");
-    return;
-  }
-  if (!id && !canCreateInCategory(category)) {
-    alert("Création non autorisée dans cette section.");
     return;
   }
 
@@ -745,7 +750,16 @@ async function handleCardFormSubmit(e) {
     formData.append('author_name', authorDisplayName);
   }
 
-  formData.append('is_published', 'true');
+  // --- GESTION DU STATUT BROUILLON/PUBLIC ---
+  if (!id) {
+    // Si c'est un nouvel élément, on le crée toujours en brouillon
+    formData.append('is_published', 'false');
+  } else {
+    // Si c'est une modification, on conserve le statut existant
+    const currentItem = appState[category]?.find(x => String(x.id) === String(id));
+    const currentStatus = currentItem ? currentItem.is_published : true;
+    formData.append('is_published', String(currentStatus));
+  }
 
   const fileInput = document.getElementById('file-input');
   if (selectedFile) {
@@ -1925,7 +1939,10 @@ function createUploadModal() {
 
         const formData = new FormData();
         formData.append('title', title);
-        formData.append('is_published', 'true');
+        
+        // CRÉATION EN BROUILLON PAR DÉFAUT
+        formData.append('is_published', 'false');
+        
         if (videoFile) formData.append('video_file', videoFile);
         if (posterFile) formData.append('poster', posterFile);
 
@@ -1947,7 +1964,7 @@ function createUploadModal() {
                 throw new Error(messageDetails || errData.message || "Erreur lors de la création");
             }
 
-            alert("Vidéo publiée avec succès !");
+            alert("Vidéo ajoutée en brouillon avec succès ! Vous pouvez la publier manuellement.");
             modal.classList.remove('active');
             e.target.reset();
             document.getElementById('video-file-name').textContent = "🎬 Choisir le fichier vidéo";
