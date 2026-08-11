@@ -313,7 +313,7 @@ async function fetchAllFromPocketBase() {
       id: anim.id,
       title: anim.nom || anim.name || anim.titre || anim.title || '',
       text: anim.description || anim.role || anim.texte || '',
-      role: anim.role || anim.category || 'animateur', // <--- Important pour les sous-sections
+      role: anim.role || anim.category || 'animateur',
       img: getPocketBaseImageUrl('animateurs', anim.id, anim.image) || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400',
       is_published: anim.is_published !== undefined ? Boolean(anim.is_published) : true,
       position: anim.position || 0
@@ -366,7 +366,6 @@ function togglePublishMenu(event) {
 function renderAll() {
   const heroWrapper = document.getElementById('hero-wrapper');
   
-  // Grilles d'actualités
   const topLikedGrid = document.getElementById('top-liked-news-grid');
   const topLikedSubsection = document.getElementById('top-liked-subsection');
   
@@ -378,7 +377,6 @@ function renderAll() {
 
   const showsGrid = document.getElementById('shows-grid');
 
-  // Sous-sections de l'équipe
   const teamDirecteurGrid = document.getElementById('vafm-team-directeur');
   const teamDjGrid = document.getElementById('vafm-team-dj');
   const teamAnimateurGrid = document.getElementById('vafm-team-animateur');
@@ -569,10 +567,8 @@ function renderAll() {
     }
   }
 
-  // Rendu des émissions
   renderGrid(showsGrid, appState.shows, 'shows', 'emissions');
 
-  // Rendu de l'équipe répartie dans les sous-sections
   const teamContainers = {
     directeur: teamDirecteurGrid,
     dj: teamDjGrid,
@@ -639,7 +635,7 @@ function renderAll() {
   }
 }
 
-// GESTION DU LIKE SUR ACTU (Via collection dédiée actu_likes)
+// GESTION DU LIKE SUR ACTU
 async function handleLikeActu(actuId) {
     if (!appState || !appState.currentUser) {
         alert("🔒 Vous devez être connecté pour aimer cet article.");
@@ -697,31 +693,22 @@ async function handleLikeActu(actuId) {
 async function handleShareActu(actuId, rawTitle) {
     const title = decodeURIComponent(rawTitle);
     
-    // 1. Génération d'un slug propre
     const cleanSlug = title
         .toLowerCase()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '');
 
-    // 2. Construction de l'URL canonique d'article
     const shareUrl = `${window.location.origin}/article/news/${actuId}-${cleanSlug}`;
-
-    // 3. Récupération de l'image de l'article pour le partage natif mobile
-    const actu = appState.news?.find(a => a.id === actuId);
-    const imageUrl = actu ? actu.img : 'https://vafmlaradio.fr/LOGO-VAFM.png';
 
     if (navigator.share) {
         try {
-            // Sur mobile, on transmet l'URL propre qui déclenche l'aperçu Open Graph
             await navigator.share({
                 title: title,
                 text: `${title} – À lire sur VAFM`,
                 url: shareUrl
             });
-        } catch (err) {
-            // Annulation par l'utilisateur
-        }
+        } catch (err) {}
     } else {
         try {
             await navigator.clipboard.writeText(shareUrl);
@@ -852,6 +839,31 @@ document.addEventListener('click', (e) => {
     }
 });
 
+// Déclenchement automatique de l'indexation Google
+async function triggerGoogleIndexing(id, title) {
+    try {
+        const cleanSlug = (title || '')
+            .toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+
+        const articleUrl = `https://vafmlaradio.fr/article/news/${id}-${cleanSlug}`;
+
+        await fetch('/api/index-google', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': 'vafm_indexing_key_2026'
+            },
+            body: JSON.stringify({ url: articleUrl })
+        });
+        console.log("🚀 Demande d'indexation Google envoyée pour :", articleUrl);
+    } catch (err) {
+        console.warn("Indexation Google auto manquée :", err);
+    }
+}
+
 async function togglePublish(collectionName, id, currentStatus) {
   const collectionMap = { 
     'hero': 'hero', 
@@ -877,6 +889,12 @@ async function togglePublish(collectionName, id, currentStatus) {
     if (!res.ok) {
       const errData = await res.json();
       throw new Error(errData.message || JSON.stringify(errData.data) || "Erreur de mise à jour");
+    }
+
+    // Si on vient de publier une actualité, on informe Google Indexing API
+    if (newStatus === true && targetCollection === 'actus') {
+        const actuItem = appState.news.find(a => a.id === id);
+        triggerGoogleIndexing(id, actuItem?.title);
     }
     
     await fetchAllFromPocketBase();
@@ -1253,7 +1271,6 @@ function toggleAuthMode() {
   document.getElementById('btn-auth-submit').innerText = isLogin ? "S'inscrire" : "Se connecter";
   document.getElementById('auth-switch-link').innerText = isLogin ? "Déjà membre ? Se connecter" : "Pas encore membre ? S'inscrire";
   
-  // Affiche la case newsletter uniquement en mode inscription
   document.getElementById('newsletter-optin-group').style.display = isLogin ? "block" : "none";
 }
 
@@ -1387,11 +1404,11 @@ function closeUserDrawer() {
   const overlay = document.getElementById('vafm-user-drawer-overlay');
   if (drawer && overlay) {
     drawer.classList.remove('active');
+    drawer.classList.remove('sub-open');
     overlay.classList.remove('active');
   }
 }
 
-// Ouverture / Fermeture du prolongement (Niveau 2)
 function openSubPanel() {
   const drawer = document.getElementById('vafm-user-drawer');
   if (drawer) drawer.classList.add('sub-open');
@@ -1402,18 +1419,6 @@ function closeSubPanel() {
   if (drawer) drawer.classList.remove('sub-open');
 }
 
-// Override de closeUserDrawer pour réinitialiser le sous-panneau
-function closeUserDrawer() {
-  const drawer = document.getElementById('vafm-user-drawer');
-  const overlay = document.getElementById('vafm-user-drawer-overlay');
-  if (drawer && overlay) {
-    drawer.classList.remove('active');
-    drawer.classList.remove('sub-open');
-    overlay.classList.remove('active');
-  }
-}
-
-// Fonction de suppression définitive du compte utilisateur
 async function handleDeleteAccount() {
   if (!appState || !appState.currentUser) return;
 
@@ -1435,11 +1440,10 @@ async function handleDeleteAccount() {
   }
 }
 
-// Ouverture de la modale de modification de profil
 function openAccountSettingsModal() {
   if (!appState || !appState.currentUser) return;
 
-  closeUserDrawer(); // On ferme le menu latéral
+  closeUserDrawer();
 
   const nameInput = document.getElementById('settings-name');
   const passwordInput = document.getElementById('settings-password');
@@ -1456,7 +1460,6 @@ function openAccountSettingsModal() {
 
 async function handleGoogleAuth() {
   try {
-    // 1. On récupère les méthodes d'authentification disponibles sur PocketBase
     const res = await fetch(`${POCKETBASE_URL}/api/collections/users/auth-methods`);
     if (!res.ok) throw new Error("Impossible de récupérer les méthodes d'authentification.");
     
@@ -1468,14 +1471,11 @@ async function handleGoogleAuth() {
       return;
     }
 
-    // 2. On sauvegarde les tokens OAuth pour la vérification au retour
     localStorage.setItem('pb_provider', JSON.stringify(googleProvider));
 
-    // 3. URL de redirection explicite vers le site web (frontend)
     const redirectUrl = `${window.location.origin}/redirect.html`;
     const authUrl = `${googleProvider.authUrl}${encodeURIComponent(redirectUrl)}`;
 
-    // 4. Ouverture de la pop-up Google
     const width = 500;
     const height = 600;
     const left = (window.innerWidth - width) / 2;
@@ -1493,7 +1493,6 @@ async function handleGoogleAuth() {
   }
 }
 
-// Écouteur pour capter le retour de la popup OAuth
 window.addEventListener('message', async (event) => {
   if (event.data?.type === 'POCKETBASE_OAUTH_SUCCESS') {
     const { code, provider } = event.data;
@@ -1513,7 +1512,6 @@ window.addEventListener('message', async (event) => {
 
       const authData = await res.json();
       
-      // Stockage de la session
       localStorage.setItem('pocketbase_auth', JSON.stringify({
         token: authData.token,
         record: authData.record
@@ -1535,7 +1533,6 @@ window.addEventListener('message', async (event) => {
   }
 });
 
-// Traitement de la mise à jour des informations compte dans PocketBase
 async function handleAccountUpdate(e) {
   e.preventDefault();
 
@@ -1568,7 +1565,6 @@ async function handleAccountUpdate(e) {
     const updatedUser = await res.json();
     appState.currentUser = updatedUser;
 
-    // Mise à jour de la session enregistrée
     const storedAuth = localStorage.getItem('pocketbase_auth');
     if (storedAuth) {
       const parsed = JSON.parse(storedAuth);
@@ -1598,7 +1594,6 @@ function updateAuthUI() {
     if (appState.userRole === 'admin') roleLabel = 'Administrateur';
     if (appState.userRole === 'journaliste' || appState.userRole === 'journalist') roleLabel = 'Journaliste';
 
-    // Bouton de profil quand connecté
     profileZone.innerHTML = `
       <div class="user-badge-container" onclick="openUserDrawer()" style="cursor:pointer; display:flex; align-items:center; gap:8px;">
         <div class="user-avatar" style="background-color: #E50914; color: #ffffff; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 0 10px rgba(229, 9, 20, 0.4);">${initial}</div>
@@ -1606,7 +1601,6 @@ function updateAuthUI() {
       </div>
     `;
 
-    // Remplissage des infos dans le Drawer
     const drawerAvatar = document.getElementById('drawer-user-avatar');
     const drawerName = document.getElementById('drawer-user-name');
     const drawerRole = document.getElementById('drawer-user-role');
@@ -1617,13 +1611,11 @@ function updateAuthUI() {
     if (drawerName) drawerName.textContent = displayName;
     if (drawerRole) drawerRole.textContent = roleLabel;
 
-    // Masquer la section admin dans le drawer si l'utilisateur est un simple membre
     const isAdminOrJournalist = (appState.userRole === 'admin' || appState.userRole === 'journaliste' || appState.userRole === 'journalist');
     if (adminSectionTitle) adminSectionTitle.style.display = isAdminOrJournalist ? 'block' : 'none';
     if (adminBtn) adminBtn.style.display = isAdminOrJournalist ? 'flex' : 'none';
 
   } else {
-    // Bouton "Se connecter" standard quand non connecté
     profileZone.innerHTML = `<button class="btn-secondary" onclick="openAuthModal()" style="border-radius:20px; padding:8px 20px;">Se connecter</button>`;
   }
 }
@@ -1667,7 +1659,6 @@ async function saveSongToPocketBase(title, coverUrl) {
 
         if (res.ok) {
             console.log("🎵 Nouveau titre enregistré dans PocketBase :", title);
-            // Déclenche le nettoyage des titres plus anciens que les 10 derniers
             cleanOldSongsFromPocketBase();
         } else {
             console.warn("⚠️ Impossible d'enregistrer le titre dans PocketBase :", await res.text());
@@ -2154,7 +2145,6 @@ function fetchTrackCover(title) {
 
 async function fetchServerHistoryDirectly() {
     try {
-        // On demande 20 éléments pour avoir de la marge après filtrage
         const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=20`);
         if (!res.ok) return;
 
@@ -2167,13 +2157,11 @@ async function fetchServerHistoryDirectly() {
         for (const item of data.items) {
             const cleanTitle = (item.title || "").toLowerCase().trim();
             
-            // Élimine les doublons consécutifs ou identiques
             if (!seenTitles.has(cleanTitle) && !cleanTitle.includes("vafm – en direct")) {
                 seenTitles.add(cleanTitle);
                 uniqueItems.push(item);
             }
 
-            // Dès qu'on a nos 10 titres uniques, on s'arrête
             if (uniqueItems.length === 10) break;
         }
 
@@ -2245,7 +2233,7 @@ async function fetchServerHistoryDirectly() {
               <div class="vafm-history-overlay-sheet">
                   <div class="vafm-history-header">
                       <div class="vafm-history-title">
-                          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#E50914" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 16 14"/></svg>
+                          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#E50914" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 16 18 9"/></svg>
                           HISTORIQUE DE DIFFUSION
                       </div>
                       <div class="vafm-live-badge">
@@ -2441,12 +2429,8 @@ async function fetchServerHistoryDirectly() {
       const coverUrl = await fetchTrackCover(formattedTitle);
       if (liveCoverEl) liveCoverEl.src = coverUrl;
 
-      // Détection d'un nouveau titre sur le flux radio
       if (formattedTitle.toLowerCase().trim() !== lastTitleSeen.toLowerCase().trim() && formattedTitle !== "VAFM – En Direct") {
         lastTitleSeen = formattedTitle;
-        
-        // On ne fait PLUS de saveSongToPocketBase() ici car le Cron s'en charge déjà !
-        // On rafraîchit simplement l'affichage local depuis PocketBase
         await fetchServerHistoryDirectly();
       }
 
