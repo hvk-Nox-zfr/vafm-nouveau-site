@@ -39,19 +39,22 @@ document.addEventListener('touchmove', (e) => {
   }
 }, { passive: true });
 
-// Nettoyage asynchrone sécurisé des morceaux excédentaires dans PocketBase
 async function cleanOldSongsFromPocketBase() {
     try {
+        // Récupère les titres du plus récent au plus vieux
         const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=50`);
         if (!res.ok) return;
 
         const data = await res.json();
         const items = data.items || [];
 
+        // Si on a 10 titres ou moins, on ne touche à rien
         if (items.length <= 10) return;
 
+        // On garde les 10 premiers (index 0 à 9) et on prend tout ce qui dépasse (index 10+)
         const itemsToDelete = items.slice(10);
 
+        // Supprime uniquement les morceaux les plus anciens
         await Promise.all(itemsToDelete.map(item => 
             fetch(`${POCKETBASE_URL}/api/collections/song_history/records/${item.id}`, {
                 method: 'DELETE',
@@ -59,7 +62,7 @@ async function cleanOldSongsFromPocketBase() {
             })
         ));
 
-        console.log(`Nettoyage song_history effectué : ${itemsToDelete.length} anciens titres supprimés.`);
+        console.log(`🧹 Nettoyage PocketBase : ${itemsToDelete.length} anciens titres supprimés (10 conservés).`);
     } catch (e) {
         console.warn("Erreur lors du nettoyage PocketBase :", e);
     }
@@ -2166,10 +2169,8 @@ function fetchTrackCover(title) {
       if (formattedTitle.toLowerCase().trim() !== lastTitleSeen.toLowerCase().trim() && formattedTitle !== "VAFM – En Direct") {
         lastTitleSeen = formattedTitle;
         
-        // 1. Envoi explicite du nouveau titre à PocketBase
-        await saveSongToPocketBase(formattedTitle, coverUrl);
-        
-        // 2. Rechargement et mise à jour de l'historique local
+        // On ne fait PLUS de saveSongToPocketBase() ici car le Cron s'en charge déjà !
+        // On rafraîchit simplement l'affichage local depuis PocketBase
         await fetchServerHistoryDirectly();
       }
 
