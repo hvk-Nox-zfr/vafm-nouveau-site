@@ -854,7 +854,7 @@ async function triggerGoogleIndexing(id, title) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'x-api-key': 'vafm_indexing_key_2026'
+                'x-api-key': 'Vafmkeysvariable59!!!'
             },
             body: JSON.stringify({ url: articleUrl })
         });
