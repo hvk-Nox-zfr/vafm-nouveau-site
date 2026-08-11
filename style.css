@@ -3099,4 +3099,9 @@ body.drawer-open {
     pointer-events: auto !important;
     border-right: none !important;
   }
+
+  /* Remonte le bouton de déconnexion au-dessus du lecteur audio */
+  .drawer-footer {
+    padding-bottom: 110px !important;
+  }
 }
