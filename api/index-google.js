@@ -1,7 +1,6 @@
 import { google } from 'googleapis';
 
 export default async function handler(req, res) {
-  // Sécurisation de l'API
   const authKey = req.headers['x-api-key'];
   if (authKey !== process.env.INDEXING_SECRET) {
     return res.status(401).json({ error: 'Non autorisé' });
@@ -13,7 +12,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+    // S'assure de parser proprement le JSON qu'il vienne de Vercel
+    let serviceAccount = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+    if (typeof serviceAccount === 'string') {
+      serviceAccount = JSON.parse(serviceAccount);
+    }
+
+    if (!serviceAccount.client_email || !serviceAccount.private_key) {
+      throw new Error("Le compte de service Google est incomplet ou mal configuré.");
+    }
 
     const jwtClient = new google.auth.JWT(
       serviceAccount.client_email,
@@ -34,7 +41,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, data: response.data });
   } catch (error) {
-    console.error('Erreur Google Indexing API:', error);
+    console.error('Erreur Google Indexing API:', error.message);
     return res.status(500).json({ error: error.message });
   }
 }
