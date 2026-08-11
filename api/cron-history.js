@@ -20,9 +20,14 @@ export async function GET() {
       }
     }
 
-    // Ignorer si pas de titre ou titre générique VAFM
-    if (!rawTitle || typeof rawTitle !== "string" || rawTitle.includes("VAFM – En Direct")) {
-      return new Response(JSON.stringify({ message: "Aucun titre valide" }), { status: 200 });
+    const lowerRaw = rawTitle.toLowerCase().trim();
+
+    // Filtre d'exclusion strict : vide ou identifiants VAFM
+    if (!rawTitle || typeof rawTitle !== "string" || 
+        lowerRaw.includes("vafm") || 
+        lowerRaw.includes("le meilleur du son") || 
+        lowerRaw.includes("radio qu'il vous faut")) {
+      return new Response(JSON.stringify({ message: "Aucun titre musical valide" }), { status: 200 });
     }
 
     const formattedTitle = rawTitle.replace(/\s+[\-\–\—]\s+/, " – ").trim();
@@ -33,21 +38,30 @@ export async function GET() {
       const pbCheckData = await pbCheckRes.json();
       const latestRecord = pbCheckData.items && pbCheckData.items[0];
 
-      // Si le tout dernier morceau en BDD est identique, ON N'AJOUTE RIEN
+      // Si le tout dernier morceau en BDD est identique (comparaison insensible à la casse/espaces)
       if (latestRecord && latestRecord.title.toLowerCase().trim() === formattedTitle.toLowerCase().trim()) {
         return new Response(JSON.stringify({ message: "Titre déjà enregistré, ignoré." }), { status: 200 });
       }
     }
 
-    // 3. Récupération de la pochette iTunes
+    // 3. Récupération de la pochette iTunes (Recherche complète Titre + Artiste)
     let coverUrl = '/LOGO - VAFM.png';
     try {
-      const query = formattedTitle.split(' – ')[0] || formattedTitle;
-      const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1`);
+      const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(formattedTitle)}&entity=song&limit=1`);
       if (itunesRes.ok) {
         const itunesData = await itunesRes.json();
         if (itunesData.results && itunesData.results.length > 0) {
           coverUrl = itunesData.results[0].artworkUrl100.replace('100x100bb', '300x300bb');
+        } else {
+          // Fallback : recherche sur l'artiste seul si la recherche combinée échoue
+          const artistOnly = formattedTitle.split(' – ')[0];
+          const fallbackRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(artistOnly)}&entity=song&limit=1`);
+          if (fallbackRes.ok) {
+            const fallbackData = await fallbackRes.json();
+            if (fallbackData.results && fallbackData.results.length > 0) {
+              coverUrl = fallbackData.results[0].artworkUrl100.replace('100x100bb', '300x300bb');
+            }
+          }
         }
       }
     } catch (e) {
@@ -74,20 +88,23 @@ export async function GET() {
     });
 
     if (!postRes.ok) {
-      throw new Error("Erreur insertion PocketBase");
+      const errText = await postRes.text();
+      throw new Error(`Erreur insertion PocketBase: ${errText}`);
     }
 
-    // 6. Nettoyage : suppression au-delà des 10 plus récents
+    // 6. Nettoyage : conservation stricte des 10 plus récents
     try {
       const cleanRes = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=50`, { cache: 'no-store' });
       if (cleanRes.ok) {
         const cleanData = await cleanRes.json();
         const items = cleanData.items || [];
+        
         if (items.length > 10) {
           const itemsToDelete = items.slice(10);
-          await Promise.all(itemsToDelete.map(item => 
-            fetch(`${POCKETBASE_URL}/api/collections/song_history/records/${item.id}`, { method: 'DELETE' })
-          ));
+          // Suppression séquentielle propre pour éviter de surcharger l'API
+          for (const item of itemsToDelete) {
+            await fetch(`${POCKETBASE_URL}/api/collections/song_history/records/${item.id}`, { method: 'DELETE' });
+          }
         }
       }
     } catch (e) {

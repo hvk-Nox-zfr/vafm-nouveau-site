@@ -1883,50 +1883,57 @@ function fetchTrackCover(title) {
 
   let lastTitleSeen = songHistory.length > 0 ? songHistory[0].title : "";
 
-  async function fetchServerHistoryDirectly() {
+async function fetchServerHistoryDirectly() {
     try {
-        const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=30`);
-        if (res.ok) {
-            const data = await res.json();
-            if (data.items && data.items.length > 0) {
-                const uniqueItems = [];
-                let lastSeenTrack = "";
+        // On demande 20 éléments pour avoir de la marge après filtrage
+        const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=20`);
+        if (!res.ok) return;
 
-                for (const item of data.items) {
-                    const cleanTitle = (item.title || "").toLowerCase().trim();
-                    if (cleanTitle !== lastSeenTrack && cleanTitle !== "vafm – en direct") {
-                        uniqueItems.push(item);
-                        lastSeenTrack = cleanTitle;
-                    }
-                }
+        const data = await res.json();
+        if (!data.items || data.items.length === 0) return;
 
-                if (uniqueItems.length > 0) {
-                    lastTitleSeen = uniqueItems[0].title;
-                }
+        const uniqueItems = [];
+        const seenTitles = new Set();
 
-                songHistory = uniqueItems.slice(0, 10).map(item => {
-                    let displayTime = item.time;
-                    if (item.created) {
-                        const d = new Date(item.created);
-                        displayTime = d.toLocaleTimeString('fr-FR', { 
-                            hour: '2-digit', 
-                            minute: '2-digit', 
-                            timeZone: 'Europe/Paris' 
-                        });
-                    }
-
-                    return {
-                        id: item.id,
-                        title: item.title,
-                        time: displayTime || 'En direct',
-                        cover: item.cover || '/LOGO - VAFM.png'
-                    };
-                });
-
-                localStorage.setItem("vafm_song_history", JSON.stringify(songHistory));
-                renderHistoryList();
+        for (const item of data.items) {
+            const cleanTitle = (item.title || "").toLowerCase().trim();
+            
+            // Élimine les doublons consécutifs ou identiques
+            if (!seenTitles.has(cleanTitle) && !cleanTitle.includes("vafm – en direct")) {
+                seenTitles.add(cleanTitle);
+                uniqueItems.push(item);
             }
+
+            // Dès qu'on a nos 10 titres uniques, on s'arrête
+            if (uniqueItems.length === 10) break;
         }
+
+        if (uniqueItems.length > 0) {
+            lastTitleSeen = uniqueItems[0].title;
+        }
+
+        songHistory = uniqueItems.map(item => {
+            let displayTime = item.time;
+            if (item.created) {
+                const d = new Date(item.created);
+                displayTime = d.toLocaleTimeString('fr-FR', { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    timeZone: 'Europe/Paris' 
+                });
+            }
+
+            return {
+                id: item.id,
+                title: item.title,
+                time: displayTime || 'En direct',
+                cover: item.cover || '/LOGO - VAFM.png'
+            };
+        });
+
+        localStorage.setItem("vafm_song_history", JSON.stringify(songHistory));
+        renderHistoryList();
+
     } catch (e) {
         console.warn("Erreur chargement PocketBase song_history :", e);
     }
