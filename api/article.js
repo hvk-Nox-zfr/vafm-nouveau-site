@@ -37,11 +37,17 @@ export default async function handler(req, res) {
           ? `${POCKETBASE_URL}/api/files/${collectionName}/${article.id}/${article.image}`
           : "https://vafmlaradio.fr/LOGO-VAFM.png";
 
-        // 1. Remplacement du titre <title>
-        html = html.replace(/<title>.*?<\/title>/i, `<title>${title}</title>`);
+        // 1. Suppression des balises de titre/description/OG par défaut de index.html
+        html = html
+          .replace(/<title>.*?<\/title>/gi, '')
+          .replace(/<meta\s+name=["']description["'].*?>/gi, '')
+          .replace(/<meta\s+property=["']og:.*?["'].*?>/gi, '')
+          .replace(/<meta\s+name=["']twitter:.*?["'].*?>/gi, '');
 
-        // 2. Balises Open Graph pour iMessage / WhatsApp / Twitter
-        const ogTags = `
+        // 2. Preparation des nouvelles balises d'en-tête
+        const headerTags = `
+          <title>${title}</title>
+          <meta name="description" content="${description}">
           <meta property="og:type" content="article">
           <meta property="og:site_name" content="VAFM">
           <meta property="og:title" content="${title}">
@@ -53,12 +59,12 @@ export default async function handler(req, res) {
           <meta name="twitter:description" content="${description}">
           <meta name="twitter:image" content="${imageUrl}">
           <script>
-            // Injection de l'instruction d'ouverture automatique de l'article au chargement
             window.AUTO_OPEN_ARTICLE = { category: "${category || 'actus'}", id: "${cleanId}" };
           </script>
         `;
 
-        html = html.replace('</head>', `${ogTags}\n</head>`);
+        // 3. Injection directe juste avant la fermeture de </head>
+        html = html.replace(/<\/head>/i, `${headerTags}\n</head>`);
       }
     }
 

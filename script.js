@@ -696,7 +696,16 @@ async function handleLikeActu(actuId) {
 
 async function handleShareActu(actuId, rawTitle) {
     const title = decodeURIComponent(rawTitle);
-    const shareUrl = `${window.location.origin}${window.location.pathname}?id=${actuId}`;
+    
+    // Génération du slug propre pour l'URL d'article
+    const cleanSlug = title
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+    // Utilisation de la route canonique /article/news/
+    const shareUrl = `${window.location.origin}/article/news/${actuId}-${cleanSlug}`;
 
     if (navigator.share) {
         try {
