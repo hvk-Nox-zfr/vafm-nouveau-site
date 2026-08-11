@@ -103,6 +103,15 @@ async function compressPosterImage(file, maxWidth = 800, quality = 0.8) {
   return compressImage(file, maxWidth, quality);
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+  // Ouvre l'article automatiquement si la variable a été injectée par le serveur
+  if (window.AUTO_OPEN_ARTICLE && typeof openArticleView === 'function') {
+    setTimeout(() => {
+      openArticleView(window.AUTO_OPEN_ARTICLE.category, window.AUTO_OPEN_ARTICLE.id);
+    }, 200);
+  }
+});
+
 /* ==========================================================================
 3. UTILITIES & DROITS (TOKEN & ROLES)
 ========================================================================== */

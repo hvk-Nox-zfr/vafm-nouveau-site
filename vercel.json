@@ -10,11 +10,11 @@
     },
     {
       "source": "/article/news/:id*",
-      "destination": "/api/article-og?id=:id"
+      "destination": "/api/article?category=actus&id=:id"
     },
     {
       "source": "/article/:category/:id*",
-      "destination": "/api/article-og?category=:category&id=:id"
+      "destination": "/api/article?category=:category&id=:id"
     },
     {
       "source": "/api/:path*",
