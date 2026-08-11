@@ -1,4 +1,8 @@
 User-agent: *
+Allow: /api/sitemap
+Allow: /api/article
+Allow: /api/article-og
 Disallow: /_/
-Disallow: /api/
 Disallow: /auth/
+
+Sitemap: https://vafmlaradio.fr/sitemap.xml
