@@ -697,24 +697,31 @@ async function handleLikeActu(actuId) {
 async function handleShareActu(actuId, rawTitle) {
     const title = decodeURIComponent(rawTitle);
     
-    // Génération du slug propre pour l'URL d'article
+    // 1. Génération d'un slug propre
     const cleanSlug = title
         .toLowerCase()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '');
 
-    // Utilisation de la route canonique /article/news/
+    // 2. Construction de l'URL canonique d'article
     const shareUrl = `${window.location.origin}/article/news/${actuId}-${cleanSlug}`;
+
+    // 3. Récupération de l'image de l'article pour le partage natif mobile
+    const actu = appState.news?.find(a => a.id === actuId);
+    const imageUrl = actu ? actu.img : 'https://vafmlaradio.fr/LOGO-VAFM.png';
 
     if (navigator.share) {
         try {
+            // Sur mobile, on transmet l'URL propre qui déclenche l'aperçu Open Graph
             await navigator.share({
                 title: title,
-                text: `Découvre cet article sur VAFM : ${title}`,
+                text: `${title} – À lire sur VAFM`,
                 url: shareUrl
             });
-        } catch (err) {}
+        } catch (err) {
+            // Annulation par l'utilisateur
+        }
     } else {
         try {
             await navigator.clipboard.writeText(shareUrl);
