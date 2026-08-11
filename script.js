@@ -1207,11 +1207,10 @@ async function handlePublishAll(event) {
 ========================================================================== */
 function toggleAuthModal() {
   if (appState && appState.currentUser) {
-    const confirmLogout = confirm("Voulez-vous vous déconnecter du Studio ?");
-    if (confirmLogout) logout();
-    return;
+    openUserDrawer();
+  } else {
+    openAuthModal();
   }
-  openAuthModal();
 }
 
 function openAuthModal() {
@@ -1221,8 +1220,16 @@ function openAuthModal() {
 }
 
 function toggleAuthMode() {
-  currentAuthMode = (currentAuthMode === "login") ? "signup" : "login";
-  updateAuthModalState();
+  const isLogin = appState.authMode === 'login';
+  appState.authMode = isLogin ? 'signup' : 'login';
+
+  document.getElementById('auth-title').innerText = isLogin ? "Rejoindre le Club VAFM" : "Connexion VAFM";
+  document.getElementById('auth-subtitle').innerText = isLogin ? "Créez votre compte en quelques secondes" : "Accédez à votre espace ou gérez la station";
+  document.getElementById('btn-auth-submit').innerText = isLogin ? "S'inscrire" : "Se connecter";
+  document.getElementById('auth-switch-link').innerText = isLogin ? "Déjà membre ? Se connecter" : "Pas encore membre ? S'inscrire";
+  
+  // Affiche la case newsletter uniquement en mode inscription
+  document.getElementById('newsletter-optin-group').style.display = isLogin ? "block" : "none";
 }
 
 function updateAuthModalState() {
@@ -1254,9 +1261,11 @@ async function handleAuthSubmit(e) {
   e.preventDefault();
   const emailInput = document.getElementById('auth-email');
   const passwordInput = document.getElementById('auth-password');
+  const newsletterInput = document.getElementById('auth-newsletter');
 
   const identity = emailInput ? emailInput.value.trim() : "";
   const password = passwordInput ? passwordInput.value : "";
+  const newsletter = newsletterInput ? newsletterInput.checked : false;
 
   if (!identity || !password) {
     alert("Veuillez remplir tous les champs.");
@@ -1301,7 +1310,8 @@ async function handleAuthSubmit(e) {
           email: identity, 
           password: password, 
           passwordConfirm: password,
-          name: cleanUsername
+          name: cleanUsername,
+          newsletter: newsletter
         })
       });
 
@@ -1338,24 +1348,258 @@ function checkAdminRights(user) {
   document.body.classList.toggle('edit-mode-active', appState.editMode);
 }
 
+function openUserDrawer() {
+  const drawer = document.getElementById('vafm-user-drawer');
+  const overlay = document.getElementById('vafm-user-drawer-overlay');
+  if (drawer && overlay) {
+    drawer.classList.add('active');
+    overlay.classList.add('active');
+  }
+}
+
+function closeUserDrawer() {
+  const drawer = document.getElementById('vafm-user-drawer');
+  const overlay = document.getElementById('vafm-user-drawer-overlay');
+  if (drawer && overlay) {
+    drawer.classList.remove('active');
+    overlay.classList.remove('active');
+  }
+}
+
+// Ouverture / Fermeture du prolongement (Niveau 2)
+function openSubPanel() {
+  const drawer = document.getElementById('vafm-user-drawer');
+  if (drawer) drawer.classList.add('sub-open');
+}
+
+function closeSubPanel() {
+  const drawer = document.getElementById('vafm-user-drawer');
+  if (drawer) drawer.classList.remove('sub-open');
+}
+
+// Override de closeUserDrawer pour réinitialiser le sous-panneau
+function closeUserDrawer() {
+  const drawer = document.getElementById('vafm-user-drawer');
+  const overlay = document.getElementById('vafm-user-drawer-overlay');
+  if (drawer && overlay) {
+    drawer.classList.remove('active');
+    drawer.classList.remove('sub-open');
+    overlay.classList.remove('active');
+  }
+}
+
+// Fonction de suppression définitive du compte utilisateur
+async function handleDeleteAccount() {
+  if (!appState || !appState.currentUser) return;
+
+  const confirmed = confirm("⚠️ ATTENTION : Voulez-vous vraiment supprimer définitivement votre compte ? Cette action est irréversible.");
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch(`${POCKETBASE_URL}/api/collections/users/records/${appState.currentUser.id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(true)
+    });
+
+    if (!res.ok) throw new Error("Erreur lors de la suppression.");
+
+    alert("Votre compte a été supprimé.");
+    logout();
+  } catch (err) {
+    alert("Impossible de supprimer le compte : " + err.message);
+  }
+}
+
+// Ouverture de la modale de modification de profil
+function openAccountSettingsModal() {
+  if (!appState || !appState.currentUser) return;
+
+  closeUserDrawer(); // On ferme le menu latéral
+
+  const nameInput = document.getElementById('settings-name');
+  const passwordInput = document.getElementById('settings-password');
+
+  if (nameInput) {
+    nameInput.value = appState.currentUser.name || appState.currentUser.username || '';
+  }
+  if (passwordInput) {
+    passwordInput.value = '';
+  }
+
+  openModal('account-settings-modal');
+}
+
+async function handleGoogleAuth() {
+  try {
+    // 1. On récupère les méthodes d'authentification disponibles sur PocketBase
+    const res = await fetch(`${POCKETBASE_URL}/api/collections/users/auth-methods`);
+    if (!res.ok) throw new Error("Impossible de récupérer les méthodes d'authentification.");
+    
+    const data = await res.json();
+    const googleProvider = data.authProviders?.find(p => p.name === 'google');
+
+    if (!googleProvider) {
+      alert("L'authentification Google n'est pas activée sur le serveur PocketBase.");
+      return;
+    }
+
+    // 2. On sauvegarde les tokens OAuth pour la vérification au retour
+    localStorage.setItem('pb_provider', JSON.stringify(googleProvider));
+
+    // 3. URL de redirection explicite vers le site web (frontend)
+    const redirectUrl = `${window.location.origin}/redirect.html`;
+    const authUrl = `${googleProvider.authUrl}${encodeURIComponent(redirectUrl)}`;
+
+    // 4. Ouverture de la pop-up Google
+    const width = 500;
+    const height = 600;
+    const left = (window.innerWidth - width) / 2;
+    const top = (window.innerHeight - height) / 2;
+
+    window.open(
+      authUrl,
+      'Google Login',
+      `width=${width},height=${height},top=${top},left=${left}`
+    );
+
+  } catch (err) {
+    console.error("Erreur Google Auth:", err);
+    alert("Erreur lors de la connexion avec Google.");
+  }
+}
+
+// Écouteur pour capter le retour de la popup OAuth
+window.addEventListener('message', async (event) => {
+  if (event.data?.type === 'POCKETBASE_OAUTH_SUCCESS') {
+    const { code, provider } = event.data;
+    try {
+      const res = await fetch(`${POCKETBASE_URL}/api/collections/users/auth-with-oauth2`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: provider.name,
+          code: code,
+          codeVerifier: provider.codeVerifier,
+          redirectUrl: `${window.location.origin}/redirect.html`
+        })
+      });
+
+      if (!res.ok) throw new Error("Échec de la validation OAuth2.");
+
+      const authData = await res.json();
+      
+      // Stockage de la session
+      localStorage.setItem('pocketbase_auth', JSON.stringify({
+        token: authData.token,
+        record: authData.record
+      }));
+
+      if (typeof appState !== 'undefined') {
+        appState.currentUser = authData.record;
+        appState.token = authData.token;
+      }
+
+      updateAuthUI();
+      closeModal('auth-modal');
+      alert("Connexion réussie avec Google !");
+
+    } catch (err) {
+      console.error("Erreur finalisation OAuth2:", err);
+      alert("Erreur lors de la validation du compte Google.");
+    }
+  }
+});
+
+// Traitement de la mise à jour des informations compte dans PocketBase
+async function handleAccountUpdate(e) {
+  e.preventDefault();
+
+  if (!appState || !appState.currentUser) return;
+
+  const newName = document.getElementById('settings-name')?.value.trim();
+  const newPassword = document.getElementById('settings-password')?.value;
+
+  const updateData = {};
+  if (newName) {
+    updateData.name = newName;
+  }
+  if (newPassword && newPassword.length >= 8) {
+    updateData.password = newPassword;
+    updateData.passwordConfirm = newPassword;
+  }
+
+  try {
+    const res = await fetch(`${POCKETBASE_URL}/api/collections/users/records/${appState.currentUser.id}`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(true),
+      body: JSON.stringify(updateData)
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.message || "Impossible de mettre à jour le profil.");
+    }
+
+    const updatedUser = await res.json();
+    appState.currentUser = updatedUser;
+
+    // Mise à jour de la session enregistrée
+    const storedAuth = localStorage.getItem('pocketbase_auth');
+    if (storedAuth) {
+      const parsed = JSON.parse(storedAuth);
+      parsed.record = updatedUser;
+      localStorage.setItem('pocketbase_auth', JSON.stringify(parsed));
+    }
+
+    updateAuthUI();
+    closeModal('account-settings-modal');
+    alert("Profil mis à jour avec succès !");
+
+  } catch (err) {
+    console.error("Erreur update profil:", err);
+    alert("Erreur : " + err.message);
+  }
+}
+
 function updateAuthUI() {
   const profileZone = document.getElementById('user-profile-zone');
   if (!profileZone) return;
 
   if (appState && appState.currentUser) {
-    const initial = (appState.currentUser.email || "U")[0].toUpperCase();
-    let roleLabel = 'Membre';
-    if (appState.userRole === 'admin') roleLabel = 'Admin';
+    const displayName = appState.currentUser.name || appState.currentUser.username || appState.currentUser.email || "Utilisateur";
+    const initial = displayName[0].toUpperCase();
+    
+    let roleLabel = 'Membre VAFM';
+    if (appState.userRole === 'admin') roleLabel = 'Administrateur';
     if (appState.userRole === 'journaliste' || appState.userRole === 'journalist') roleLabel = 'Journaliste';
 
+    // Bouton de profil quand connecté
     profileZone.innerHTML = `
-      <div class="user-badge-container" onclick="toggleAuthModal()" style="cursor:pointer; display:flex; align-items:center; gap:8px;" title="Cliquez pour vous déconnecter">
-        <div class="user-avatar" style="background-color: #E50914; color: #ffffff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">${initial}</div>
-        <span class="user-name-label" style="font-weight: 600; color: #111827;">${roleLabel}</span>
+      <div class="user-badge-container" onclick="openUserDrawer()" style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+        <div class="user-avatar" style="background-color: #E50914; color: #ffffff; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 0 10px rgba(229, 9, 20, 0.4);">${initial}</div>
+        <span class="user-name-label" style="font-weight: 600; color: #ffffff; font-size: 0.85rem;">${displayName}</span>
       </div>
     `;
+
+    // Remplissage des infos dans le Drawer
+    const drawerAvatar = document.getElementById('drawer-user-avatar');
+    const drawerName = document.getElementById('drawer-user-name');
+    const drawerRole = document.getElementById('drawer-user-role');
+    const adminSectionTitle = document.getElementById('drawer-admin-section-title');
+    const adminBtn = document.getElementById('drawer-admin-btn');
+
+    if (drawerAvatar) drawerAvatar.textContent = initial;
+    if (drawerName) drawerName.textContent = displayName;
+    if (drawerRole) drawerRole.textContent = roleLabel;
+
+    // Masquer la section admin dans le drawer si l'utilisateur est un simple membre
+    const isAdminOrJournalist = (appState.userRole === 'admin' || appState.userRole === 'journaliste' || appState.userRole === 'journalist');
+    if (adminSectionTitle) adminSectionTitle.style.display = isAdminOrJournalist ? 'block' : 'none';
+    if (adminBtn) adminBtn.style.display = isAdminOrJournalist ? 'flex' : 'none';
+
   } else {
-    profileZone.innerHTML = `<button class="btn-secondary" onclick="toggleAuthModal()">Se connecter</button>`;
+    // Bouton "Se connecter" standard quand non connecté
+    profileZone.innerHTML = `<button class="btn-secondary" onclick="openAuthModal()" style="border-radius:20px; padding:8px 20px;">Se connecter</button>`;
   }
 }
 

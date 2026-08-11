@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Connexion en cours...</title>
+</head>
+<body style="background:#121218; color:#fff; font-family:sans-serif; display:flex; align-items:center; justify-content:center; height:100vh; margin:0;">
+    <p>Validation de la connexion...</p>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+        const provider = JSON.parse(localStorage.getItem('pb_provider') || '{}');
+
+        if (code && window.opener) {
+            window.opener.postMessage({
+                type: 'POCKETBASE_OAUTH_SUCCESS',
+                code: code,
+                provider: provider
+            }, window.location.origin);
+            window.close();
+        } else {
+            document.body.innerHTML = "<p>Erreur lors de la connexion. Vous pouvez fermer cette fenêtre.</p>";
+        }
+    </script>
+</body>
+</html>

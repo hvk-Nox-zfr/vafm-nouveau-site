@@ -12,20 +12,18 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8497430727637938"
-     crossorigin="anonymous"></script>
-     <script async type="application/javascript"
-        src="https://news.google.com/swg/js/v1/swg-basic.js"></script>
-<script>
-  (self.SWG_BASIC = self.SWG_BASIC || []).push( basicSubscriptions => {
-    basicSubscriptions.init({
-      type: "NewsArticle",
-      isPartOfType: ["Product"],
-      isPartOfProductId: "CAowovjMDA:openaccess",
-      clientOptions: { theme: "light", lang: "fr" },
-    });
-  });
-</script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8497430727637938" crossorigin="anonymous"></script>
+    <script async type="application/javascript" src="https://news.google.com/swg/js/v1/swg-basic.js"></script>
+    <script>
+      (self.SWG_BASIC = self.SWG_BASIC || []).push( basicSubscriptions => {
+        basicSubscriptions.init({
+          type: "NewsArticle",
+          isPartOfType: ["Product"],
+          isPartOfProductId: "CAowovjMDA:openaccess",
+          clientOptions: { theme: "light", lang: "fr" },
+        });
+      });
+    </script>
 </head>
 <body>
 
@@ -37,7 +35,6 @@
         </div>
     </div>
 
-    <!-- BARRE D'ADMINISTRATION SUPERIEURE -->
     <!-- BARRE D'ADMINISTRATION SUPERIEURE -->
     <div id="admin-top-bar" class="admin-top-bar" style="display: none;">
         <span class="admin-status">MODE ÉDITION ACTIF</span>
@@ -95,8 +92,23 @@
     <!-- MODALE CONNEXION / INSCRIPTION -->
     <div id="auth-modal" class="modal" style="display: none;">
         <div class="modal-content">
-            <h2 id="auth-title">Connexion Club VAFM</h2>
+            <h2 id="auth-title">Connexion VAFM</h2>
             <p id="auth-subtitle">Accédez à votre espace ou gérez la station</p>
+
+            <!-- BOUTON CONNEXION GOOGLE -->
+            <button type="button" class="btn-google-auth" onclick="handleGoogleAuth()">
+                <svg class="google-icon" width="18" height="18" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                </svg>
+                <span>Continuer avec Google</span>
+            </button>
+
+            <div class="auth-divider">
+                <span>OU AVEC EMAIL</span>
+            </div>
             
             <form id="auth-form" onsubmit="handleAuthSubmit(event)">
                 <div class="input-group">
@@ -108,21 +120,144 @@
                     <input type="password" id="auth-password" placeholder="••••••••" required>
                 </div>
 
-                <div id="newsletter-optin-group" class="input-group-checkbox" style="display: none; margin: 12px 0;">
-                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #a1a1aa; font-size: 0.85rem;">
-                        <input type="checkbox" id="auth-newsletter" checked style="width: auto; cursor: pointer;">
+                <!-- CHECKBOX NEWSLETTER -->
+                <div id="newsletter-optin-group" class="input-group-checkbox" style="display: none; margin: 16px 0 20px 0;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #1a1a1a; font-size: 0.85rem; font-weight: 500;">
+                        <input type="checkbox" id="auth-newsletter" checked style="width: 18px; height: 18px; accent-color: #E50914; cursor: pointer;">
                         <span>Recevoir les actualités et nouveautés VAFM par e-mail</span>
                     </label>
                 </div>
 
-                <button type="submit" class="btn-submit" id="btn-auth-submit">Valider</button>
+                <button type="submit" class="btn-submit" id="btn-auth-submit">Se connecter</button>
             </form>
 
             <div class="auth-switch">
-                <a href="#" id="auth-switch-link" onclick="toggleAuthMode(); return false;">Pas encore membre ? S'inscrire avec mon email</a>
+                <a href="#" id="auth-switch-link" onclick="toggleAuthMode(); return false;">Pas encore membre ? S'inscrire</a>
             </div>
             <button class="close-btn" onclick="closeModal('auth-modal')">✕</button>
         </div>
+    </div>
+
+    <!-- MODALE PARAMÈTRES DU COMPTE -->
+    <div id="account-settings-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Paramètres du compte</h3>
+            <form id="account-settings-form" onsubmit="handleAccountUpdate(event)">
+                <div class="input-group">
+                    <label for="settings-name">Nom complet / Pseudo</label>
+                    <input type="text" id="settings-name" placeholder="Votre nom" required>
+                </div>
+                <div class="input-group">
+                    <label for="settings-password">Nouveau mot de passe (laisser vide si inchangé)</label>
+                    <input type="password" id="settings-password" placeholder="••••••••">
+                </div>
+                <div class="modal-actions" style="margin-top: 20px;">
+                    <button type="button" class="btn-secondary" onclick="closeModal('account-settings-modal')">Annuler</button>
+                    <button type="submit" class="btn-submit">Enregistrer</button>
+                </div>
+            </form>
+            <button class="close-btn" onclick="closeModal('account-settings-modal')">✕</button>
+        </div>
+    </div>
+
+    <!-- PANNEAU LATÉRAL (DRAWER) MON COMPTE À DOUBLE NIVEAU -->
+    <div class="vafm-user-drawer-overlay" id="vafm-user-drawer-overlay" onclick="closeUserDrawer()"></div>
+
+    <div class="vafm-user-drawer" id="vafm-user-drawer">
+        
+        <!-- NIVEAU 2 (PROLONGEMENT À GAUCHE) : SOUS-PANNEAU PARAMÈTRES -->
+        <div class="drawer-panel drawer-panel-sub" id="drawer-panel-sub">
+            <div class="drawer-header">
+                <button class="drawer-back-btn" onclick="closeSubPanel()" title="Retour">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                </button>
+                <span class="sub-panel-title">Paramètres</span>
+                <button class="drawer-close-btn" onclick="closeUserDrawer()">✕</button>
+            </div>
+
+            <div class="drawer-body">
+                <div class="drawer-section-title">Général</div>
+                
+                <div class="drawer-menu-item" onclick="openAccountSettingsModal()">
+                    <div class="drawer-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    </div>
+                    <div class="drawer-text">
+                        <span class="title">Paramètres généraux</span>
+                        <span class="sub">Modifier nom, pseudo et email</span>
+                    </div>
+                </div>
+
+                <div class="drawer-section-title">Sécurité & Zone Rouge</div>
+
+                <div class="drawer-menu-item danger-item" onclick="handleDeleteAccount()">
+                    <div class="drawer-icon danger-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </div>
+                    <div class="drawer-text">
+                        <span class="title danger-text">Supprimer le compte</span>
+                        <span class="sub">Supprimer définitivement vos données</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NIVEAU 1 (PANNEAU PRINCIPAL) : MENU DU TIROIR -->
+        <div class="drawer-panel drawer-panel-main" id="drawer-panel-main">
+            <div class="drawer-header">
+                <div class="drawer-user-info">
+                    <div class="drawer-avatar" id="drawer-user-avatar">U</div>
+                    <div class="drawer-user-details">
+                        <span class="drawer-user-name" id="drawer-user-name">Nom Utilisateur</span>
+                        <span class="drawer-user-role" id="drawer-user-role">Membre VAFM</span>
+                    </div>
+                </div>
+                <button class="drawer-close-btn" onclick="closeUserDrawer()">✕</button>
+            </div>
+
+            <div class="drawer-body">
+                <div class="drawer-section-title">Compte</div>
+                
+                <div class="drawer-menu-item" onclick="openSubPanel()">
+                    <div class="drawer-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                    </div>
+                    <div class="drawer-text" style="flex: 1;">
+                        <span class="title">Paramètres du compte</span>
+                        <span class="sub">Profil, sécurité et données</span>
+                    </div>
+                    <div class="drawer-arrow">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    </div>
+                </div>
+
+                <div class="drawer-section-title" id="drawer-admin-section-title">Administration</div>
+                <div class="drawer-menu-item admin-only-item" id="drawer-admin-btn" onclick="togglePublishMenu(); closeUserDrawer();">
+                    <div class="drawer-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                    </div>
+                    <div class="drawer-text">
+                        <span class="title">Panneau de publication</span>
+                        <span class="sub">Mettre en ligne les sections</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="drawer-footer">
+                <button class="btn-drawer-logout" onclick="logout()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    Déconnexion
+                </button>
+            </div>
+        </div>
+
     </div>
 
     <!-- MODALE ÉDITION & DRAG & DROP -->
@@ -166,7 +301,6 @@
 
     <!-- NAVBAR -->
     <header class="navbar" id="main-navbar">
-        <!-- Dans ton HTML -->
         <div class="logo-container">
             <a href="#" id="home-logo-btn">
                 <img src="VAFM logo rouge.png" alt="VAFM" class="nav-logo">
@@ -180,8 +314,7 @@
         </nav>
         <div class="nav-actions">
             <div id="user-profile-zone">
-                <!-- BOUTON CONNEXION / BONHOMME SVG -->
-                <button class="btn-secondary btn-login" onclick="openAuthModal()" title="Se connecter">
+                <button class="btn-secondary btn-login" onclick="toggleAuthModal()" title="Mon Compte">
                     <span class="btn-icon">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -221,7 +354,7 @@
                 <div class="grid" id="top-liked-news-grid"></div>
             </div>
 
-            <!-- Sous-section 3 : Actualités plus anciennes (>= 2 semaines) -->
+            <!-- Sous-section 3 : Actualités plus anciennes -->
             <div class="news-subsection" id="old-news-subsection" style="display: none; margin-bottom: 35px;">
                 <h3 class="subsection-title" style="color: #000000; font-size: 1.15rem; font-weight: 700; margin-bottom: 14px;">Plus anciennes</h3>
                 <div class="grid" id="old-news-grid"></div>
@@ -247,32 +380,32 @@
         </section>
 
         <section class="section" id="animateurs">
-    <div class="section-header">
-        <h2>L'Équipe VAFM</h2>
-        <button class="admin-editable-ui add-btn" onclick="openEditorModal('team')">+ Ajouter un membre</button>
-    </div>
+            <div class="section-header">
+                <h2>L'Équipe VAFM</h2>
+                <button class="admin-editable-ui add-btn" onclick="openEditorModal('team')">+ Ajouter un membre</button>
+            </div>
 
-    <!-- Sous-section : Directeurs -->
-    <div class="team-sub-section">
-        <h3 class="team-sub-title">Directeurs</h3>
-        <div class="grid team-grid" id="vafm-team-directeur"></div>
-    </div>
+            <!-- Sous-section : Directeurs -->
+            <div class="team-sub-section">
+                <h3 class="team-sub-title">Directeurs</h3>
+                <div class="grid team-grid" id="vafm-team-directeur"></div>
+            </div>
 
-    <!-- Sous-section : DJ -->
-    <div class="team-sub-section">
-        <h3 class="team-sub-title">DJ</h3>
-        <div class="grid team-grid" id="vafm-team-dj"></div>
-    </div>
+            <!-- Sous-section : DJ -->
+            <div class="team-sub-section">
+                <h3 class="team-sub-title">DJ</h3>
+                <div class="grid team-grid" id="vafm-team-dj"></div>
+            </div>
 
-    <!-- Sous-section : Animateurs & Bénévole -->
-    <div class="team-sub-section">
-        <h3 class="team-sub-title">Animateurs</h3>
-        <div class="grid team-grid" id="vafm-team-animateur"></div>
-    </div>
-</section>
+            <!-- Sous-section : Animateurs & Bénévoles -->
+            <div class="team-sub-section">
+                <h3 class="team-sub-title">Animateurs</h3>
+                <div class="grid team-grid" id="vafm-team-animateur"></div>
+            </div>
+        </section>
     </main>
 
-    <!-- PAGE DÉDIÉE ARTICLE (Masquée par défaut) -->
+    <!-- PAGE DÉDIÉE ARTICLE -->
     <div id="article-modal" class="vafm-apple-page" style="display: none;"></div>
 
     <!-- GOUTTES LIQUIDES -->
@@ -318,11 +451,11 @@
 
             <section class="about-section">
                 <h1>VAFM : La Radio qu'il vous faut !</h1>
-            <p>
-                Bienvenue sur VAFM, la radio qui anime Valenciennes et sa région. 
-                Écoutez en direct le meilleur de la musique, découvrez les derniers titres diffusés 
-                et suivez toute l'actualité de notre antenne.
-            </p>
+                <p>
+                    Bienvenue sur VAFM, la radio qui anime Valenciennes et sa région. 
+                    Écoutez en direct le meilleur de la musique, découvrez les derniers titres diffusés 
+                    et suivez toute l'actualité de notre antenne.
+                </p>
             </section>
             
             <p class="footer-copy">© 2026 VAFM — La radio qu'il vous faut.</p>
