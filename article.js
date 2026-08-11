@@ -43,9 +43,10 @@ async function openArticleView(category, id) {
     currentId = id;
 
     const title = data.titre || data.title || data.nom || 'Sans titre';
+    const rawText = data.texte || data.contenu || data.description || '';
 
     // ==========================================================================
-    // INJECTION DES DONNÉES STRUCTURÉES (SEO GOOGLE NEWS)
+    // INJECTION DES DONNÉES STRUCTURÉES (SEO GOOGLE NEWS & OPEN GRAPH)
     // ==========================================================================
     const rawImg = data.image || data.img;
     let articleImageUrl = "https://vafmlaradio.fr/LOGO-VAFM.png";
@@ -56,6 +57,34 @@ async function openArticleView(category, id) {
             : (rawImg.startsWith('http') ? rawImg : `https://vafmlaradio.fr${rawImg}`);
     }
 
+    // Génération du slug propre
+    const cleanSlug = title
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+    const cleanUrlPath = `/article/${category}/${id}-${cleanSlug}`;
+    const fullArticleUrl = `https://vafmlaradio.fr${cleanUrlPath}`;
+
+    // 1. Mise à jour du titre de l'onglet du navigateur
+    document.title = `${title} – VAFM`;
+
+    // 2. Mise à jour dynamique des balises Open Graph (Aperçu au partage)
+    const ogTitle = document.getElementById('og-title');
+    const ogDesc = document.getElementById('og-desc');
+    const ogImage = document.getElementById('og-image');
+    const ogUrl = document.getElementById('og-url');
+
+    // Extrait de texte propre pour la description (sans balises HTML)
+    const plainTextSnippet = rawText.replace(/<[^>]*>/g, '').substring(0, 160).trim();
+
+    if (ogTitle) ogTitle.setAttribute('content', title);
+    if (ogDesc) ogDesc.setAttribute('content', plainTextSnippet || "Découvrez cet article sur VAFM.");
+    if (ogImage) ogImage.setAttribute('content', articleImageUrl);
+    if (ogUrl) ogUrl.setAttribute('content', fullArticleUrl);
+
+    // 3. Schema.org NewsArticle
     const jsonLd = {
       "@context": "https://schema.org",
       "@type": "NewsArticle",
@@ -80,7 +109,6 @@ async function openArticleView(category, id) {
     script.textContent = JSON.stringify(jsonLd);
     // ==========================================================================
 
-    const rawText = data.texte || data.contenu || data.description || '';
     const isPublished = Boolean(data.is_published);
     
     // On lit uniquement ce qui est enregistré dans la base de données pour cet article
@@ -427,15 +455,8 @@ async function openArticleView(category, id) {
         }, 300);
     }
 
-    // Nouvelle ligne avec URL propre et slug automatique
-    const cleanSlug = title
-        .toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Supprime les accents
-        .replace(/[^a-z0-9]+/g, '-')                      // Remplace les caractères spéciaux par des tirets
-        .replace(/^-+|-+$/g, '');                         // Nettoie les tirets au début/fin
-
-    const cleanUrl = `/article/${category}/${id}-${cleanSlug}`;
-    history.pushState({ page: 'article', category, id }, title, cleanUrl);
+    // Mise à jour de l'URL dans la barre d'adresse
+    history.pushState({ page: 'article', category, id }, title, cleanUrlPath);
 }
 
 /* --------------------------------------------------------------------------
