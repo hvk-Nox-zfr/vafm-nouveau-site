@@ -1,10 +1,6 @@
 {
   "rewrites": [
     {
-      "source": "/article/news/:id*",
-      "destination": "/api/article?id=:id"
-    },
-    {
       "source": "/sitemap.xml",
       "destination": "/api/sitemap"
     },
@@ -13,11 +9,19 @@
       "destination": "/ads.txt"
     },
     {
+      "source": "/article/:category/:id*",
+      "destination": "/api/article-og?category=:category&id=:id"
+    },
+    {
+      "source": "/article/news/:id*",
+      "destination": "/api/article?id=:id"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/:path*"
     },
     {
-      "source": "/:path*",
+      "source": "/((?!api/|_next/|static/|.*\\..*).*)",
       "destination": "/index.html"
     }
   ]
