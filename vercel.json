@@ -9,12 +9,12 @@
       "destination": "/ads.txt"
     },
     {
-      "source": "/article/:category/:id*",
-      "destination": "/api/article-og?category=:category&id=:id"
+      "source": "/article/news/:id*",
+      "destination": "/api/article-og?id=:id"
     },
     {
-      "source": "/article/news/:id*",
-      "destination": "/api/article?id=:id"
+      "source": "/article/:category/:id*",
+      "destination": "/api/article-og?category=:category&id=:id"
     },
     {
       "source": "/api/:path*",
