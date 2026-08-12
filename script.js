@@ -2452,6 +2452,49 @@ function initRadioPlayer() {
   setInterval(updateCurrentTitle, 15000);
 }
 
+// Fonction utilitaire pour changer dynamiquement les balises de partage Open Graph
+function updateOpenGraphTags(title, imageUrl, url) {
+    const setMeta = (property, content) => {
+        let tag = document.querySelector(`meta[property="${property}"]`) || document.querySelector(`meta[name="${property}"]`);
+        if (!tag) {
+            tag = document.createElement('meta');
+            if (property.startsWith('og:')) {
+                tag.setAttribute('property', property);
+            } else {
+                tag.setAttribute('name', property);
+            }
+            document.head.appendChild(tag);
+        }
+        tag.setAttribute('content', content);
+    };
+
+    if (title) setMeta('og:title', `${title} – VAFM`);
+    if (imageUrl) setMeta('og:image', imageUrl);
+    if (url) setMeta('og:url', url);
+}
+
+// Détection automatique de l'URL au chargement pour ouvrir directement la bonne vidéo
+document.addEventListener("DOMContentLoaded", async () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const videoParam = urlParams.get('video');
+  
+  if (videoParam) {
+    const videoId = videoParam.split('-')[0];
+    
+    // Attends que les vidéos soient chargées depuis PocketBase
+    let retries = 25;
+    while ((!appState.videos || appState.videos.length === 0) && retries > 0) {
+      await new Promise(resolve => setTimeout(resolve, 150));
+      retries--;
+    }
+
+    const targetVideo = appState.videos.find(v => String(v.id).trim() === String(videoId).trim());
+    if (targetVideo && targetVideo.videoUrl) {
+      openVideoPlayerModal(targetVideo.videoUrl, targetVideo.title, targetVideo.id);
+    }
+  }
+});
+
 async function openVideoPlayerModal(url, title, videoId) {
     let modal = document.getElementById('vafm-tiktok-player-modal');
     
@@ -2468,8 +2511,15 @@ async function openVideoPlayerModal(url, title, videoId) {
     let commentsList = [];
 
     let directVideoShareUrl = window.location.origin + "/";
+    let videoPosterImg = "";
 
     if (videoId) {
+        // Récupère l'image miniature depuis l'état global ou PocketBase si dispo
+        const currentVideoObj = appState.videos?.find(v => String(v.id) === String(videoId));
+        if (currentVideoObj && currentVideoObj.img) {
+            videoPosterImg = currentVideoObj.img;
+        }
+
         const cleanSlug = (title || 'video')
             .toLowerCase()
             .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -2478,6 +2528,9 @@ async function openVideoPlayerModal(url, title, videoId) {
         
         directVideoShareUrl = `${window.location.origin}/?video=${videoId}-${cleanSlug}`;
         window.history.replaceState({}, '', `/?video=${videoId}-${cleanSlug}`);
+
+        // Injection dynamique des balises Open Graph pour les aperçus de partage
+        updateOpenGraphTags(title || "Vidéo VAFM", videoPosterImg, directVideoShareUrl);
 
         try {
             const likesRes = await fetch(`${POCKETBASE_URL}/api/collections/video_likes/records?filter=(video='${videoId}')`);
