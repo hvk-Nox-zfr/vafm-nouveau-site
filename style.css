@@ -3105,3 +3105,187 @@ body.drawer-open {
     padding-bottom: 110px !important;
   }
 }
+
+/* ==========================================================================
+   CARROUSEL VAFM - ANIMATION DOUCE & FLÈCHES NOIRES ÉPURÉES
+   ========================================================================== */
+
+/* 1. Ralentissement de l'animation de défilement (passe à 0.6s avec une courbe plus douce) */
+.vafm-carousel-track {
+  display: flex !important;
+  flex-direction: row !important;
+  width: 100% !important;
+  overflow-x: auto !important;
+  scroll-snap-type: x mandatory !important;
+  scroll-behavior: smooth !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  background: transparent !important;
+  transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1) !important;
+}
+
+.vafm-carousel-track::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* Structure des pages et grille 4x2 */
+#recent-news-grid.vafm-news-carousel-mode,
+#old-news-grid.vafm-news-carousel-mode,
+.vafm-news-carousel-mode {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 auto !important;
+  box-sizing: border-box !important;
+}
+
+.vafm-carousel-wrapper {
+  position: relative !important;
+  width: 100% !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  overflow: visible !important;
+  padding: 10px 0 !important;
+}
+
+.vafm-carousel-page {
+  flex: 0 0 100% !important;
+  width: 100% !important;
+  min-width: 100% !important;
+  scroll-snap-align: start !important;
+  padding: 10px 5px !important;
+  background: transparent !important;
+}
+
+.vafm-carousel-page-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  grid-template-rows: repeat(2, auto) !important;
+  gap: 22px !important;
+  width: 100% !important;
+}
+
+/* 2. Cartes propres sans aucune ombre grise au bas */
+.vafm-news-carousel-mode .card,
+.vafm-carousel-page-grid .card {
+  width: 100% !important;
+  height: 280px !important;
+  background-color: #0b0b0e !important;
+  box-shadow: none !important;
+  -webkit-box-shadow: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-end !important;
+  overflow: hidden !important;
+  transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.3s ease !important;
+}
+
+.vafm-news-carousel-mode .card:hover,
+.vafm-carousel-page-grid .card:hover {
+  transform: translateY(-4px) !important;
+  border-color: rgba(229, 9, 20, 0.6) !important;
+  box-shadow: none !important;
+}
+
+/* 3. FLÈCHES NOIRES SANS ROND (Suppression du fond, du contour et des ombres) */
+.vafm-carousel-btn {
+  position: absolute !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  z-index: 50 !important;
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  color: #000000 !important; /* Flèche en noir pur */
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: transform 0.2s ease, color 0.2s ease !important;
+}
+
+.vafm-carousel-btn svg {
+  width: 28px !important;
+  height: 28px !important;
+  fill: #000000 !important; /* Force la couleur noire sur l'icône SVG de la flèche */
+}
+
+.vafm-carousel-btn.prev {
+  left: -40px !important;
+}
+
+.vafm-carousel-btn.next {
+  right: -40px !important;
+}
+
+.vafm-carousel-btn:hover {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #E50914 !important; /* Petit effet rouge VAFM discret au survol de la flèche */
+  transform: translateY(-50%) scale(1.15) !important;
+}
+
+.vafm-carousel-btn:hover svg {
+  fill: #E50914 !important;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .vafm-carousel-page-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 650px) {
+  .vafm-carousel-page-grid {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+  }
+  .vafm-carousel-btn {
+    display: none !important;
+  }
+}
+
+/* EXTINCTION RADICALE DE LA BOITE / OMBRE SOUS LE CARROUSEL */
+#recent-news-grid.vafm-news-carousel-mode .card,
+#old-news-grid.vafm-news-carousel-mode .card,
+.vafm-news-carousel-mode .card,
+.vafm-carousel-page-grid .card {
+  box-shadow: none !important;
+  -webkit-box-shadow: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  background-image: none !important;
+}
+
+#recent-news-grid.vafm-news-carousel-mode .card:hover,
+#old-news-grid.vafm-news-carousel-mode .card:hover,
+.vafm-news-carousel-mode .card:hover,
+.vafm-carousel-page-grid .card:hover {
+  box-shadow: none !important;
+  -webkit-box-shadow: none !important;
+}
+
+/* Ralentissement prononcé de l'animation de défilement (1.2 secondes) */
+.vafm-carousel-track {
+  scroll-behavior: smooth !important;
+  transition: transform 1.2s cubic-bezier(0.25, 1, 0.5, 1) !important;
+}
+
+/* S'assure que le défilement par page utilise bien la même douceur */
+.vafm-carousel-page {
+  scroll-snap-align: start !important;
+  scroll-snap-stop: always !important;
+}

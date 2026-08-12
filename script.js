@@ -224,7 +224,6 @@ async function checkUrlForArticle() {
     if (videoParam) {
       const videoId = videoParam.split('-')[0];
       
-      // On attend que les vidéos soient chargées depuis PocketBase
       let retries = 25;
       while ((!appState.videos || appState.videos.length === 0) && retries > 0) {
         await new Promise(resolve => setTimeout(resolve, 150));
@@ -376,6 +375,163 @@ function togglePublishMenu(event) {
   }
 }
 
+// Fonction génératrice de HTML pour les cartes d'articles
+function createNewsCardHTML(item, category = 'news', collectionName = 'actus') {
+  const cleanText = stripHTML(item.text);
+  const truncatedText = cleanText.length > 40 ? cleanText.substring(0, 40) + '...' : cleanText;
+
+  const canEditThisCategory = canEditCategory(category);
+  const isUserLoggedIn = appState && appState.currentUser;
+  const currentUserId = isUserLoggedIn ? appState.currentUser.id : null;
+
+  const likesList = Array.isArray(item.likesList) ? item.likesList : [];
+  const hasLiked = currentUserId && likesList.some(l => l.user === currentUserId);
+  const likeCount = likesList.length || 0;
+
+  let formattedDate = "";
+  if (item.created) {
+    const d = new Date(item.created);
+    formattedDate = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+
+  return `
+  <div class="card ${!item.is_published ? 'draft-card' : ''} ${canEditThisCategory ? 'draggable-card' : ''}" 
+       data-id="${item.id}" 
+       onclick="openArticleView('${category}', '${item.id}')">
+    ${canEditThisCategory ? `
+    <div class="drag-handle" title="Glisser pour réordonner">☰</div>
+    <span class="card-status-tag ${item.is_published ? 'tag-published' : 'tag-draft'}">
+      ${item.is_published ? 'Publié' : 'Brouillon'}
+    </span>
+    <div class="card-admin-actions" onclick="event.stopPropagation();">
+      <button class="btn-admin-action ${item.is_published ? 'btn-unpublish' : 'btn-publish'}" onclick="togglePublish('${collectionName}', '${item.id}', ${item.is_published}); event.stopPropagation();">
+        ${item.is_published ? 'Dépublier' : 'Publier'}
+      </button>
+      <button class="btn-admin-action" onclick="openEditorModal('${category}', '${item.id}'); event.stopPropagation();">✏️</button>
+      <button class="btn-admin-action" onclick="deleteItem('${collectionName}', '${item.id}'); event.stopPropagation();">✕</button>
+    </div>
+    ` : ''}
+
+    <img src="${item.img}" class="card-img" onerror="this.src='https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600'">
+
+    <div class="card-body">
+      ${formattedDate ? `<span class="date">${formattedDate}</span>` : ''}
+      <h3>${item.title}</h3>
+      <p>${truncatedText}</p>
+    </div>
+
+    ${category === 'news' ? `
+    <div class="card-actions" onclick="event.stopPropagation();">
+        <button class="vafm-card-btn ${hasLiked ? 'liked' : ''}" onclick="handleLikeActu('${item.id}')" title="Aimer">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="${hasLiked ? '#ff334b' : 'none'}" stroke="${hasLiked ? '#ff334b' : '#ffffff'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+            </svg>
+            <span>${likeCount}</span>
+        </button>
+        <button class="vafm-card-btn" onclick="handleShareActu('${item.id}', '${encodeURIComponent(item.title)}')" title="Partager">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="18" cy="5" r="3"></circle>
+                <circle cx="6" cy="12" r="3"></circle>
+                <circle cx="18" cy="19" r="3"></circle>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+            </svg>
+            <span>Partager</span>
+        </button>
+    </div>
+    ` : ''}
+  </div>
+  `;
+}
+
+// Rendu standard pour grilles classiques
+const renderGrid = (gridElement, dataArray, category, collectionName) => {
+  if (!gridElement) return;
+
+  if (dataArray.length === 0) {
+    gridElement.innerHTML = `<p class="empty-msg" style="color: #a1a1aa; padding: 20px;">Aucun contenu disponible pour le moment.</p>`;
+    return;
+  }
+
+  gridElement.innerHTML = dataArray.map((item) => createNewsCardHTML(item, category, collectionName)).join('');
+};
+
+// Rendu du carrousel par pages de 8 cartes
+const renderCarouselGrid = (gridElement, dataArray, category, collectionName) => {
+  if (!gridElement) return;
+
+  // Découpe les articles par paquets de 8
+  const pages = [];
+  for (let i = 0; i < dataArray.length; i += 8) {
+    pages.push(dataArray.slice(i, i + 8));
+  }
+
+  const pagesHTML = pages.map((pageItems) => `
+    <div class="vafm-carousel-page">
+      <div class="vafm-carousel-page-grid">
+        ${pageItems.map(item => createNewsCardHTML(item, category, collectionName)).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  gridElement.innerHTML = `
+    <div class="vafm-carousel-wrapper">
+      <button class="vafm-carousel-btn prev" onclick="scrollNewsCarousel(this, -1)" title="Précédent">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      </button>
+      
+      <div class="vafm-carousel-track">
+        ${pagesHTML}
+      </div>
+
+      <button class="vafm-carousel-btn next" onclick="scrollNewsCarousel(this, 1)" title="Suivant">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </button>
+    </div>
+  `;
+};
+
+// Fonction de défilement page par page
+window.scrollNewsCarousel = function(buttonEl, direction) {
+  const wrapper = buttonEl.closest('.vafm-carousel-wrapper');
+  if (!wrapper) return;
+  const track = wrapper.querySelector('.vafm-carousel-track');
+  if (!track) return;
+
+  const pageWidth = track.offsetWidth;
+  track.scrollBy({
+    left: pageWidth * direction,
+    behavior: 'smooth'
+  });
+};
+
+// Nettoyage radical de la box grise parente pour le carrousel d'actus
+function removeCarouselBoxBackground() {
+  const carouselGrids = document.querySelectorAll('#recent-news-grid.vafm-news-carousel-mode, #old-news-grid.vafm-news-carousel-mode');
+  carouselGrids.forEach(grid => {
+    let parent = grid.parentElement;
+    // Remonte les parents proches pour neutraliser le fond gris de la section englobante
+    for (let i = 0; i < 3; i++) {
+      if (parent && parent !== document.body) {
+        parent.style.setProperty('background', 'transparent', 'important');
+        parent.style.setProperty('background-color', 'transparent', 'important');
+        parent.style.setProperty('box-shadow', 'none', 'important');
+        parent.style.setProperty('border', 'none', 'important');
+        parent = parent.parentElement;
+      }
+    }
+  });
+}
+
+// L'exécute après le rendu et au redimensionnement
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(removeCarouselBoxBackground, 300);
+});
+
 function renderAll() {
   const heroWrapper = document.getElementById('hero-wrapper');
   
@@ -453,82 +609,6 @@ function renderAll() {
     });
   }
 
-  const renderGrid = (gridElement, dataArray, category, collectionName) => {
-    if (!gridElement) return;
-
-    if (dataArray.length === 0) {
-      gridElement.innerHTML = `<p class="empty-msg" style="color: #a1a1aa; padding: 20px;">Aucun contenu disponible pour le moment.</p>`;
-      return;
-    }
-
-    const canEditThisCategory = canEditCategory(category);
-    const isUserLoggedIn = appState && appState.currentUser;
-    const currentUserId = isUserLoggedIn ? appState.currentUser.id : null;
-
-    gridElement.innerHTML = dataArray.map((item) => {
-      const cleanText = stripHTML(item.text);
-      const truncatedText = cleanText.length > 40 ? cleanText.substring(0, 40) + '...' : cleanText;
-
-      const likesList = Array.isArray(item.likesList) ? item.likesList : [];
-      const hasLiked = currentUserId && likesList.some(l => l.user === currentUserId);
-      const likeCount = likesList.length || 0;
-
-      let formattedDate = "";
-      if (item.created) {
-        const d = new Date(item.created);
-        formattedDate = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      }
-
-      return `
-      <div class="card ${!item.is_published ? 'draft-card' : ''} ${canEditThisCategory ? 'draggable-card' : ''}" 
-           data-id="${item.id}" 
-           onclick="openArticleView('${category}', '${item.id}')">
-        ${canEditThisCategory ? `
-        <div class="drag-handle" title="Glisser pour réordonner">☰</div>
-        <span class="card-status-tag ${item.is_published ? 'tag-published' : 'tag-draft'}">
-          ${item.is_published ? 'Publié' : 'Brouillon'}
-        </span>
-        <div class="card-admin-actions" onclick="event.stopPropagation();">
-          <button class="btn-admin-action ${item.is_published ? 'btn-unpublish' : 'btn-publish'}" onclick="togglePublish('${collectionName}', '${item.id}', ${item.is_published}); event.stopPropagation();">
-            ${item.is_published ? 'Dépublier' : 'Publier'}
-          </button>
-          <button class="btn-admin-action" onclick="openEditorModal('${category}', '${item.id}'); event.stopPropagation();">✏️</button>
-          <button class="btn-admin-action" onclick="deleteItem('${collectionName}', '${item.id}'); event.stopPropagation();">✕</button>
-        </div>
-        ` : ''}
-
-        <img src="${item.img}" class="card-img" onerror="this.src='https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600'">
-
-        <div class="card-body">
-          ${formattedDate ? `<span class="date">${formattedDate}</span>` : ''}
-          <h3>${item.title}</h3>
-          <p>${truncatedText}</p>
-        </div>
-
-        ${category === 'news' ? `
-        <div class="card-actions" onclick="event.stopPropagation();">
-            <button class="vafm-card-btn ${hasLiked ? 'liked' : ''}" onclick="handleLikeActu('${item.id}')" title="Aimer">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="${hasLiked ? '#ff334b' : 'none'}" stroke="${hasLiked ? '#ff334b' : '#ffffff'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-                </svg>
-                <span>${likeCount}</span>
-            </button>
-            <button class="vafm-card-btn" onclick="handleShareActu('${item.id}', '${encodeURIComponent(item.title)}')" title="Partager">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="18" cy="5" r="3"></circle>
-                    <circle cx="6" cy="12" r="3"></circle>
-                    <circle cx="18" cy="19" r="3"></circle>
-                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-                </svg>
-                <span>Partager</span>
-            </button>
-        </div>
-        ` : ''}
-      </div>
-      `}).join('');
-  };
-
   if (topLikedGrid) {
     const topLikedNews = [...appState.news]
       .filter(item => Array.isArray(item.likesList) && item.likesList.length > 0)
@@ -564,13 +644,25 @@ function renderAll() {
     .sort(sortByRecentDate);
 
   if (recentNewsGrid) {
-    renderGrid(recentNewsGrid, recentNews, 'news', 'actus');
+    if (recentNews.length >= 9) {
+      recentNewsGrid.classList.add('vafm-news-carousel-mode');
+      renderCarouselGrid(recentNewsGrid, recentNews, 'news', 'actus');
+    } else {
+      recentNewsGrid.classList.remove('vafm-news-carousel-mode');
+      renderGrid(recentNewsGrid, recentNews, 'news', 'actus');
+    }
   }
 
   if (oldNewsGrid) {
     if (oldNews.length > 0) {
       if (oldNewsSubsection) oldNewsSubsection.style.display = 'block';
-      renderGrid(oldNewsGrid, oldNews, 'news', 'actus');
+      if (oldNews.length >= 9) {
+        oldNewsGrid.classList.add('vafm-news-carousel-mode');
+        renderCarouselGrid(oldNewsGrid, oldNews, 'news', 'actus');
+      } else {
+        oldNewsGrid.classList.remove('vafm-news-carousel-mode');
+        renderGrid(oldNewsGrid, oldNews, 'news', 'actus');
+      }
     } else {
       if (oldNewsSubsection) oldNewsSubsection.style.display = 'none';
     }
@@ -2482,28 +2574,6 @@ function updateOpenGraphTags(title, imageUrl, url) {
     if (url) setMeta('og:url', url);
 }
 
-// Détection automatique de l'URL au chargement pour ouvrir directement la bonne vidéo
-document.addEventListener("DOMContentLoaded", async () => {
-  const urlParams = new URLSearchParams(window.location.search);
-  const videoParam = urlParams.get('video');
-  
-  if (videoParam) {
-    const videoId = videoParam.split('-')[0];
-    
-    // Attends que les vidéos soient chargées depuis PocketBase
-    let retries = 25;
-    while ((!appState.videos || appState.videos.length === 0) && retries > 0) {
-      await new Promise(resolve => setTimeout(resolve, 150));
-      retries--;
-    }
-
-    const targetVideo = appState.videos.find(v => String(v.id).trim() === String(videoId).trim());
-    if (targetVideo && targetVideo.videoUrl) {
-      openVideoPlayerModal(targetVideo.videoUrl, targetVideo.title, targetVideo.id);
-    }
-  }
-});
-
 async function openVideoPlayerModal(url, title, videoId) {
     let modal = document.getElementById('vafm-tiktok-player-modal');
     
@@ -2520,10 +2590,9 @@ async function openVideoPlayerModal(url, title, videoId) {
     let commentsList = [];
 
     let directVideoShareUrl = window.location.origin + "/";
-    let videoPosterImg = "https://vafmlaradio.fr/LOGO-VAFM.png"; // Image par défaut de secours
+    let videoPosterImg = "https://vafmlaradio.fr/LOGO-VAFM.png"; 
 
     if (videoId) {
-        // Recherche prioritaire dans l'état global des vidéos pour choper la vraie image et le vrai titre
         const currentVideoObj = appState.videos?.find(v => String(v.id).trim() === String(videoId).trim());
         if (currentVideoObj) {
             if (currentVideoObj.img) videoPosterImg = currentVideoObj.img;
@@ -2539,7 +2608,6 @@ async function openVideoPlayerModal(url, title, videoId) {
         directVideoShareUrl = `${window.location.origin}/?video=${videoId}-${cleanSlug}`;
         window.history.replaceState({}, '', `/?video=${videoId}-${cleanSlug}`);
 
-        // Mise à jour des balises Open Graph pour le partage
         updateOpenGraphTags(title, videoPosterImg, directVideoShareUrl);
 
         try {
@@ -2859,29 +2927,6 @@ async function openVideoPlayerModal(url, title, videoId) {
         if (e.target === modal) closePlayer();
     });
 }
-
-// Détection automatique de l'URL vidéo au chargement de la page
-document.addEventListener("DOMContentLoaded", async () => {
-  const urlParams = new URLSearchParams(window.location.search);
-  const videoParam = urlParams.get('video');
-  
-  if (videoParam) {
-    const videoId = videoParam.split('-')[0]; // Récupère l'ID avant le tiret du slug
-    
-    // On attend un court instant que les données de la collection videos soient chargées
-    let retries = 20;
-    while ((!appState.videos || appState.videos.length === 0) && retries > 0) {
-      await new Promise(resolve => setTimeout(resolve, 150));
-      retries--;
-    }
-
-    const targetVideo = appState.videos.find(v => String(v.id).trim() === String(videoId).trim());
-    if (targetVideo && targetVideo.videoUrl) {
-      const safeTitle = (targetVideo.title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-      openVideoPlayerModal(targetVideo.videoUrl, safeTitle, targetVideo.id);
-    }
-  }
-});
 
 /* ==========================================================================
 14. GESTION DU ROUTAGE (ÉCOUTE DES BOUTONS DE NAVIGATION DU NAVIGATEUR)
