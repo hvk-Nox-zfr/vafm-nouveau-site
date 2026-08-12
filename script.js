@@ -220,10 +220,19 @@ async function checkUrlForArticle() {
       articleId = urlParams.get('id');
     }
 
-    const videoId = urlParams.get('video');
-    if (videoId && appState.videos) {
-      const targetVideo = appState.videos.find(v => v.id === videoId);
-      if (targetVideo) {
+    const videoParam = urlParams.get('video');
+    if (videoParam) {
+      const videoId = videoParam.split('-')[0];
+      
+      // On attend que les vidéos soient chargées depuis PocketBase
+      let retries = 25;
+      while ((!appState.videos || appState.videos.length === 0) && retries > 0) {
+        await new Promise(resolve => setTimeout(resolve, 150));
+        retries--;
+      }
+
+      const targetVideo = appState.videos.find(v => String(v.id).trim() === String(videoId).trim());
+      if (targetVideo && targetVideo.videoUrl) {
         openVideoPlayerModal(targetVideo.videoUrl, targetVideo.title, targetVideo.id);
         return;
       }
@@ -2511,13 +2520,14 @@ async function openVideoPlayerModal(url, title, videoId) {
     let commentsList = [];
 
     let directVideoShareUrl = window.location.origin + "/";
-    let videoPosterImg = "";
+    let videoPosterImg = "https://vafmlaradio.fr/LOGO-VAFM.png"; // Image par défaut de secours
 
     if (videoId) {
-        // Récupère l'image miniature depuis l'état global ou PocketBase si dispo
-        const currentVideoObj = appState.videos?.find(v => String(v.id) === String(videoId));
-        if (currentVideoObj && currentVideoObj.img) {
-            videoPosterImg = currentVideoObj.img;
+        // Recherche prioritaire dans l'état global des vidéos pour choper la vraie image et le vrai titre
+        const currentVideoObj = appState.videos?.find(v => String(v.id).trim() === String(videoId).trim());
+        if (currentVideoObj) {
+            if (currentVideoObj.img) videoPosterImg = currentVideoObj.img;
+            if (currentVideoObj.title && (!title || title === 'video')) title = currentVideoObj.title;
         }
 
         const cleanSlug = (title || 'video')
@@ -2529,8 +2539,8 @@ async function openVideoPlayerModal(url, title, videoId) {
         directVideoShareUrl = `${window.location.origin}/?video=${videoId}-${cleanSlug}`;
         window.history.replaceState({}, '', `/?video=${videoId}-${cleanSlug}`);
 
-        // Injection dynamique des balises Open Graph pour les aperçus de partage
-        updateOpenGraphTags(title || "Vidéo VAFM", videoPosterImg, directVideoShareUrl);
+        // Mise à jour des balises Open Graph pour le partage
+        updateOpenGraphTags(title, videoPosterImg, directVideoShareUrl);
 
         try {
             const likesRes = await fetch(`${POCKETBASE_URL}/api/collections/video_likes/records?filter=(video='${videoId}')`);
