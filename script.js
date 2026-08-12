@@ -41,20 +41,16 @@ document.addEventListener('touchmove', (e) => {
 
 async function cleanOldSongsFromPocketBase() {
     try {
-        // Récupère les titres du plus récent au plus vieux
         const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=50`);
         if (!res.ok) return;
 
         const data = await res.json();
         const items = data.items || [];
 
-        // Si on a 10 titres ou moins, on ne touche à rien
         if (items.length <= 10) return;
 
-        // On garde les 10 premiers (index 0 à 9) et on prend tout ce qui dépasse (index 10+)
         const itemsToDelete = items.slice(10);
 
-        // Supprime uniquement les morceaux les plus anciens
         await Promise.all(itemsToDelete.map(item => 
             fetch(`${POCKETBASE_URL}/api/collections/song_history/records/${item.id}`, {
                 method: 'DELETE',
@@ -104,7 +100,6 @@ async function compressPosterImage(file, maxWidth = 800, quality = 0.8) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Ouvre l'article automatiquement si la variable a été injectée par le serveur
   if (window.AUTO_OPEN_ARTICLE && typeof openArticleView === 'function') {
     setTimeout(() => {
       openArticleView(window.AUTO_OPEN_ARTICLE.category, window.AUTO_OPEN_ARTICLE.id);
@@ -224,6 +219,15 @@ async function checkUrlForArticle() {
     if (urlParams.get('id')) {
       articleId = urlParams.get('id');
     }
+
+    const videoId = urlParams.get('video');
+    if (videoId && appState.videos) {
+      const targetVideo = appState.videos.find(v => v.id === videoId);
+      if (targetVideo) {
+        openVideoPlayerModal(targetVideo.videoUrl, targetVideo.title, targetVideo.id);
+        return;
+      }
+    }
   }
 
   if (articleId && articleId.length === 15) {
@@ -326,7 +330,8 @@ async function fetchAllFromPocketBase() {
       img: getPocketBaseImageUrl('videos', v.id, v.poster || v.image) || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=600',
       videoUrl: getPocketBaseImageUrl('videos', v.id, v.video_file || v.file) || '',
       is_published: v.is_published !== undefined ? Boolean(v.is_published) : true,
-      position: v.position || 0
+      position: v.position || 0,
+      created: v.created
     }));
 
     renderAll();
@@ -339,7 +344,6 @@ async function fetchAllFromPocketBase() {
 /* ==========================================================================
 6. RENDU DU CARROUSEL, GRILLES & VIDÉOS
 ========================================================================== */
-
 document.addEventListener('DOMContentLoaded', () => {
     const homeLinks = document.querySelectorAll('a[href="#home"], .nav-home, nav a');
     homeLinks.forEach(link => {
@@ -370,7 +374,6 @@ function renderAll() {
   const topLikedSubsection = document.getElementById('top-liked-subsection');
   
   const recentNewsGrid = document.getElementById('recent-news-grid');
-  const recentNewsSubsection = document.getElementById('recent-news-subsection');
   
   const oldNewsGrid = document.getElementById('old-news-grid');
   const oldNewsSubsection = document.getElementById('old-news-subsection');
@@ -517,7 +520,6 @@ function renderAll() {
       `}).join('');
   };
 
-  // 1. 🔥 Les plus aimées
   if (topLikedGrid) {
     const topLikedNews = [...appState.news]
       .filter(item => Array.isArray(item.likesList) && item.likesList.length > 0)
@@ -536,7 +538,6 @@ function renderAll() {
   const twoWeeksInMs = 14 * 24 * 60 * 60 * 1000;
   const sortByRecentDate = (a, b) => new Date(b.created || 0) - new Date(a.created || 0);
 
-  // 2. ✨ Nouveautés (< 2 semaines)
   const recentNews = appState.news
     .filter(item => {
       if (!item.created) return true;
@@ -545,7 +546,6 @@ function renderAll() {
     })
     .sort(sortByRecentDate);
 
-  // 3. 📜 Plus anciennes (>= 2 semaines)
   const oldNews = appState.news
     .filter(item => {
       if (!item.created) return false;
@@ -827,7 +827,6 @@ async function saveNewOrderInDB(collectionName, items) {
 /* ==========================================================================
 8. PUBLICATION & MODALE ÉDITION
 ========================================================================== */
-
 document.addEventListener('click', (e) => {
     const menu = document.getElementById('publishMenu');
     const btn = document.getElementById('publishDropdownBtn');
@@ -891,7 +890,6 @@ async function togglePublish(collectionName, id, currentStatus) {
       throw new Error(errData.message || JSON.stringify(errData.data) || "Erreur de mise à jour");
     }
 
-    // Si on vient de publier une actualité, on informe Google Indexing API
     if (newStatus === true && targetCollection === 'actus') {
         const actuItem = appState.news.find(a => a.id === id);
         triggerGoogleIndexing(id, actuItem?.title);
@@ -1636,7 +1634,6 @@ function closeModal(id) {
 /* ==========================================================================
 12. LECTEUR AUDIO & MÉTADONNÉES
 ========================================================================== */
-
 async function saveSongToPocketBase(title, coverUrl) {
     if (!title || title === "VAFM – En Direct") return;
 
@@ -2101,7 +2098,7 @@ function initRadioPlayer() {
       document.head.appendChild(styleEl);
   }
 
-function fetchTrackCover(title) {
+  function fetchTrackCover(title) {
       return new Promise((resolve) => {
           if (isVafmIdent(title)) {
               return resolve('/LOGO - VAFM.png');
@@ -2143,7 +2140,7 @@ function fetchTrackCover(title) {
 
   let lastTitleSeen = songHistory.length > 0 ? songHistory[0].title : "";
 
-async function fetchServerHistoryDirectly() {
+  async function fetchServerHistoryDirectly() {
     try {
         const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=20`);
         if (!res.ok) return;
@@ -2455,122 +2452,6 @@ async function fetchServerHistoryDirectly() {
   setInterval(updateCurrentTitle, 15000);
 }
 
-/* ==========================================================================
-13. MODALES ET GESTION DES VIDÉOS DÉDIÉES
-========================================================================== */
-function createUploadModal() {
-    if (document.getElementById('vafm-upload-modal')) return;
-
-    const modal = document.createElement('div');
-    modal.id = 'vafm-upload-modal';
-    modal.className = 'vafm-modal-overlay';
-    modal.innerHTML = `
-        <div class="vafm-modal-box">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h3 style="margin: 0; font-size: 1.2rem;">Publier une vidéo</h3>
-                <button id="close-video-modal" style="background:none; border:none; color:#fff; font-size:1.2rem; cursor:pointer;">✕</button>
-            </div>
-            <form id="vafm-video-form">
-                <label style="font-size: 0.85rem; color: #aaa; display: block; margin-bottom: 6px;">Titre / Légende</label>
-                <input type="text" id="vafm-vid-title" placeholder="Ex: Point info, best-of..." required>
-
-                <label style="font-size: 0.85rem; color: #aaa; display: block; margin-bottom: 6px;">Fichier Vidéo (MP4, WebM)</label>
-                <div class="vafm-dropzone" id="video-dropzone" onclick="document.getElementById('vafm-vid-file').click()">
-                    <span id="video-file-name">🎬 Choisir le fichier vidéo</span>
-                    <input type="file" id="vafm-vid-file" accept="video/*" style="display: none;" required>
-                </div>
-
-                <label style="font-size: 0.85rem; color: #aaa; display: block; margin-bottom: 6px;">Miniature / Poster (Image)</label>
-                <div class="vafm-dropzone" id="poster-dropzone" onclick="document.getElementById('vafm-vid-poster').click()">
-                    <span id="poster-file-name">🖼️ Choisir l'image miniature</span>
-                    <input type="file" id="vafm-vid-poster" accept="image/*" style="display: none;" required>
-                </div>
-
-                <button type="submit" class="vafm-modal-submit" id="submit-vid-btn">Mettre en ligne</button>
-            </form>
-        </div>
-    `;
-    document.body.appendChild(modal);
-
-    document.getElementById('close-video-modal').addEventListener('click', () => {
-        modal.classList.remove('active');
-    });
-
-    document.getElementById('vafm-vid-file').addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
-            document.getElementById('video-file-name').textContent = `📁 ${file.name} (${sizeMB} MB)`;
-        }
-    });
-
-    document.getElementById('vafm-vid-poster').addEventListener('change', (e) => {
-        if (e.target.files[0]) document.getElementById('poster-file-name').textContent = "🖼️ " + e.target.files[0].name;
-    });
-
-    document.getElementById('vafm-video-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const submitBtn = document.getElementById('submit-vid-btn');
-        submitBtn.disabled = true;
-        submitBtn.textContent = "Optimisation de l'image...";
-
-        const title = document.getElementById('vafm-vid-title').value;
-        const videoFile = document.getElementById('vafm-vid-file').files[0];
-        const rawPosterFile = document.getElementById('vafm-vid-poster').files[0];
-
-        const optimizedPoster = await compressPosterImage(rawPosterFile, 800, 0.8);
-
-        const formData = new FormData();
-        formData.append('title', title);
-        formData.append('is_published', 'false');
-        if (videoFile) formData.append('video_file', videoFile);
-        if (optimizedPoster) formData.append('poster', optimizedPoster);
-
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', `${POCKETBASE_URL}/api/collections/videos/records`, true);
-
-        const token = getAuthToken();
-        if (token) {
-            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-        }
-
-        xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) {
-                const percentComplete = Math.round((event.loaded / event.total) * 100);
-                submitBtn.textContent = `Envoi en cours... ${percentComplete}%`;
-            }
-        };
-
-        xhr.onload = async () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-                alert("Vidéo ajoutée en brouillon avec succès !");
-                modal.classList.remove('active');
-                e.target.reset();
-                document.getElementById('video-file-name').textContent = "🎬 Choisir le fichier vidéo";
-                document.getElementById('poster-file-name').textContent = "🖼️ Choisir l'image miniature";
-                await fetchAllFromPocketBase();
-            } else {
-                let errText = "Erreur lors de l'upload";
-                try {
-                    const resJson = JSON.parse(xhr.responseText);
-                    errText = resJson.message || errText;
-                } catch(e) {}
-                alert("Erreur PocketBase : " + errText);
-            }
-            submitBtn.textContent = "Mettre en ligne";
-            submitBtn.disabled = false;
-        };
-
-        xhr.onerror = () => {
-            alert("Erreur d'envoi : vérifiez votre connexion réseau.");
-            submitBtn.textContent = "Mettre en ligne";
-            submitBtn.disabled = false;
-        };
-
-        xhr.send(formData);
-    });
-}
-
 async function openVideoPlayerModal(url, title, videoId) {
     let modal = document.getElementById('vafm-tiktok-player-modal');
     
@@ -2586,7 +2467,18 @@ async function openVideoPlayerModal(url, title, videoId) {
     let likeCount = 0;
     let commentsList = [];
 
+    let directVideoShareUrl = window.location.origin + "/";
+
     if (videoId) {
+        const cleanSlug = (title || 'video')
+            .toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+        
+        directVideoShareUrl = `${window.location.origin}/?video=${videoId}-${cleanSlug}`;
+        window.history.replaceState({}, '', `/?video=${videoId}-${cleanSlug}`);
+
         try {
             const likesRes = await fetch(`${POCKETBASE_URL}/api/collections/video_likes/records?filter=(video='${videoId}')`);
             if (likesRes.ok) {
@@ -2613,10 +2505,10 @@ async function openVideoPlayerModal(url, title, videoId) {
     }
 
     modal.innerHTML = `
-        <div class="vafm-tiktok-wrapper">
+        <div class="vafm-tiktok-wrapper" style="width: 100%; height: 100%; max-width: 100vw; max-height: 100vh; border-radius: 0;">
             <button class="vafm-tiktok-close-btn" id="close-tiktok-player">✕</button>
             
-            <video class="vafm-tiktok-video" id="vafm-reel-video" src="${url}" loop playsinline autoplay></video>
+            <video class="vafm-tiktok-video" id="vafm-reel-video" src="${url}" loop playsinline autoplay style="object-fit: cover; width: 100%; height: 100%;"></video>
             <div class="vafm-tiktok-gradient-overlay"></div>
 
             <div class="vafm-share-toast" id="vafm-toast">Lien copié dans le presse-papier ! 🔗</div>
@@ -2690,6 +2582,7 @@ async function openVideoPlayerModal(url, title, videoId) {
     `;
 
     modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
 
     const video = document.getElementById('vafm-reel-video');
     const playCenter = document.getElementById('vafm-play-center-icon');
@@ -2868,7 +2761,7 @@ async function openVideoPlayerModal(url, title, videoId) {
         const shareData = {
             title: title || 'Vidéo VAFM',
             text: `Regarde cette vidéo sur VAFM : ${title}`,
-            url: window.location.href,
+            url: directVideoShareUrl,
         };
 
         if (navigator.share) {
@@ -2878,7 +2771,7 @@ async function openVideoPlayerModal(url, title, videoId) {
                 console.log("Partage annulé :", err);
             }
         } else {
-            navigator.clipboard.writeText(window.location.href);
+            navigator.clipboard.writeText(directVideoShareUrl);
             const toast = document.getElementById('vafm-toast');
             toast.classList.add('show');
             setTimeout(() => toast.classList.remove('show'), 2500);
@@ -2894,6 +2787,8 @@ async function openVideoPlayerModal(url, title, videoId) {
     const closePlayer = () => {
         if (video) video.pause();
         modal.classList.remove('active');
+        document.body.style.overflow = '';
+        window.history.replaceState({}, document.title, window.location.pathname);
     };
 
     document.getElementById('close-tiktok-player').addEventListener('click', closePlayer);
@@ -2901,6 +2796,29 @@ async function openVideoPlayerModal(url, title, videoId) {
         if (e.target === modal) closePlayer();
     });
 }
+
+// Détection automatique de l'URL vidéo au chargement de la page
+document.addEventListener("DOMContentLoaded", async () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const videoParam = urlParams.get('video');
+  
+  if (videoParam) {
+    const videoId = videoParam.split('-')[0]; // Récupère l'ID avant le tiret du slug
+    
+    // On attend un court instant que les données de la collection videos soient chargées
+    let retries = 20;
+    while ((!appState.videos || appState.videos.length === 0) && retries > 0) {
+      await new Promise(resolve => setTimeout(resolve, 150));
+      retries--;
+    }
+
+    const targetVideo = appState.videos.find(v => String(v.id).trim() === String(videoId).trim());
+    if (targetVideo && targetVideo.videoUrl) {
+      const safeTitle = (targetVideo.title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      openVideoPlayerModal(targetVideo.videoUrl, safeTitle, targetVideo.id);
+    }
+  }
+});
 
 /* ==========================================================================
 14. GESTION DU ROUTAGE (ÉCOUTE DES BOUTONS DE NAVIGATION DU NAVIGATEUR)
