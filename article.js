@@ -806,35 +806,93 @@ function addCanvaBlock(type = 'p') {
     initCanvaInteractions();
 }
 
-function handleCanvaImageUpload(event) {
+async function handleCanvaImageUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const contentBox = document.getElementById('canva-doc-content');
-        if (!contentBox) return;
+    const contentBox = document.getElementById('canva-doc-content');
+    if (!contentBox) return;
 
-        if (activeBlock && activeBlock.querySelector('img')) {
-            const imgEl = activeBlock.querySelector('img');
-            imgEl.src = e.target.result;
+    // 1. Compression immédiate (WebP, ~80-90% plus léger) pour fluidifier
+    //    l'éditeur, que l'upload distant fonctionne ou non.
+    const compressed = (typeof compressImage === 'function')
+        ? await compressImage(file, 1400, 0.82)
+        : file;
+
+    // 2. On détermine la cible : image déjà sélectionnée ou nouveau bloc
+    let targetImg;
+    if (activeBlock && activeBlock.querySelector('img')) {
+        targetImg = activeBlock.querySelector('img');
+    } else {
+        const block = document.createElement('div');
+        block.className = 'canva-block img-full size-md';
+        targetImg = document.createElement('img');
+        targetImg.alt = "Image téléchargée";
+        targetImg.loading = "lazy";
+        targetImg.decoding = "async";
+        block.appendChild(targetImg);
+
+        const dropInd = contentBox.querySelector('.canva-drop-indicator');
+        if (dropInd && dropInd.style.display !== 'none') {
+            contentBox.insertBefore(block, dropInd);
         } else {
-            const block = document.createElement('div');
-            block.className = 'canva-block img-full size-md';
-            block.innerHTML = `<img src="${e.target.result}" alt="Image téléchargée">`;
-            
-            const dropInd = contentBox.querySelector('.canva-drop-indicator');
-            if (dropInd && dropInd.style.display !== 'none') {
-                contentBox.insertBefore(block, dropInd);
-            } else {
-                contentBox.appendChild(block);
-            }
+            contentBox.appendChild(block);
         }
+    }
 
-        initCanvaInteractions();
-    };
-    
-    reader.readAsDataURL(file);
+    // 3. Aperçu instantané et léger pendant l'upload (pas de base64 ici)
+    const previewUrl = URL.createObjectURL(compressed);
+    targetImg.src = previewUrl;
+    targetImg.dataset.uploading = "1";
+    initCanvaInteractions();
+
+    // 4. Upload réel du fichier vers PocketBase : le contenu de l'article
+    //    ne stockera plus qu'une URL courte au lieu d'un base64 énorme.
+    //    C'est ce qui supprime la limite de 3 images et les lags.
+    try {
+        const articleId = (typeof currentArticleData !== 'undefined' && currentArticleData) ? currentArticleData.id : null;
+        const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+
+        const fd = new FormData();
+        fd.append('image', compressed);
+        if (articleId) fd.append('article', articleId);
+
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch(`${POCKETBASE_URL}/api/collections/article_images/records`, {
+            method: 'POST',
+            headers,
+            body: fd
+        });
+
+        if (!res.ok) throw new Error(`upload échoué (HTTP ${res.status})`);
+
+        const record = await res.json();
+        const finalUrl = (typeof getPocketBaseImageUrl === 'function')
+            ? getPocketBaseImageUrl('article_images', record.id, record.image)
+            : `${POCKETBASE_URL}/api/files/article_images/${record.id}/${record.image}`;
+
+        targetImg.src = finalUrl;
+        targetImg.removeAttribute('data-uploading');
+        targetImg.dataset.pbCollection = 'article_images';
+        targetImg.dataset.pbId = record.id;
+    } catch (err) {
+        // Filet de sécurité : si la collection 'article_images' n'existe pas
+        // encore côté PocketBase (ou hors-ligne), on repasse en base64
+        // compressé pour ne rien casser — mais crée la collection pour
+        // profiter du vrai correctif (voir instructions).
+        console.warn("⚠️ Upload direct impossible (collection 'article_images' manquante ?) — repli en base64 compressé :", err.message);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            targetImg.src = e.target.result;
+            targetImg.removeAttribute('data-uploading');
+        };
+        reader.readAsDataURL(compressed);
+    } finally {
+        URL.revokeObjectURL(previewUrl);
+        event.target.value = '';
+    }
 }
 
 async function saveCanvaArticle(collectionName, id) {
@@ -867,6 +925,11 @@ async function saveCanvaArticle(collectionName, id) {
 
         const content = tempDiv.innerHTML.trim();
 
+        // Résumé court en texte brut pour la vignette de la page d'accueil.
+        // On n'y met JAMAIS le HTML complet : c'est ce doublon qui, sur les
+        // anciens articles, faisait peser la page d'accueil plusieurs Mo.
+        const plainExcerpt = (tempDiv.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+
         // 1. Détermination exacte de la collection PocketBase
         let realCollection = collectionName;
         if (collectionName === 'news' || collectionName === 'article') {
@@ -896,7 +959,7 @@ async function saveCanvaArticle(collectionName, id) {
             formData.append('title', title);
             formData.append('texte', content);
             formData.append('contenu', content);
-            formData.append('description', content);
+            formData.append('description', plainExcerpt);
             formData.append('name', authorDisplayName);
 
             if (window.appState && window.appState.currentUser) {
@@ -905,7 +968,12 @@ async function saveCanvaArticle(collectionName, id) {
                 formData.append('user_id', window.appState.currentUser.id);
             }
             
-            formData.append('image', fileInput.files[0]);
+            // Compression de l'image de couverture avant envoi (site plus rapide,
+            // évite aussi d'envoyer un fichier brut potentiellement volumineux)
+            const coverFile = (typeof compressImage === 'function')
+                ? await compressImage(fileInput.files[0], 1600, 0.85)
+                : fileInput.files[0];
+            formData.append('image', coverFile);
             bodyPayload = formData;
         } else {
             headers['Content-Type'] = 'application/json';
@@ -914,7 +982,7 @@ async function saveCanvaArticle(collectionName, id) {
                 title: title,
                 texte: content,
                 contenu: content,
-                description: content,
+                description: plainExcerpt,
                 name: authorDisplayName
             };
 

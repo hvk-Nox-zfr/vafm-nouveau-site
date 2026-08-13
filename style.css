@@ -84,6 +84,13 @@ body:not(.is-admin) .carousel-item {
     width: 0%;
     height: 100%;
     background: var(--accent);
+    animation: loaderBarFill 1.4s ease-in-out infinite;
+}
+
+@keyframes loaderBarFill {
+    0% { width: 0%; }
+    60% { width: 85%; }
+    100% { width: 100%; }
 }
 
 /* ==========================================================================

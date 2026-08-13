@@ -121,10 +121,13 @@ function stripHTML(html) {
   return tmp.textContent || tmp.innerText || "";
 }
 
-function getPocketBaseImageUrl(collectionName, recordId, fileName) {
+function getPocketBaseImageUrl(collectionName, recordId, fileName, thumb = null) {
   if (!fileName) return null;
   if (fileName.startsWith('http://') || fileName.startsWith('https://') || fileName.startsWith('data:')) return fileName;
-  return `${POCKETBASE_URL}/api/files/${collectionName}/${recordId}/${fileName}`;
+  const base = `${POCKETBASE_URL}/api/files/${collectionName}/${recordId}/${fileName}`;
+  // PocketBase génère une miniature à la volée côté serveur (ex: "500x350") au lieu
+  // d'envoyer l'image originale : bien plus rapide pour les grilles/cartes/slider.
+  return thumb ? `${base}?thumb=${thumb}` : base;
 }
 
 function getAuthToken() {
@@ -171,24 +174,22 @@ function canCreateInCategory(category) {
 /* ==========================================================================
 4. INITIALISATION & PARSING URL DYNAMIQUE
 ========================================================================== */
-document.addEventListener("DOMContentLoaded", async () => {
-  if (typeof gsap !== 'undefined' && document.querySelector('.loader-bar')) {
-    gsap.to(".loader-bar", {
-      width: "100%", duration: 1.2, ease: "power2.inOut", onComplete: () => {
-        gsap.to("#loader", {
-          y: "-100%", duration: 0.6, ease: "power4.in",
-          onComplete: () => {
-            const loader = document.getElementById('loader');
-            if (loader) loader.style.display = 'none';
-          }
-        });
-      }
+function hideSiteLoader() {
+  const loader = document.getElementById('loader');
+  if (!loader || loader.dataset.hidden === '1') return;
+  loader.dataset.hidden = '1';
+
+  if (typeof gsap !== 'undefined') {
+    gsap.to("#loader", {
+      y: "-100%", duration: 0.4, ease: "power2.in",
+      onComplete: () => { loader.style.display = 'none'; }
     });
   } else {
-    const loader = document.getElementById('loader');
-    if (loader) loader.style.display = 'none';
+    loader.style.display = 'none';
   }
+}
 
+document.addEventListener("DOMContentLoaded", async () => {
   const storedAuth = localStorage.getItem('pocketbase_auth');
   if (storedAuth) {
     try {
@@ -204,7 +205,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  await fetchAllFromPocketBase();
+  // L'écran de chargement disparaît dès que les données sont prêtes (avec un
+  // minimum de 300ms pour éviter un flash trop brutal), au lieu d'un délai
+  // fixe de 1.8s à chaque visite. Un filet de sécurité à 4s évite un blocage
+  // si l'API PocketBase répond lentement.
+  const minDelay = new Promise(resolve => setTimeout(resolve, 300));
+  const safetyTimeout = new Promise(resolve => setTimeout(resolve, 4000));
+
+  await Promise.race([
+    Promise.all([fetchAllFromPocketBase(), minDelay]),
+    safetyTimeout
+  ]);
+
+  hideSiteLoader();
   updateAuthUI();
   initFileUploadDragAndDrop();
   initRadioPlayer();
@@ -263,8 +276,13 @@ async function checkUrlForArticle() {
 ========================================================================== */
 async function fetchAllFromPocketBase() {
   try {
-    const getCollectionData = async (collection) => {
-      const url = `${POCKETBASE_URL}/api/collections/${collection}/records`;
+    const getCollectionData = async (collection, fields = null) => {
+      // "fields" permet de ne demander à PocketBase que les colonnes utiles
+      // sur l'accueil, au lieu de tout le contenu de chaque article (qui peut
+      // contenir d'anciennes images encodées en base64 très lourdes).
+      const url = fields
+        ? `${POCKETBASE_URL}/api/collections/${collection}/records?fields=${encodeURIComponent(fields)}&perPage=200`
+        : `${POCKETBASE_URL}/api/collections/${collection}/records?perPage=200`;
       try {
         const res = await fetch(url);
         if (!res.ok) {
@@ -280,7 +298,10 @@ async function fetchAllFromPocketBase() {
 
     const [heroItems, actusItems, emissionsItems, animateursItems, videosItems, actuLikesItems] = await Promise.all([
       getCollectionData('hero'),
-      getCollectionData('actus'),
+      // On exclut explicitement le champ 'contenu' : c'est un doublon exact de
+      // 'texte' (jamais utilisé côté accueil) qui, pour les anciens articles,
+      // peut à lui seul peser plusieurs Mo à cause des images intégrées.
+      getCollectionData('actus', 'id,titre,title,texte,description,image,is_published,position,created'),
       getCollectionData('emissions'),
       getCollectionData('animateurs'),
       getCollectionData('videos'),
@@ -297,7 +318,7 @@ async function fetchAllFromPocketBase() {
       id: h.id,
       title: h.titre || h.title || '',
       text: h.description || h.texte || '',
-      img: getPocketBaseImageUrl('hero', h.id, h.image) || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=1200',
+      img: getPocketBaseImageUrl('hero', h.id, h.image, '1600x800') || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=1200',
       is_published: h.is_published !== undefined ? Boolean(h.is_published) : true,
       position: h.position || 0
     }));
@@ -309,7 +330,7 @@ async function fetchAllFromPocketBase() {
         id: a.id,
         title: a.titre || a.title || '',
         text: a.texte || a.description || '',
-        img: getPocketBaseImageUrl('actus', a.id, a.image) || 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600',
+        img: getPocketBaseImageUrl('actus', a.id, a.image, '500x350') || 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600',
         is_published: a.is_published !== undefined ? Boolean(a.is_published) : true,
         position: a.position || 0,
         likesList: likesForThisActu,
@@ -321,7 +342,7 @@ async function fetchAllFromPocketBase() {
       id: e.id,
       title: e.titre || e.title || '',
       text: e.description || e.texte || '',
-      img: getPocketBaseImageUrl('emissions', e.id, e.image) || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&q=80',
+      img: getPocketBaseImageUrl('emissions', e.id, e.image, '500x350') || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&q=80',
       is_published: e.is_published !== undefined ? Boolean(e.is_published) : true,
       position: e.position || 0
     }));
@@ -331,7 +352,7 @@ async function fetchAllFromPocketBase() {
       title: anim.nom || anim.name || anim.titre || anim.title || '',
       text: anim.description || anim.role || anim.texte || '',
       role: anim.role || anim.category || 'animateur',
-      img: getPocketBaseImageUrl('animateurs', anim.id, anim.image) || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400',
+      img: getPocketBaseImageUrl('animateurs', anim.id, anim.image, '400x400') || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400',
       is_published: anim.is_published !== undefined ? Boolean(anim.is_published) : true,
       position: anim.position || 0
     }));
@@ -340,7 +361,7 @@ async function fetchAllFromPocketBase() {
       id: v.id,
       title: v.titre || v.title || '',
       text: v.description || v.texte || '',
-      img: getPocketBaseImageUrl('videos', v.id, v.poster || v.image) || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=600',
+      img: getPocketBaseImageUrl('videos', v.id, v.poster || v.image, '500x350') || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=600',
       videoUrl: getPocketBaseImageUrl('videos', v.id, v.video_file || v.file) || '',
       is_published: v.is_published !== undefined ? Boolean(v.is_published) : true,
       position: v.position || 0,
@@ -417,7 +438,7 @@ function createNewsCardHTML(item, category = 'news', collectionName = 'actus') {
     </div>
     ` : ''}
 
-    <img src="${item.img}" class="card-img" onerror="this.src='https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600'">
+    <img src="${item.img}" class="card-img" loading="lazy" decoding="async" onerror="this.src='https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600'">
 
     <div class="card-body">
       ${formattedDate ? `<span class="date">${formattedDate}</span>` : ''}
@@ -568,13 +589,18 @@ function renderAll() {
         </div>
       </div>`;
     } else {
-      heroWrapper.innerHTML = appState.hero.map((slide) => {
+      heroWrapper.innerHTML = appState.hero.map((slide, slideIndex) => {
         const cleanText = stripHTML(slide.text);
         const truncatedText = cleanText.length > 70 ? cleanText.substring(0, 70) + '...' : cleanText;
+        // Seule la 1ère slide (visible immédiatement) charge en priorité ;
+        // les autres attendent d'être nécessaires pour ne pas ralentir l'affichage initial.
+        const loadingAttrs = slideIndex === 0
+          ? 'loading="eager" fetchpriority="high"'
+          : 'loading="lazy" decoding="async"';
 
         return `
       <div class="swiper-slide hero-slide ${!slide.is_published ? 'draft-card' : ''}">
-        <img src="${slide.img}" class="slide-bg" alt="${slide.title}">
+        <img src="${slide.img}" class="slide-bg" alt="${slide.title}" ${loadingAttrs}>
         <div class="slide-overlay"></div>
         <div class="slide-content">
           <h1>${slide.title} ${!slide.is_published ? '<small class="draft-badge">(Brouillon)</small>' : ''}</h1>
@@ -719,7 +745,7 @@ function renderAll() {
         </div>
         ` : ''}
 
-        <img src="${member.img}" class="card-img" alt="${safeName}" onerror="this.src='https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400'">
+        <img src="${member.img}" class="card-img" alt="${safeName}" loading="lazy" decoding="async" onerror="this.src='https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400'">
 
         <div class="card-body">
           <h3>${member.title}</h3>
@@ -846,7 +872,7 @@ function renderVideosContainer() {
 
     return `
       <div class="vafm-video-card ${!video.is_published ? 'draft-card' : ''}" data-id="${video.id}">
-        <img src="${video.img}" alt="${video.title}">
+        <img src="${video.img}" alt="${video.title}" loading="lazy" decoding="async">
         <div class="vafm-video-click-zone" onclick="if('${video.videoUrl}') openVideoPlayerModal('${video.videoUrl}', '${safeTitle}', '${video.id}')"></div>
         <div class="vafm-video-overlay">
             <div class="vafm-video-header-info">
