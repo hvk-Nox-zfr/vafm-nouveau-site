@@ -24,7 +24,7 @@ export default async function handler(req, res) {
 
     // 2. Récupérer uniquement les articles PUBLIÉS créés ou publiés dans les dernières 48h
     // PocketBase : filter avec is_published=true et date >= 48h
-    const filterQuery = encodeURIComponent(`is_published = true && (published_at >= "${fortyEightHoursAgo}" || created >= "${fortyEightHoursAgo}")`);
+    const filterQuery = encodeURIComponent(`is_published = true && created >= "${fortyEightHoursAgo}"`);
     
     const response = await fetch(
       `${POCKETBASE_URL}/api/collections/actus/records?filter=(${filterQuery})&sort=-created`
