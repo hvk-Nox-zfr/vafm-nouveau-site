@@ -4,24 +4,30 @@ export default async function handler(req, res) {
 
   function escapeXml(str) {
     if (!str) return "";
-    return String(str).replace(/[<>&'"]/g, (c) => {
-      switch (c) {
-        case '<': return '&lt;';
-        case '>': return '&gt;';
-        case '&': return '&amp;';
-        case '\'': return '&apos;';
-        case '"': return '&quot;';
-      }
-    });
+    return String(str)
+      .replace(/\s+/g, " ") // Remplace les retours à la ligne et espaces multiples par un seul espace
+      .trim()
+      .replace(/[<>&'"]/g, (c) => {
+        switch (c) {
+          case '<': return '&lt;';
+          case '>': return '&gt;';
+          case '&': return '&amp;';
+          case '\'': return '&apos;';
+          case '"': return '&quot;';
+        }
+      });
   }
 
   try {
-    // 1. Calculer la date limite (48h en arrière)
+    // 1. Calculer la date limite (exactement 48h en arrière)
     const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
-    // 2. Récupérer uniquement les articles créés il y a moins de 48 heures
+    // 2. Récupérer uniquement les articles PUBLIÉS créés ou publiés dans les dernières 48h
+    // PocketBase : filter avec is_published=true et date >= 48h
+    const filterQuery = encodeURIComponent(`is_published = true && (published_at >= "${fortyEightHoursAgo}" || created >= "${fortyEightHoursAgo}")`);
+    
     const response = await fetch(
-      `${POCKETBASE_URL}/api/collections/actus/records?filter=(created>="${fortyEightHoursAgo}")&sort=-created`
+      `${POCKETBASE_URL}/api/collections/actus/records?filter=(${filterQuery})&sort=-created`
     );
 
     let articles = [];
@@ -30,27 +36,31 @@ export default async function handler(req, res) {
       articles = data.items || [];
     }
 
-    // 3. Générer le flux XML au format Google News
-    let urlsXml = articles.map(article => {
+    // 3. Filtrage de sécurité JS supplémentaires pour écarter les éventuels brouillons
+    const validArticles = articles.filter(art => Boolean(art.is_published));
+
+    // 4. Générer les balises <url> sans sauts de ligne parasites dans les contenus
+    const urlsXml = validArticles.map(article => {
       const rawTitle = article.titre || article.title || article.slug || article.nom || "";
+      const cleanTitle = rawTitle.replace(/\s+/g, " ").trim();
       
       let slugPart = "";
-      if (rawTitle) {
-        slugPart = rawTitle
+      if (cleanTitle) {
+        slugPart = cleanTitle
           .toLowerCase()
           .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
           .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-|-$/g, "");
+          .replace(/^-+|-+$/g, "");
       }
 
       const fullSlug = slugPart ? `${article.id}-${slugPart}` : article.id;
       const articleUrl = `${SITE_URL}/article/news/${fullSlug}`;
 
-      // Date au format ISO 8601 complète (ex: 2026-08-13T21:00:00.000Z)
-      const pubDate = new Date(article.created).toISOString();
+      // Utilise published_at en priorité s'il existe, sinon created
+      const rawDate = article.published_at || article.created;
+      const pubDate = new Date(rawDate).toISOString();
 
-      return `
-  <url>
+      return `  <url>
     <loc>${escapeXml(articleUrl)}</loc>
     <news:news>
       <news:publication>
@@ -58,10 +68,10 @@ export default async function handler(req, res) {
         <news:language>fr</news:language>
       </news:publication>
       <news:publication_date>${pubDate}</news:publication_date>
-      <news:title>${escapeXml(rawTitle)}</news:title>
+      <news:title>${escapeXml(cleanTitle)}</news:title>
     </news:news>
   </url>`;
-    }).join("");
+    }).join("\n");
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
@@ -69,11 +79,13 @@ export default async function handler(req, res) {
 ${urlsXml}
 </urlset>`;
 
-    res.setHeader("Content-Type", "text/xml");
-    res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate");
+    // Envoi de la réponse HTTP avec les bons headers XML
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
     return res.status(200).send(xml);
 
   } catch (err) {
+    console.error("Erreur génération sitemap-news:", err);
     return res.status(500).json({ error: err.message });
   }
 }

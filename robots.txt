@@ -6,3 +6,4 @@ Disallow: /_/
 Disallow: /auth/
 
 Sitemap: https://vafmlaradio.fr/sitemap.xml
+Sitemap: https://vafmlaradio.fr/sitemap-news.xml
