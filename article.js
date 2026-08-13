@@ -84,19 +84,36 @@ async function openArticleView(category, id) {
     if (ogImage) ogImage.setAttribute('content', articleImageUrl);
     if (ogUrl) ogUrl.setAttribute('content', fullArticleUrl);
 
-    // 3. Schema.org NewsArticle
+    // 3. Schema.org NewsArticle (Balisage JSON-LD complet Google News)
+    const publishedIsoDate = new Date(data.published_at || data.created).toISOString();
+    const modifiedIsoDate = new Date(data.updated || data.created).toISOString();
+
     const jsonLd = {
       "@context": "https://schema.org",
       "@type": "NewsArticle",
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": fullArticleUrl
+      },
       "headline": title,
       "image": [articleImageUrl],
-      "datePublished": data.published_at || data.created,
-      "dateModified": data.updated || data.created,
+      "datePublished": publishedIsoDate,
+      "dateModified": modifiedIsoDate,
       "author": [{
           "@type": "Organization",
           "name": "VAFM",
           "url": "https://vafmlaradio.fr"
-      }]
+      }],
+      "publisher": {
+        "@type": "Organization",
+        "name": "VAFM",
+        "url": "https://vafmlaradio.fr",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://vafmlaradio.fr/LOGO-VAFM.png"
+        }
+      },
+      "description": plainTextSnippet || title
     };
 
     let script = document.getElementById('news-schema');
@@ -853,9 +870,7 @@ async function handleCanvaImageUpload(event) {
     targetImg.dataset.uploading = "1";
     initCanvaInteractions();
 
-    // 4. Upload réel du fichier vers PocketBase : le contenu de l'article
-    //    ne stockera plus qu'une URL courte au lieu d'un base64 énorme.
-    //    C'est ce qui supprime la limite de 3 images et les lags.
+    // 4. Upload réel du fichier vers PocketBase
     try {
         const articleId = (typeof currentArticleData !== 'undefined' && currentArticleData) ? currentArticleData.id : null;
         const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
@@ -885,11 +900,7 @@ async function handleCanvaImageUpload(event) {
         targetImg.dataset.pbCollection = 'article_images';
         targetImg.dataset.pbId = record.id;
     } catch (err) {
-        // Filet de sécurité : si la collection 'article_images' n'existe pas
-        // encore côté PocketBase (ou hors-ligne), on repasse en base64
-        // compressé pour ne rien casser — mais crée la collection pour
-        // profiter du vrai correctif (voir instructions).
-        console.warn("⚠️ Upload direct impossible (collection 'article_images' manquante ?) — repli en base64 compressé :", err.message);
+        console.warn("⚠️ Upload direct impossible — repli en base64 compressé :", err.message);
         const reader = new FileReader();
         reader.onload = (e) => {
             targetImg.src = e.target.result;

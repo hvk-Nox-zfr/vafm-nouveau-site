@@ -5,6 +5,10 @@
       "destination": "/api/sitemap"
     },
     {
+      "source": "/sitemap-news.xml",
+      "destination": "/api/sitemap-news"
+    },
+    {
       "source": "/ads.txt",
       "destination": "/ads.txt"
     },
