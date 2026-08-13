@@ -64,9 +64,9 @@ async function cleanOldSongsFromPocketBase() {
     }
 }
 
-// Compression universelle d'image (Canvas / WebP)
+// Compression universelle d'image optimisée (Canvas / WebP avec libération mémoire)
 async function compressImage(file, maxWidth = 1200, quality = 0.8) {
-  if (!file || !file.type.startsWith('image/')) return file;
+  if (!file || !file.type || !file.type.startsWith('image/')) return file;
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -85,8 +85,13 @@ async function compressImage(file, maxWidth = 1200, quality = 0.8) {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, w, h);
         canvas.toBlob((blob) => {
+          // Libération explicite du Canvas pour la mémoire
+          canvas.width = 0;
+          canvas.height = 0;
+
           if (!blob) return resolve(file);
-          resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".webp", { type: "image/webp" }));
+          const safeName = (file.name || 'image').replace(/\.[^/.]+$/, "") + ".webp";
+          resolve(new File([blob], safeName, { type: "image/webp" }));
         }, 'image/webp', quality);
       };
       img.onerror = () => resolve(file);
@@ -514,7 +519,6 @@ function removeCarouselBoxBackground() {
   const carouselGrids = document.querySelectorAll('#recent-news-grid.vafm-news-carousel-mode, #old-news-grid.vafm-news-carousel-mode');
   carouselGrids.forEach(grid => {
     let parent = grid.parentElement;
-    // Remonte les parents proches pour neutraliser le fond gris de la section englobante
     for (let i = 0; i < 3; i++) {
       if (parent && parent !== document.body) {
         parent.style.setProperty('background', 'transparent', 'important');
@@ -527,7 +531,6 @@ function removeCarouselBoxBackground() {
   });
 }
 
-// L'exécute après le rendu et au redimensionnement
 window.addEventListener('DOMContentLoaded', () => {
   setTimeout(removeCarouselBoxBackground, 300);
 });
@@ -1111,7 +1114,7 @@ function initFileUploadDragAndDrop() {
 }
 
 /* ==========================================================================
-9. ENREGISTREMENT & SUPPRESSION
+9. ENREGISTREMENT & SUPPRESSION (CORRIGÉ DES ERREURS HTTP 400 ET LAGS)
 ========================================================================== */
 async function handleCardFormSubmit(e) {
   e.preventDefault();
@@ -1134,40 +1137,32 @@ async function handleCardFormSubmit(e) {
     btnSave.disabled = true;
   }
 
-  const title = document.getElementById('editor-title')?.value || '';
-  const text = document.getElementById('editor-text')?.value || '';
+  const title = document.getElementById('editor-title')?.value?.trim() || '';
+  const text = document.getElementById('editor-text')?.value?.trim() || '';
+
+  if (!title) {
+    alert("Veuillez saisir un titre.");
+    if (btnSave) { btnSave.innerText = "Enregistrer les modifications"; btnSave.disabled = false; }
+    return;
+  }
 
   const collectionMap = { hero: 'hero', news: 'actus', shows: 'emissions', team: 'animateurs', videos: 'videos' };
   const collectionName = collectionMap[category] || 'actus';
 
   const formData = new FormData();
 
-  let authorDisplayName = "Équipe VAFM";
+  // Seul le champ 'user' officiel PocketBase est conservé pour éviter les erreurs HTTP 400
   if (appState && appState.currentUser) {
-    authorDisplayName = appState.currentUser.name || appState.currentUser.username || "Équipe VAFM";
-    formData.append('author', appState.currentUser.id);
     formData.append('user', appState.currentUser.id);
-    formData.append('user_id', appState.currentUser.id);
   }
 
   if (category === 'team') {
     formData.append('nom', title);
-    formData.append('name', title);
-    formData.append('titre', title);
-    formData.append('role', text);
     formData.append('description', text);
   } else {
     formData.append('titre', title);
-    formData.append('title', title);
-    if (category === 'hero') {
-      formData.append('texte', text);
-      formData.append('description', text);
-    } else {
-      formData.append('description', text);
-      formData.append('texte', text);
-    }
-    formData.append('name', authorDisplayName);
-    formData.append('author_name', authorDisplayName);
+    formData.append('texte', text);
+    formData.append('description', text);
   }
 
   if (!id) {
@@ -1203,8 +1198,10 @@ async function handleCardFormSubmit(e) {
     });
 
     if (!res.ok) {
-      const errData = await res.json();
-      throw new Error(errData.message || "Erreur de sauvegarde");
+      const errData = await res.json().catch(() => ({}));
+      console.error("Détails rejet PocketBase :", errData);
+      const detail = errData.data ? JSON.stringify(errData.data) : (errData.message || `Erreur HTTP ${res.status}`);
+      throw new Error(detail);
     }
 
     closeEditorModal();
