@@ -2,13 +2,16 @@ export default async function handler(req, res) {
   const POCKETBASE_URL = "https://api.vafmlaradio.fr";
   const SITE_URL = "https://vafmlaradio.fr";
 
-  // Fonction utilitaire pour formater n'importe quelle date au format YYYY-MM-DD
+  // Fonction utilitaire pour formater la vraie date PocketBase au format YYYY-MM-DD
   function formatDate(rawDate) {
     if (!rawDate) return new Date().toISOString().split('T')[0];
     try {
-      const cleanDateStr = String(rawDate).replace(' ', 'T');
+      // PocketBase utilise généralement le format standard "YYYY-MM-DD HH:mm:ss.sssZ"
+      const cleanDateStr = String(rawDate).trim().replace(' ', 'T');
       const d = new Date(cleanDateStr);
+      
       if (isNaN(d.getTime())) {
+        // En secours si le format est invalide
         return new Date().toISOString().split('T')[0];
       }
       return d.toISOString().split('T')[0];
@@ -55,9 +58,11 @@ export default async function handler(req, res) {
   </url>`).join("");
 
     articles.forEach(article => {
-      const articleDate = formatDate(article.updated || article.created);
+      // Récupération de la VRAIE date de mise à jour ou de création PocketBase
+      const rawDate = article.updated || article.created;
+      const articleDate = formatDate(rawDate);
       
-      const rawTitle = article.slug || article.titre || article.title || article.nom || article.subject || "";
+      const rawTitle = article.titre || article.title || article.slug || article.nom || article.subject || "";
 
       let slugPart = "";
       if (rawTitle) {
@@ -73,7 +78,7 @@ export default async function handler(req, res) {
 
       // Récupération de l'image de l'article depuis PocketBase
       let imageXmlBlock = "";
-      const imageFileName = article.img || article.image || article.poster;
+      const imageFileName = article.image || article.img || article.poster || article.illustration;
       if (imageFileName) {
         const imageUrl = `${POCKETBASE_URL}/api/files/actus/${article.id}/${imageFileName}`;
         const imageTitle = escapeXml(rawTitle || "VAFM Actu");
@@ -87,14 +92,14 @@ export default async function handler(req, res) {
 
       urlsXml += `
   <url>
-    <loc>${SITE_URL}${articlePath}</loc>
+    <loc>${escapeXml(`${SITE_URL}${articlePath}`)}</loc>
     <lastmod>${articleDate}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>${imageXmlBlock}
   </url>`;
     });
 
-    // Ajout du namespace image requis par Google
+    // En-tête XML & Namespace
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
