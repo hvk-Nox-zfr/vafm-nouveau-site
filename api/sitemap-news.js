@@ -22,8 +22,7 @@ export default async function handler(req, res) {
     // 1. Calculer la date limite (exactement 48h en arrière)
     const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
-    // 2. Récupérer uniquement les articles PUBLIÉS créés ou publiés dans les dernières 48h
-    // PocketBase : filter avec is_published=true et date >= 48h
+    // 2. Récupérer uniquement les articles PUBLIÉS créés dans les dernières 48h
     const filterQuery = encodeURIComponent(`is_published = true && created >= "${fortyEightHoursAgo}"`);
     
     const response = await fetch(
@@ -36,10 +35,10 @@ export default async function handler(req, res) {
       articles = data.items || [];
     }
 
-    // 3. Filtrage de sécurité JS supplémentaires pour écarter les éventuels brouillons
+    // 3. Filtrage de sécurité JS supplémentaire pour écarter les éventuels brouillons
     const validArticles = articles.filter(art => Boolean(art.is_published));
 
-    // 4. Générer les balises <url> sans sauts de ligne parasites dans les contenus
+    // 4. Générer les balises <url> sans sauts de ligne parasites
     const urlsXml = validArticles.map(article => {
       const rawTitle = article.titre || article.title || article.slug || article.nom || "";
       const cleanTitle = rawTitle.replace(/\s+/g, " ").trim();
@@ -56,9 +55,7 @@ export default async function handler(req, res) {
       const fullSlug = slugPart ? `${article.id}-${slugPart}` : article.id;
       const articleUrl = `${SITE_URL}/article/news/${fullSlug}`;
 
-      // Utilise published_at en priorité s'il existe, sinon created
-      const rawDate = article.published_at || article.created;
-      const pubDate = new Date(rawDate).toISOString();
+      const pubDate = new Date(article.created).toISOString();
 
       return `  <url>
     <loc>${escapeXml(articleUrl)}</loc>
@@ -73,6 +70,7 @@ export default async function handler(req, res) {
   </url>`;
     }).join("\n");
 
+    // En-tête XML inclus directement au début du template
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
