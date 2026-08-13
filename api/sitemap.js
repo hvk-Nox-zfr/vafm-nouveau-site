@@ -2,21 +2,19 @@ export default async function handler(req, res) {
   const POCKETBASE_URL = "https://api.vafmlaradio.fr";
   const SITE_URL = "https://vafmlaradio.fr";
 
-  // Fonction utilitaire pour formater la vraie date PocketBase au format YYYY-MM-DD
+  // Fonction utilitaire pour formater la date PocketBase au format YYYY-MM-DD
   function formatDate(rawDate) {
-    if (!rawDate) return new Date().toISOString().split('T')[0];
+    if (!rawDate) return "2026-01-01";
     try {
-      // PocketBase utilise généralement le format standard "YYYY-MM-DD HH:mm:ss.sssZ"
       const cleanDateStr = String(rawDate).trim().replace(' ', 'T');
       const d = new Date(cleanDateStr);
       
       if (isNaN(d.getTime())) {
-        // En secours si le format est invalide
-        return new Date().toISOString().split('T')[0];
+        return "2026-01-01";
       }
       return d.toISOString().split('T')[0];
     } catch (e) {
-      return new Date().toISOString().split('T')[0];
+      return "2026-01-01";
     }
   }
 
@@ -58,8 +56,8 @@ export default async function handler(req, res) {
   </url>`).join("");
 
     articles.forEach(article => {
-      // Récupération de la VRAIE date de mise à jour ou de création PocketBase
-      const rawDate = article.updated || article.created;
+      // Utilisation stricte de la date de création 'created'
+      const rawDate = article.created;
       const articleDate = formatDate(rawDate);
       
       const rawTitle = article.titre || article.title || article.slug || article.nom || article.subject || "";
