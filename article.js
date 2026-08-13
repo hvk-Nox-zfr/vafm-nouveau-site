@@ -508,6 +508,7 @@ function formatContentToCanvaBlocks(htmlContent, isAdmin = false) {
     const temp = document.createElement('div');
     temp.innerHTML = htmlContent;
 
+    // Gestion AdSense
     temp.querySelectorAll('.vafm-ad-placeholder').forEach(adNode => {
         if (!isAdmin) {
             const adContainer = document.createElement('div');
@@ -526,15 +527,21 @@ function formatContentToCanvaBlocks(htmlContent, isAdmin = false) {
     
     let result = '';
     temp.childNodes.forEach(node => {
-        if (node.nodeType === 1) {
-            const outer = node.outerHTML;
+        if (node.nodeType === 1) { // Élément HTML (div, img, p, h2, etc.)
+            // Si le nœud est déjà un canva-block, on le conserve
             if (node.classList.contains('canva-block')) {
-                result += outer;
-            } else {
-                result += `<div class="canva-block">${outer}</div>`;
+                result += node.outerHTML;
+            } 
+            // Si c'est une image directe sans canva-block autour
+            else if (node.tagName.toLowerCase() === 'img') {
+                result += `<div class="canva-block img-full size-md">${node.outerHTML}</div>`;
+            } 
+            // Pour tout autre élément HTML
+            else {
+                result += `<div class="canva-block">${node.outerHTML}</div>`;
             }
         } else if (node.nodeType === 3 && node.textContent.trim() !== '') {
-            result += `<div class="canva-block"><p>${node.textContent}</p></div>`;
+            result += `<div class="canva-block"><p>${node.textContent.trim()}</p></div>`;
         }
     });
 
@@ -897,6 +904,7 @@ async function handleCanvaImageUpload(event) {
 
 async function saveCanvaArticle(collectionName, id) {
     try {
+        // 1. Récupération des éléments DOM
         const titleElement = document.getElementById('canva-doc-title');
         const title = titleElement ? titleElement.innerText.trim() : '';
 
@@ -909,41 +917,45 @@ async function saveCanvaArticle(collectionName, id) {
         const fileInput = document.getElementById('canva-file-input');
         const hasNewFile = fileInput && fileInput.files && fileInput.files[0];
 
-        // Nettoyage des éléments d'édition Canva
+        // 2. Nettoyage propre des éléments d'édition Canva
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = contentBox.innerHTML;
 
-        const dropInd = tempDiv.querySelector('.canva-drop-indicator');
-        if (dropInd) dropInd.remove();
+        // Suppression de TOUS les indicateurs de drop
+        tempDiv.querySelectorAll('.canva-drop-indicator').forEach(el => el.remove());
 
+        // Nettoyage des classes et attributs d'édition sur tous les blocs et éléments enfants
         tempDiv.querySelectorAll('.canva-block').forEach(b => {
             b.classList.remove('selected', 'editing', 'dragging');
-            b.removeAttribute('contenteditable');
-            b.removeAttribute('draggable');
             b.removeAttribute('data-interactive');
+        });
+
+        tempDiv.querySelectorAll('[contenteditable], [draggable]').forEach(el => {
+            el.removeAttribute('contenteditable');
+            el.removeAttribute('draggable');
         });
 
         const content = tempDiv.innerHTML.trim();
 
-        // Résumé court en texte brut pour la vignette de la page d'accueil.
-        // On n'y met JAMAIS le HTML complet : c'est ce doublon qui, sur les
-        // anciens articles, faisait peser la page d'accueil plusieurs Mo.
+        // Extrait texte brut pour la vignette de la page d'accueil (200 caractères)
         const plainExcerpt = (tempDiv.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 200);
 
-        // 1. Détermination exacte de la collection PocketBase
+        // 3. Détermination de la collection PocketBase
         let realCollection = collectionName;
         if (collectionName === 'news' || collectionName === 'article') {
             realCollection = 'actus';
         }
 
-        // Récupération directe du nom de l'utilisateur connecté
+        // Récupération de l'auteur connecté
         let authorDisplayName = "Équipe VAFM";
         if (window.appState && window.appState.currentUser) {
             authorDisplayName = window.appState.currentUser.name || window.appState.currentUser.username || "Équipe VAFM";
         }
 
-        // 2. Token & Headers d'authentification
-        const token = typeof getAuthToken === 'function' ? getAuthToken() : (window.appState?.pbToken || (localStorage.getItem('pocketbase_auth') ? JSON.parse(localStorage.getItem('pocketbase_auth')).token : null));
+        // 4. Token & Headers d'authentification
+        const token = typeof getAuthToken === 'function' 
+            ? getAuthToken() 
+            : (window.appState?.pbToken || (localStorage.getItem('pocketbase_auth') ? JSON.parse(localStorage.getItem('pocketbase_auth')).token : null));
         
         let headers = {};
         if (token) {
@@ -952,7 +964,7 @@ async function saveCanvaArticle(collectionName, id) {
 
         let bodyPayload;
 
-        // 3. Choix entre Multipart (FormData) et JSON
+        // 5. Préparation du payload (Multipart FormData ou JSON)
         if (hasNewFile) {
             const formData = new FormData();
             formData.append('titre', title);
@@ -963,16 +975,21 @@ async function saveCanvaArticle(collectionName, id) {
             formData.append('name', authorDisplayName);
 
             if (window.appState && window.appState.currentUser) {
-                formData.append('author', window.appState.currentUser.id);
-                formData.append('user', window.appState.currentUser.id);
-                formData.append('user_id', window.appState.currentUser.id);
+                const userId = window.appState.currentUser.id;
+                formData.append('author', userId);
+                formData.append('user', userId);
+                formData.append('user_id', userId);
             }
             
-            // Compression de l'image de couverture avant envoi (site plus rapide,
-            // évite aussi d'envoyer un fichier brut potentiellement volumineux)
-            const coverFile = (typeof compressImage === 'function')
-                ? await compressImage(fileInput.files[0], 1600, 0.85)
-                : fileInput.files[0];
+            // Compression sécurisée de l'image de couverture
+            let coverFile = fileInput.files[0];
+            if (typeof compressImage === 'function') {
+                try {
+                    coverFile = await compressImage(fileInput.files[0], 1600, 0.85) || fileInput.files[0];
+                } catch (imgErr) {
+                    console.warn("Échec de la compression d'image, utilisation du fichier d'origine :", imgErr);
+                }
+            }
             formData.append('image', coverFile);
             bodyPayload = formData;
         } else {
@@ -987,16 +1004,18 @@ async function saveCanvaArticle(collectionName, id) {
             };
 
             if (window.appState && window.appState.currentUser) {
-                jsonBody.author = window.appState.currentUser.id;
-                jsonBody.user = window.appState.currentUser.id;
-                jsonBody.user_id = window.appState.currentUser.id;
+                const userId = window.appState.currentUser.id;
+                jsonBody.author = userId;
+                jsonBody.user = userId;
+                jsonBody.user_id = userId;
             }
 
             bodyPayload = JSON.stringify(jsonBody);
         }
 
-        // 4. Envoi de la requête PATCH à PocketBase
-        const response = await fetch(`${POCKETBASE_URL}/api/collections/${realCollection}/records/${id}`, {
+        // 6. Envoi de la requête PATCH à PocketBase
+        const baseUrl = typeof POCKETBASE_URL !== 'undefined' ? POCKETBASE_URL : (window.POCKETBASE_URL || '');
+        const response = await fetch(`${baseUrl}/api/collections/${realCollection}/records/${id}`, {
             method: 'PATCH',
             headers: headers,
             body: bodyPayload
@@ -1004,7 +1023,6 @@ async function saveCanvaArticle(collectionName, id) {
 
         if (!response.ok) {
             const errJson = await response.json().catch(() => ({}));
-            
             let detailMsg = errJson.message || `Erreur HTTP ${response.status}`;
             if (errJson.data) {
                 const details = Object.entries(errJson.data)
@@ -1016,13 +1034,18 @@ async function saveCanvaArticle(collectionName, id) {
         }
 
         const updatedRecord = await response.json();
-        currentArticleData = updatedRecord;
+        
+        if (typeof currentArticleData !== 'undefined') {
+            currentArticleData = updatedRecord;
+        } else {
+            window.currentArticleData = updatedRecord;
+        }
 
         alert("✨ Article enregistré avec succès !");
         
         if (fileInput) fileInput.value = '';
         
-        // Rafraîchir les données globales du site
+        // Rafraîchissement des données globales
         if (typeof fetchAllFromPocketBase === 'function') {
             await fetchAllFromPocketBase();
         }

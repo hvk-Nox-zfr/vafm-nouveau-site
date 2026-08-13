@@ -301,7 +301,7 @@ async function fetchAllFromPocketBase() {
       // On exclut explicitement le champ 'contenu' : c'est un doublon exact de
       // 'texte' (jamais utilisé côté accueil) qui, pour les anciens articles,
       // peut à lui seul peser plusieurs Mo à cause des images intégrées.
-      getCollectionData('actus', 'id,titre,title,texte,description,image,is_published,position,created'),
+      getCollectionData('actus', 'id,titre,title,texte,contenu,description,image,is_published,position,created'),
       getCollectionData('emissions'),
       getCollectionData('animateurs'),
       getCollectionData('videos'),
