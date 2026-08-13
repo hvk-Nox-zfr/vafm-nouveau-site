@@ -2,10 +2,12 @@ export default async function handler(req, res) {
   const POCKETBASE_URL = "https://api.vafmlaradio.fr";
   const SITE_URL = "https://vafmlaradio.fr";
 
-  function escapeXml(str) {
+  // Fonction d'échappement stricte + nettoyage des espaces et saut de ligne
+  function cleanAndEscapeXml(str) {
     if (!str) return "";
     return String(str)
-      .replace(/\s+/g, " ") // Remplace les retours à la ligne et espaces multiples par un seul espace
+      .replace(/[\r\n\t]+/g, " ") // Supprime les sauts de ligne et tabulations
+      .replace(/\s+/g, " ")       // Normalise les espaces multiples en un seul espace
       .trim()
       .replace(/[<>&'"]/g, (c) => {
         switch (c) {
@@ -14,6 +16,7 @@ export default async function handler(req, res) {
           case '&': return '&amp;';
           case '\'': return '&apos;';
           case '"': return '&quot;';
+          default: return c;
         }
       });
   }
@@ -38,10 +41,10 @@ export default async function handler(req, res) {
     // 3. Filtrage de sécurité JS supplémentaire pour écarter les éventuels brouillons
     const validArticles = articles.filter(art => Boolean(art.is_published));
 
-    // 4. Générer les balises <url> sans sauts de ligne parasites
+    // 4. Générer les balises <url> avec un formatage XML 100% propre
     const urlsXml = validArticles.map(article => {
       const rawTitle = article.titre || article.title || article.slug || article.nom || "";
-      const cleanTitle = rawTitle.replace(/\s+/g, " ").trim();
+      const cleanTitle = cleanAndEscapeXml(rawTitle);
       
       let slugPart = "";
       if (cleanTitle) {
@@ -53,27 +56,26 @@ export default async function handler(req, res) {
       }
 
       const fullSlug = slugPart ? `${article.id}-${slugPart}` : article.id;
-      const articleUrl = `${SITE_URL}/article/news/${fullSlug}`;
+      const articleUrl = cleanAndEscapeXml(`${SITE_URL}/article/news/${fullSlug}`);
 
       const pubDate = new Date(article.created).toISOString();
 
-      return `  <url>
-    <loc>${escapeXml(articleUrl)}</loc>
-    <news:news>
-      <news:publication>
-        <news:name>VAFM</news:name>
-        <news:language>fr</news:language>
-      </news:publication>
-      <news:publication_date>${pubDate}</news:publication_date>
-      <news:title>${escapeXml(cleanTitle)}</news:title>
-    </news:news>
-  </url>`;
+      return `<url>
+<loc>${articleUrl}</loc>
+<news:news>
+<news:publication>
+<news:name>VAFM</news:name>
+<news:language>fr</news:language>
+</news:publication>
+<news:publication_date>${pubDate}</news:publication_date>
+<news:title>${cleanTitle}</news:title>
+</news:news>
+</url>`;
     }).join("\n");
 
-    // En-tête XML inclus directement au début du template
+    // 5. En-tête XML obligatoire + conteneur urlset
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
 ${urlsXml}
 </urlset>`;
 
