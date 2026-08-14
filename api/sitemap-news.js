@@ -2,30 +2,25 @@ export default async function handler(req, res) {
   const POCKETBASE_URL = "https://api.vafmlaradio.fr";
   const SITE_URL = "https://vafmlaradio.fr";
 
-  // Fonction d'échappement stricte + nettoyage des espaces et saut de ligne
-  function cleanAndEscapeXml(str) {
+  // Échappement ciblé pour le contenu texte XML
+  function escapeXmlText(str) {
     if (!str) return "";
     return String(str)
-      .replace(/[\r\n\t]+/g, " ") // Supprime les sauts de ligne et tabulations
-      .replace(/\s+/g, " ")       // Normalise les espaces multiples en un seul espace
+      .replace(/[\r\n\t]+/g, " ")
+      .replace(/\s+/g, " ")
       .trim()
-      .replace(/[<>&'"]/g, (c) => {
-        switch (c) {
-          case '<': return '&lt;';
-          case '>': return '&gt;';
-          case '&': return '&amp;';
-          case '\'': return '&apos;';
-          case '"': return '&quot;';
-          default: return c;
-        }
-      });
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;");
   }
 
   try {
-    // 1. Calculer la date limite (exactement 48h en arrière)
+    // 1. Calculer la date limite (48h en arrière)
     const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
-    // 2. Récupérer uniquement les articles PUBLIÉS créés dans les dernières 48h
+    // 2. Récupérer les articles publiés créés dans les dernières 48h
     const filterQuery = encodeURIComponent(`is_published = true && created >= "${fortyEightHoursAgo}"`);
     
     const response = await fetch(
@@ -38,13 +33,13 @@ export default async function handler(req, res) {
       articles = data.items || [];
     }
 
-    // 3. Filtrage de sécurité JS supplémentaire pour écarter les éventuels brouillons
+    // 3. Filtrage de sécurité côté JS
     const validArticles = articles.filter(art => Boolean(art.is_published));
 
-    // 4. Générer les balises <url> avec un formatage XML 100% propre
+    // 4. Génération des blocs <url>
     const urlsXml = validArticles.map(article => {
       const rawTitle = article.titre || article.title || article.slug || article.nom || "";
-      const cleanTitle = cleanAndEscapeXml(rawTitle);
+      const cleanTitle = rawTitle.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim();
       
       let slugPart = "";
       if (cleanTitle) {
@@ -56,8 +51,7 @@ export default async function handler(req, res) {
       }
 
       const fullSlug = slugPart ? `${article.id}-${slugPart}` : article.id;
-      const articleUrl = cleanAndEscapeXml(`${SITE_URL}/article/news/${fullSlug}`);
-
+      const articleUrl = `${SITE_URL}/article/news/${fullSlug}`;
       const pubDate = new Date(article.created).toISOString();
 
       return `<url>
@@ -68,18 +62,18 @@ export default async function handler(req, res) {
 <news:language>fr</news:language>
 </news:publication>
 <news:publication_date>${pubDate}</news:publication_date>
-<news:title>${cleanTitle}</news:title>
+<news:title>${escapeXmlText(cleanTitle)}</news:title>
 </news:news>
 </url>`;
     }).join("\n");
 
-    // 5. En-tête XML obligatoire + conteneur urlset
+    // 5. Assemblage final avec la déclaration XML stricte en toute première ligne
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
 ${urlsXml}
 </urlset>`;
 
-    // Envoi de la réponse HTTP avec les bons headers XML
+    // Envoi HTTP direct
     res.setHeader("Content-Type", "application/xml; charset=utf-8");
     res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
     return res.status(200).send(xml);
