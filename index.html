@@ -50,19 +50,7 @@
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   OneSignalDeferred.push(async function(OneSignal) {
     await OneSignal.init({
-      appId: "0d3922a5-cccc-44c2-b3e3-81027e516568", // Remplace par ton ID OneSignal
-    });
-
-    // Gestion du clic sur une notification pour ouvrir ton Reel/Modal
-    OneSignal.Notifications.addEventListener('click', (event) => {
-      const data = event.notification.additionalData;
-      if (data && data.reelId) {
-        // Tu peux appeler ta fonction directement !
-        const targetVideo = videosData.find(v => v.id === data.reelId);
-        if (targetVideo) {
-          openVideoPlayerModal(targetVideo);
-        }
-      }
+      appId: "0d3922a5-cccc-44c2-b3e3-81027e516568",
     });
   });
 </script>
