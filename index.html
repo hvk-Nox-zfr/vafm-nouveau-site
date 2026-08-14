@@ -51,11 +51,12 @@
   OneSignalDeferred.push(async function(OneSignal) {
     await OneSignal.init({
       appId: "0d3922a5-cccc-44c2-b3e3-81027e516568",
-      allowLocalhostAsSecureOrigin: true // Permet de tester en local
     });
 
-    // Forcer l'affichage immédiat de la demande d'autorisation
-    await OneSignal.Slidedown.promptPush();
+    // Si l'utilisateur n'a pas encore répondu, on demande directement la permission
+    if (OneSignal.Notifications.permission === false || OneSignal.Notifications.permission === "default") {
+      await OneSignal.Notifications.requestPermission();
+    }
   });
 </script>
 </head>
