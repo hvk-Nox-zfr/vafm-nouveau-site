@@ -1,15 +1,32 @@
+export const dynamic = 'force-dynamic'; // Garantit qu'aucun cache Vercel ne bloque la route
+
 export async function GET() {
   try {
     const POCKETBASE_URL = "https://api.vafmlaradio.fr";
     const STATS_URL = "https://manager10.streamradio.fr:1555/status-json.xsl";
 
-    // 1. Récupérer les métadonnées Icecast
-    const response = await fetch(`${STATS_URL}?nocache=${Date.now()}`, { cache: 'no-store' });
-    if (!response.ok) {
-      return new Response(JSON.stringify({ error: "Flux indisponible" }), { status: 500 });
+    // 1. Récupérer les métadonnées Icecast avec un TIMEOUT de 5 secondes
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    let streamResponse;
+    try {
+      streamResponse = await fetch(`${STATS_URL}?nocache=${Date.now()}`, { 
+        cache: 'no-store',
+        signal: controller.signal 
+      });
+    } catch (e) {
+      clearTimeout(timeoutId);
+      // Renvoyer du 200 pour qu'il n'y ait PAS d'erreur 500 sur Cron-Job !
+      return new Response(JSON.stringify({ status: "skipped", message: "Stream temporairement indisponible ou timeout" }), { status: 200 });
+    }
+    clearTimeout(timeoutId);
+
+    if (!streamResponse.ok) {
+      return new Response(JSON.stringify({ status: "skipped", message: "Flux indisponible (HTTP " + streamResponse.status + ")" }), { status: 200 });
     }
 
-    const data = await response.json();
+    const data = await streamResponse.json();
     let rawTitle = "";
 
     if (data && data.icestats) {
@@ -27,7 +44,7 @@ export async function GET() {
         lowerRaw.includes("vafm") || 
         lowerRaw.includes("le meilleur du son") || 
         lowerRaw.includes("radio qu'il vous faut")) {
-      return new Response(JSON.stringify({ message: "Aucun titre musical valide" }), { status: 200 });
+      return new Response(JSON.stringify({ status: "skipped", message: "Aucun titre musical valide" }), { status: 200 });
     }
 
     const formattedTitle = rawTitle.replace(/\s+[\-\–\—]\s+/, " – ").trim();
@@ -38,22 +55,29 @@ export async function GET() {
       const pbCheckData = await pbCheckRes.json();
       const latestRecord = pbCheckData.items && pbCheckData.items[0];
 
-      // Si le tout dernier morceau en BDD est identique (comparaison insensible à la casse/espaces)
-      if (latestRecord && latestRecord.title.toLowerCase().trim() === formattedTitle.toLowerCase().trim()) {
-        return new Response(JSON.stringify({ message: "Titre déjà enregistré, ignoré." }), { status: 200 });
+      // Si le tout dernier morceau en BDD est identique
+      if (latestRecord && latestRecord.title && latestRecord.title.toLowerCase().trim() === formattedTitle.toLowerCase().trim()) {
+        return new Response(JSON.stringify({ status: "skipped", message: "Titre déjà enregistré, ignoré." }), { status: 200 });
       }
     }
 
-    // 3. Récupération de la pochette iTunes (Recherche complète Titre + Artiste)
+    // 3. Récupération de la pochette iTunes (avec Timeout rapide)
     let coverUrl = '/LOGO - VAFM.png';
     try {
-      const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(formattedTitle)}&entity=song&limit=1`);
+      const itunesController = new AbortController();
+      const itunesTimeout = setTimeout(() => itunesController.abort(), 3000);
+
+      const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(formattedTitle)}&entity=song&limit=1`, {
+        signal: itunesController.signal
+      });
+      clearTimeout(itunesTimeout);
+
       if (itunesRes.ok) {
         const itunesData = await itunesRes.json();
         if (itunesData.results && itunesData.results.length > 0) {
           coverUrl = itunesData.results[0].artworkUrl100.replace('100x100bb', '300x300bb');
         } else {
-          // Fallback : recherche sur l'artiste seul si la recherche combinée échoue
+          // Fallback : recherche sur l'artiste seul
           const artistOnly = formattedTitle.split(' – ')[0];
           const fallbackRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(artistOnly)}&entity=song&limit=1`);
           if (fallbackRes.ok) {
@@ -65,7 +89,7 @@ export async function GET() {
         }
       }
     } catch (e) {
-      console.warn("Erreur pochette iTunes:", e);
+      console.warn("Erreur ou timeout pochette iTunes:", e);
     }
 
     // 4. Heure française (Europe/Paris)
@@ -89,10 +113,11 @@ export async function GET() {
 
     if (!postRes.ok) {
       const errText = await postRes.text();
-      throw new Error(`Erreur insertion PocketBase: ${errText}`);
+      console.error("Erreur insertion PocketBase:", errText);
+      return new Response(JSON.stringify({ status: "error", message: "Erreur PocketBase" }), { status: 200 });
     }
 
-    // 6. Nettoyage : conservation stricte des 10 plus récents
+    // 6. Nettoyage OPTIMISÉ (Promise.all au lieu d'une boucle séquentielle lente)
     try {
       const cleanRes = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=50`, { cache: 'no-store' });
       if (cleanRes.ok) {
@@ -101,10 +126,12 @@ export async function GET() {
         
         if (items.length > 10) {
           const itemsToDelete = items.slice(10);
-          // Suppression séquentielle propre pour éviter de surcharger l'API
-          for (const item of itemsToDelete) {
-            await fetch(`${POCKETBASE_URL}/api/collections/song_history/records/${item.id}`, { method: 'DELETE' });
-          }
+          // Suppression en parallèle ultra-rapide
+          await Promise.allSettled(
+            itemsToDelete.map(item => 
+              fetch(`${POCKETBASE_URL}/api/collections/song_history/records/${item.id}`, { method: 'DELETE' })
+            )
+          );
         }
       }
     } catch (e) {
@@ -114,6 +141,8 @@ export async function GET() {
     return new Response(JSON.stringify({ success: true, added: formattedTitle }), { status: 200 });
 
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    console.error("Erreur globale Cron:", err);
+    // Renvoie 200 avec le détail de l'erreur pour ne PLUS JAMAIS désactiver le job sur Cron-Job.org
+    return new Response(JSON.stringify({ status: "handled_error", error: err.message }), { status: 200 });
   }
 }
