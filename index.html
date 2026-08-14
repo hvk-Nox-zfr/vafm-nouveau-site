@@ -52,11 +52,6 @@
     await OneSignal.init({
       appId: "0d3922a5-cccc-44c2-b3e3-81027e516568",
     });
-
-    // Si l'utilisateur n'a pas encore répondu, on demande directement la permission
-    if (OneSignal.Notifications.permission === false || OneSignal.Notifications.permission === "default") {
-      await OneSignal.Notifications.requestPermission();
-    }
   });
 </script>
 </head>
