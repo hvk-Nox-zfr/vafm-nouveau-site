@@ -1170,6 +1170,34 @@ function initFileUploadDragAndDrop() {
 /* ==========================================================================
 9. ENREGISTREMENT & SUPPRESSION (CORRIGÉ DES ERREURS HTTP 400 ET LAGS)
 ========================================================================== */
+// Seul l'App ID public doit figurer côté client
+const ONESIGNAL_APP_ID = "0d3922a5-cccc-44c2-b3e3-81027e516568";
+
+// Fonction d'envoi qui appelle TON serveur (Backend)
+async function sendOneSignalNotification(title, message, recordId = '') {
+  try {
+    // On appelle l'API backend de VAFM au lieu de contacter OneSignal directement
+    const response = await fetch("https://api.vafmlaradio.fr/api/push/send", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        title: title || message,
+        url: recordId ? `https://vafmlaradio.fr/#article-${recordId}` : "https://vafmlaradio.fr"
+      })
+    });
+
+    if (response.ok) {
+      console.log("Demande de notification transmise au serveur.");
+    } else {
+      console.error("Erreur serveur notification :", await response.json());
+    }
+  } catch (err) {
+    console.error("Erreur réseau :", err);
+  }
+}
+
 async function handleCardFormSubmit(e) {
   e.preventDefault();
 
@@ -1219,12 +1247,14 @@ async function handleCardFormSubmit(e) {
     formData.append('description', text);
   }
 
+  let isPublishedStatus = true;
   if (!id) {
+    isPublishedStatus = false;
     formData.append('is_published', 'false');
   } else {
     const currentItem = appState[category]?.find(x => String(x.id) === String(id));
-    const currentStatus = currentItem ? currentItem.is_published : true;
-    formData.append('is_published', String(currentStatus));
+    isPublishedStatus = currentItem ? currentItem.is_published : true;
+    formData.append('is_published', String(isPublishedStatus));
   }
 
   const fileInput = document.getElementById('file-input');
@@ -1256,6 +1286,13 @@ async function handleCardFormSubmit(e) {
       console.error("Détails rejet PocketBase :", errData);
       const detail = errData.data ? JSON.stringify(errData.data) : (errData.message || `Erreur HTTP ${res.status}`);
       throw new Error(detail);
+    }
+
+    const savedRecord = await res.json();
+
+    // Déclenchement de la notification si l'article/news est publié
+    if ((category === 'news' || category === 'hero') && (isPublishedStatus === true || isPublishedStatus === 'true')) {
+      await sendOneSignalNotification(title, text, savedRecord?.id || id);
     }
 
     closeEditorModal();
