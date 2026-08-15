@@ -2983,3 +2983,65 @@ async function openVideoPlayerModal(url, title, videoId) {
 14. GESTION DU ROUTAGE (ÉCOUTE DES BOUTONS DE NAVIGATION DU NAVIGATEUR)
 ========================================================================== */
 window.addEventListener('popstate', checkUrlForArticle);
+
+/* ==========================================================================
+15. INJECTION DE NOTIFICATIONS SYSTÈME TOUS LES 2 ARTICLES
+========================================================================== */
+
+/**
+ * Propose la notification système lors du défilement des articles
+ * @param {Array} articles 
+ */
+function handleArticleScrollNotifications(articles) {
+  const container = document.getElementById('vafm-articles-container');
+  if (!container || !Array.isArray(articles)) return;
+
+  container.innerHTML = '';
+
+  articles.forEach((article, index) => {
+    const articleEl = createArticleCardElement(article);
+
+    // Déclencheur : au rendu du 2e article (index 1, 3, 5...), on sollicite la permission système
+    if ((index + 1) % 2 === 0) {
+      articleEl.dataset.triggerNotif = "true";
+    }
+
+    container.appendChild(articleEl);
+  });
+
+  // Détection du scroll pour afficher la pop-up système au bon moment
+  setupSystemNotifTrigger();
+}
+
+/**
+ * Déclenche la demande native du navigateur quand l'utilisateur atteint l'article cible
+ */
+function setupSystemNotifTrigger() {
+  if (!('Notification' in window) || Notification.permission !== 'default') {
+    return; // Ne fait rien si non supporté ou déjà accepté/refusé
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        // Demande directement la permission native
+        Notification.requestPermission().then(permission => {
+          if (permission === 'granted') {
+            new Notification("VAFM Radio", {
+              body: "Les notifications en direct sont activées !",
+              icon: "/assets/icon.png"
+            });
+          }
+        });
+        // Ne le demande qu'une seule fois pendant la session
+        observer.disconnect();
+      }
+    });
+  }, { threshold: 0.6 });
+
+  // On observe le 2ème article
+  const targetArticle = document.querySelector('[data-trigger-notif="true"]');
+  if (targetArticle) {
+    observer.observe(targetArticle);
+  }
+}
