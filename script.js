@@ -4,6 +4,34 @@
 const POCKETBASE_URL = 'https://api.vafmlaradio.fr';
 
 /* ==========================================================================
+DETECTION IOS/IPADOS
+========================================================================== */
+document.addEventListener("DOMContentLoaded", function() {
+  // Détecte si l'appareil est un iPhone / iPad / iPod
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  
+  // Vérifie si le site est déjà ouvert depuis l'écran d'accueil (mode PWA standalone)
+  const isPWA = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+
+  // Vérifie si l'utilisateur a déjà fermé la bannière précédemment
+  const isDismissed = localStorage.getItem('vafm_ios_prompt_dismissed');
+
+  // Si c'est un iPhone, hors écran d'accueil et pas fermé récemment : on affiche
+  if (isIOS && !isPWA && !isDismissed) {
+    const promptBanner = document.getElementById('ios-pwa-prompt');
+    if (promptBanner) {
+      promptBanner.style.display = 'block';
+    }
+  }
+
+  // Gestion du bouton de fermeture (masque le bandeau pour 7 jours)
+  document.getElementById('close-ios-prompt')?.addEventListener('click', function() {
+    document.getElementById('ios-pwa-prompt').style.display = 'none';
+    localStorage.setItem('vafm_ios_prompt_dismissed', 'true');
+  });
+});
+
+/* ==========================================================================
 2. ÉTAT DE L'APPLICATION
 ========================================================================== */
 let appState = {
