@@ -3296,3 +3296,27 @@ body.drawer-open {
   scroll-snap-align: start !important;
   scroll-snap-stop: always !important;
 }
+
+.vafm-notif-banner {
+  position: fixed;
+  bottom: 90px; /* Au-dessus du lecteur audio */
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a1a1a;
+  color: #fff;
+  border: 1px solid #E50914;
+  border-radius: 12px;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  z-index: 9999;
+  max-width: 90%;
+  width: 480px;
+}
+
+.vafm-notif-content { display: flex; align-items: center; gap: 12px; font-size: 0.9rem; }
+.btn-notif-primary { background: #E50914; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; }
+.btn-notif-secondary { background: transparent; color: #aaa; border: none; padding: 8px 12px; cursor: pointer; }

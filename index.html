@@ -31,6 +31,32 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://api.vafmlaradio.fr">
     <link rel="dns-prefetch" href="https://api.vafmlaradio.fr">
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(async function(OneSignal) {
+    await OneSignal.init({
+      appId: "0d3922a5-cccc-44c2-b3e3-81027e516568",
+    });
+
+    // Affiche le bandeau custom uniquement si l'utilisateur n'est pas encore abonnés
+    if (OneSignal.Notifications.permission === false || OneSignal.Notifications.permission === "default") {
+      const banner = document.getElementById('vafm-notif-banner');
+      if (banner) banner.style.display = 'flex';
+    }
+
+    // Gestion du clic "Activer"
+    document.getElementById('btn-accept-notif')?.addEventListener('click', async () => {
+      document.getElementById('vafm-notif-banner').style.display = 'none';
+      await OneSignal.Notifications.requestPermission();
+    });
+
+    // Gestion du clic "Plus tard"
+    document.getElementById('btn-deny-notif')?.addEventListener('click', () => {
+      document.getElementById('vafm-notif-banner').style.display = 'none';
+    });
+  });
+</script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script defer src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8497430727637938" crossorigin="anonymous"></script>
@@ -491,7 +517,17 @@
             <p class="footer-copy">© 2026 VAFM — La radio qu'il vous faut.</p>
         </div>
     </footer>
-
+    <!-- BANNIÈRE NOTIFICATION CUSTOM VAFM -->
+    <div id="vafm-notif-banner" class="vafm-notif-banner" style="display: none;">
+    <div class="vafm-notif-content">
+        <span class="vafm-notif-icon">🔔</span>
+        <p>Activez les notifications pour ne rien rater des direct et des actualités VAFM !</p>
+    </div>
+    <div class="vafm-notif-actions">
+        <button id="btn-accept-notif" class="btn-notif-primary">Activer</button>
+        <button id="btn-deny-notif" class="btn-notif-secondary">Plus tard</button>
+    </div>
+    </div>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
