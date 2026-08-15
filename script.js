@@ -1779,11 +1779,11 @@ function updateAuthUI() {
     if (appState.userRole === 'admin') roleLabel = 'Administrateur';
     if (appState.userRole === 'journaliste' || appState.userRole === 'journalist') roleLabel = 'Journaliste';
 
+    // État connecté : uniquement le bouton rond rouge avec l'initiale
     profileZone.innerHTML = `
-      <div class="user-badge-container" onclick="openUserDrawer()" style="cursor:pointer; display:flex; align-items:center; gap:8px;">
-        <div class="user-avatar" style="background-color: #E50914; color: #ffffff; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 0 10px rgba(229, 9, 20, 0.4);">${initial}</div>
-        <span class="user-name-label" style="font-weight: 600; color: #ffffff; font-size: 0.85rem;">${displayName}</span>
-      </div>
+      <button class="btn-user-avatar logged-in" onclick="openUserDrawer()" title="${displayName}">
+        <span class="user-initial">${initial}</span>
+      </button>
     `;
 
     const drawerAvatar = document.getElementById('drawer-user-avatar');
@@ -1801,7 +1801,15 @@ function updateAuthUI() {
     if (adminBtn) adminBtn.style.display = isAdminOrJournalist ? 'flex' : 'none';
 
   } else {
-    profileZone.innerHTML = `<button class="btn-secondary" onclick="openAuthModal()" style="border-radius:20px; padding:8px 20px;">Se connecter</button>`;
+    // État non connecté : uniquement l'icône bonhomme
+    profileZone.innerHTML = `
+      <button class="btn-user-avatar" onclick="toggleAuthModal()" title="Se connecter">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+      </button>
+    `;
   }
 }
 
@@ -3078,5 +3086,140 @@ function setupSystemNotifTrigger() {
   const targetArticle = document.querySelector('[data-trigger-notif="true"]');
   if (targetArticle) {
     observer.observe(targetArticle);
+  }
+}
+
+// OUVRIRE LA BARRE DE RECHERCHE ET MASQUER LE MENU
+function openSearchBar() {
+  const navLinks = document.getElementById('nav-links');
+  const searchBar = document.getElementById('search-bar-container');
+  const searchInput = document.getElementById('global-search-input');
+
+  if (navLinks && searchBar) {
+    navLinks.classList.add('hidden');
+    searchBar.classList.add('active');
+    setTimeout(() => searchInput?.focus(), 150);
+  }
+}
+
+// FERMER LA BARRE DE RECHERCHE ET REFAIRE APPARAÎTRE LE MENU
+function closeSearchBar() {
+  const navLinks = document.getElementById('nav-links');
+  const searchBar = document.getElementById('search-bar-container');
+  const dropdown = document.getElementById('search-results-dropdown');
+  const searchInput = document.getElementById('global-search-input');
+
+  if (navLinks && searchBar) {
+    searchBar.classList.remove('active');
+    navLinks.classList.remove('hidden');
+    if (dropdown) dropdown.classList.remove('active');
+    if (searchInput) searchInput.value = '';
+  }
+}
+
+// LOGIQUE DE RECHERCHE GLOBALE FIXÉE
+function handleGlobalSearch(event) {
+  const query = event.target.value.toLowerCase().trim();
+  const dropdown = document.getElementById('search-results-dropdown');
+  if (!dropdown) return;
+
+  if (query.length < 2) {
+    dropdown.classList.remove('active');
+    dropdown.innerHTML = '';
+    return;
+  }
+
+  let results = [];
+
+// 1. Recherche dans les articles / actualités
+  if (appState && appState.news) {
+    appState.news.forEach(item => {
+      const matchTitle = item.title && item.title.toLowerCase().includes(query);
+      const matchText = item.text && item.text.toLowerCase().includes(query);
+      
+      if (matchTitle || matchText) {
+        results.push({
+          type: 'Article',
+          title: item.title || 'Article sans titre',
+          action: () => {
+            closeSearchBar();
+            // Passe la catégorie ('actus') EN PREMIER, puis l'ID de l'article EN SECOND
+            const category = item.category || 'actus';
+            const id = item.id;
+
+            if (typeof openArticleView === 'function') {
+              openArticleView(category, id);
+            } else if (typeof openArticle === 'function') {
+              openArticle(category, id);
+            } else if (id) {
+              window.location.hash = `article-${id}`;
+            }
+          }
+        });
+      }
+    });
+  }
+
+  // 2. Recherche dans les émissions
+  if (appState && appState.shows) {
+    appState.shows.forEach(item => {
+      if (item.title && item.title.toLowerCase().includes(query)) {
+        results.push({
+          type: 'Émission',
+          title: item.title,
+          action: () => {
+            closeSearchBar();
+            const el = document.getElementById('emissions');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+            else window.location.hash = 'emissions';
+          }
+        });
+      }
+    });
+  }
+
+  // 3. Recherche dans les animateurs
+  if (appState && appState.team) {
+    appState.team.forEach(item => {
+      if (item.title && item.title.toLowerCase().includes(query)) {
+        results.push({
+          type: 'Animateur',
+          title: item.title,
+          action: () => {
+            closeSearchBar();
+            const el = document.getElementById('animateurs');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+            else window.location.hash = 'animateurs';
+          }
+        });
+      }
+    });
+  }
+
+  // Affichage des résultats
+  if (results.length > 0) {
+    dropdown.innerHTML = results.map((res, index) => `
+      <div class="search-result-item" data-index="${index}">
+        <span class="search-result-type">${res.type}</span>
+        <span class="search-result-title">${res.title}</span>
+      </div>
+    `).join('');
+
+    // Attachement des événements au clic
+    dropdown.querySelectorAll('.search-result-item').forEach((el) => {
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const index = parseInt(el.getAttribute('data-index'), 10);
+        if (results[index] && typeof results[index].action === 'function') {
+          results[index].action();
+        }
+      });
+    });
+
+    dropdown.classList.add('active');
+  } else {
+    dropdown.innerHTML = `<div class="search-result-item" style="color: #888; cursor: default;">Aucun résultat trouvé</div>`;
+    dropdown.classList.add('active');
   }
 }

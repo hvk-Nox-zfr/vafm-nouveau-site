@@ -14,6 +14,82 @@ const ADSENSE_CONFIG = {
 };
 
 /* --------------------------------------------------------------------------
+   UTILITAIRES COMPLÉMENTAIRES
+   -------------------------------------------------------------------------- */
+function calculateReadTime(text) {
+    if (!text) return 1;
+    const cleanText = text.replace(/<[^>]*>/g, '').trim();
+    const words = cleanText.split(/\s+/).filter(w => w.length > 0).length;
+    const readingSpeedWPM = 200; // Vitesse moyenne : 200 mots/min
+    return Math.max(1, Math.ceil(words / readingSpeedWPM));
+}
+
+/* --------------------------------------------------------------------------
+   ASSISTANT IA GROQ (VIA VERCEL SERVERLESS FUNCTION)
+   -------------------------------------------------------------------------- */
+async function runAICorrection() {
+    const targetEl = (typeof activeBlock !== 'undefined' && activeBlock) 
+        ? activeBlock 
+        : document.getElementById('canva-doc-content');
+
+    if (!targetEl) {
+        alert("Aucun contenu à corriger !");
+        return;
+    }
+
+    const originalHTML = targetEl.innerHTML.trim();
+    if (!originalHTML) {
+        alert("Le bloc ou l'article est vide !");
+        return;
+    }
+
+    const btnIA = document.getElementById('btn-ai-correct');
+    if (btnIA) {
+        btnIA.disabled = true;
+        btnIA.style.opacity = '0.5';
+    }
+
+    try {
+        const response = await fetch("/api/correct", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ html: originalHTML })
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            throw new Error(data.error || `Erreur HTTP ${response.status}`);
+        }
+
+        let correctedContent = data.choices?.[0]?.message?.content;
+
+        if (correctedContent) {
+            // Nettoyage rigoureux des balises Markdown de code (au début et à la fin)
+            correctedContent = correctedContent
+                .replace(/^```(?:html)?\s*/i, '')
+                .replace(/\s*```$/i, '')
+                .trim();
+
+            targetEl.innerHTML = correctedContent;
+            alert("✨ Correction orthographique appliquée avec succès !");
+        } else {
+            throw new Error("Aucune réponse valide reçue de l'IA.");
+        }
+    } catch (err) {
+        console.error("[VAFM IA] Erreur :", err);
+        alert("Erreur lors de la correction : " + err.message);
+    } finally {
+        if (btnIA) {
+            btnIA.disabled = false;
+            btnIA.style.opacity = '1';
+        }
+    }
+}
+
+/* --------------------------------------------------------------------------
    1. NAVIGATION ET AFFICHAGE (CANVA STUDIO)
    -------------------------------------------------------------------------- */
 async function openArticleView(category, id) {
@@ -157,6 +233,8 @@ async function openArticleView(category, id) {
         })}`;
     }
 
+    const readTimeMinutes = calculateReadTime(rawText);
+
     const isAdmin = Boolean(
         (window.appState && window.appState.editMode) || 
         document.body.classList.contains('admin-logged-in') || 
@@ -253,6 +331,18 @@ async function openArticleView(category, id) {
                 transform: translateY(-2px) !important;
             }
 
+            .vafm-tb-btn.btn-ai {
+                background: rgba(142, 68, 173, 0.2) !important;
+                color: #d288f8 !important;
+                border-color: rgba(155, 89, 182, 0.4) !important;
+            }
+
+            .vafm-tb-btn.btn-ai:hover {
+                background: #8e44ad !important;
+                color: #ffffff !important;
+                border-color: #9b59b6 !important;
+            }
+
             .vafm-dynamic-tooltip {
                 position: fixed;
                 background: #000000;
@@ -310,6 +400,23 @@ async function openArticleView(category, id) {
                 user-select: none;
             }
 
+            .article-meta-details {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                margin-top: 6px;
+                color: #8e8e93;
+                font-size: 0.85rem;
+            }
+
+            .article-read-time {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                font-weight: 600;
+                color: #666;
+            }
+
             .article-author-info {
                 margin-top: 4px;
                 font-weight: 600;
@@ -364,8 +471,12 @@ async function openArticleView(category, id) {
                     <header class="canva-header-fixed">
                         <span class="article-category-badge" style="display:inline-block; padding:4px 12px; background:#f0f0f5; border-radius:20px; font-weight:700; font-size:0.75rem; text-transform:uppercase; margin-bottom:15px;">news</span>
                         <h1 class="article-title" id="canva-doc-title" ${isAdmin ? 'contenteditable="true"' : ''} style="font-size: 2.5rem; font-weight: 800; margin-bottom: 10px; outline: none; word-break: break-word;">${title}</h1>
-                        <div class="article-meta" style="color: #8e8e93; font-size:0.85rem;">
-                            <div class="article-date">${publicationText}</div>
+                        <div class="article-meta">
+                            <div class="article-meta-details">
+                                <span class="article-date">${publicationText}</span>
+                                <span>•</span>
+                                <span class="article-read-time">⏱️ ${readTimeMinutes} min de lecture</span>
+                            </div>
                             ${authorName ? `<div class="article-author-info">Par <span>${authorName}</span></div>` : ''}
                         </div>
                     </header>
@@ -380,13 +491,19 @@ async function openArticleView(category, id) {
                 <div class="vafm-player-toolbar">
                     <span class="vafm-tb-label">Studio</span>
 
-                    <button class="vafm-tb-btn" data-label="Gras" onclick="applyFormat('bold')">
+                    <button class="vafm-tb-btn btn-ai" id="btn-ai-correct" data-label="Correction IA & Orthographe" onclick="runAICorrection()">
+                        <svg viewBox="0 0 24 24"><path d="M12 2l2.4 5.2 5.6.8-4 4.1 1 5.6-5-2.8-5 2.8 1-5.6-4-4.1 5.6-.8z"/></svg>
+                    </button>
+
+                    <div class="vafm-tb-divider"></div>
+
+                    <button class="vafm-tb-btn" data-label="Gras (Ctrl+B)" onclick="applyFormat('bold')">
                         <svg viewBox="0 0 24 24"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg>
                     </button>
-                    <button class="vafm-tb-btn" data-label="Italique" onclick="applyFormat('italic')">
+                    <button class="vafm-tb-btn" data-label="Italique (Ctrl+I)" onclick="applyFormat('italic')">
                         <svg viewBox="0 0 24 24"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg>
                     </button>
-                    <button class="vafm-tb-btn" data-label="Souligné" onclick="applyFormat('underline')">
+                    <button class="vafm-tb-btn" data-label="Souligné (Ctrl+U)" onclick="applyFormat('underline')">
                         <svg viewBox="0 0 24 24"><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"/><line x1="4" y1="21" x2="20" y2="21"/></svg>
                     </button>
                     <button class="vafm-tb-btn" data-label="Insérer un lien" onclick="addLinkToSelection()">
@@ -442,7 +559,7 @@ async function openArticleView(category, id) {
 
                     <div class="vafm-tb-divider"></div>
 
-                    <button class="vafm-tb-btn btn-save" data-label="Enregistrer" onclick="saveCanvaArticle('${collectionName}', '${id}')">
+                    <button class="vafm-tb-btn btn-save" data-label="Enregistrer (Ctrl+S)" onclick="saveCanvaArticle('${collectionName}', '${id}')">
                         <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                     </button>
                     <button class="vafm-tb-btn btn-delete" data-label="Supprimer la sélection" onclick="deleteSelectedElement()">
@@ -462,6 +579,7 @@ async function openArticleView(category, id) {
     if (isAdmin) {
         initCanvaInteractions();
         initDynamicTooltips();
+        initStudioShortcuts(collectionName, id);
     } else {
         setTimeout(() => {
             try {
@@ -477,7 +595,7 @@ async function openArticleView(category, id) {
 }
 
 /* --------------------------------------------------------------------------
-   2. POPUPS DYNAMIQUES
+   2. POPUPS DYNAMIQUES ET RACCOURCIS CLAVIER
    -------------------------------------------------------------------------- */
 function initDynamicTooltips() {
     let tooltipEl = document.getElementById('vafm-global-tooltip');
@@ -512,6 +630,35 @@ function initDynamicTooltips() {
             tooltipEl.classList.remove('visible');
         });
     });
+}
+
+function initStudioShortcuts(collectionName, id) {
+    document.removeEventListener('keydown', handleStudioKeydown);
+    window._currentStudioContext = { collectionName, id };
+    document.addEventListener('keydown', handleStudioKeydown);
+}
+
+function handleStudioKeydown(e) {
+    const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+    if (!isCmdOrCtrl) return;
+
+    const key = e.key.toLowerCase();
+    
+    if (key === 'b') {
+        e.preventDefault();
+        applyFormat('bold');
+    } else if (key === 'i') {
+        e.preventDefault();
+        applyFormat('italic');
+    } else if (key === 'u') {
+        e.preventDefault();
+        applyFormat('underline');
+    } else if (key === 's') {
+        e.preventDefault();
+        if (window._currentStudioContext) {
+            saveCanvaArticle(window._currentStudioContext.collectionName, window._currentStudioContext.id);
+        }
+    }
 }
 
 /* --------------------------------------------------------------------------
@@ -772,6 +919,9 @@ async function handleTogglePublishInStudio(collectionName, id, currentStatus, ca
 }
 
 function closeArticleView() {
+    document.removeEventListener('keydown', handleStudioKeydown);
+    delete window._currentStudioContext;
+
     const articleContainer = document.getElementById('article-modal');
     if (articleContainer) {
         articleContainer.style.display = 'none';

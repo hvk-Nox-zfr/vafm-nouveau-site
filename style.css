@@ -3399,3 +3399,178 @@ body.drawer-open {
   border-radius: 4px;
   font-size: 0.85rem;
 }
+
+.btn-user-avatar {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  border: none;
+  background: transparent; /* Supprime le rond gris */
+  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 8px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.btn-user-avatar:hover {
+  transform: scale(1.08);
+  opacity: 0.8;
+  background: transparent; /* Garde le fond transparent au survol */
+}
+
+/* Le rond rouge reste actif uniquement quand l'utilisateur est connecté */
+.btn-user-avatar.logged-in {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #E50914;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(229, 9, 20, 0.35);
+  padding: 0;
+}
+
+.btn-user-avatar.logged-in:hover {
+  background: #c10711;
+  opacity: 1;
+}
+
+/* Alignement du centre */
+.nav-center-zone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+/* Transition d'effacement sur les liens du menu */
+.nav-links {
+  display: flex;
+  gap: 24px;
+  transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s;
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.nav-links.hidden {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
+  pointer-events: none;
+}
+
+/* Bouton Loupe */
+.btn-search-trigger {
+  background: transparent;
+  border: none;
+  color: #1a1a1a;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.btn-search-trigger:hover {
+  transform: scale(1.1);
+  opacity: 0.8;
+}
+
+/* Barre de recherche animée */
+.search-bar-container {
+  position: absolute;
+  width: 0%;
+  max-width: 520px;
+  opacity: 0;
+  visibility: hidden;
+  display: flex;
+  align-items: center;
+  background: #f4f4f6;
+  border-radius: 24px;
+  padding: 0 12px;
+  transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease, visibility 0.25s;
+  overflow: visible;
+}
+
+.search-bar-container.active {
+  width: 100%;
+  opacity: 1;
+  visibility: visible;
+}
+
+.search-bar-container input {
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: #1a1a1a;
+  outline: none;
+}
+
+.btn-close-search {
+  background: transparent;
+  border: none;
+  font-size: 1.1rem;
+  color: #666;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+/* Menu déroulant des résultats de recherche */
+.search-results-dropdown {
+  position: absolute;
+  top: 115%;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+  max-height: 380px;
+  overflow-y: auto;
+  display: none;
+  flex-direction: column;
+  z-index: 1000;
+  padding: 8px 0;
+}
+
+.search-results-dropdown.active {
+  display: flex;
+}
+
+.search-result-item {
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  text-decoration: none;
+  color: #1a1a1a;
+}
+
+.search-result-item:hover {
+  background: #f5f5f7;
+}
+
+.search-result-type {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: #E50914;
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.search-result-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+}

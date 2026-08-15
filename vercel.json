@@ -1,4 +1,10 @@
 {
+  "functions": {
+    "api/*.js": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  },
   "rewrites": [
     {
       "source": "/sitemap.xml",
@@ -21,8 +27,8 @@
       "destination": "/api/article?category=:category&id=:id"
     },
     {
-      "source": "/api/:path*",
-      "destination": "/api/:path*"
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
     },
     {
       "source": "/((?!api/|_next/|static/|.*\\..*).*)",

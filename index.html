@@ -332,32 +332,50 @@
     </div>
 
     <!-- NAVBAR -->
-    <header class="navbar" id="main-navbar">
-        <div class="logo-container">
-            <a href="#" id="home-logo-btn">
-                <img src="VAFM logo rouge.png" alt="VAFM" class="nav-logo">
-            </a>
-        </div>
-        <nav class="nav-links">
+<header class="navbar" id="main-navbar">
+    <div class="logo-container">
+        <a href="#" id="home-logo-btn">
+            <img src="VAFM logo rouge.png" alt="VAFM" class="nav-logo">
+        </a>
+    </div>
+
+    <!-- ZONE CENTRALE : NAVIGATION + BARRE DE RECHERCHE -->
+    <div class="nav-center-zone">
+        <nav class="nav-links" id="nav-links">
             <a href="#" onclick="closeArticleView(); return false;">Accueil</a>
             <a href="#actus">Actualités</a>
             <a href="#emissions">Émissions</a>
             <a href="#animateurs">Animateurs</a>
         </nav>
-        <div class="nav-actions">
-            <div id="user-profile-zone">
-                <button class="btn-secondary btn-login" onclick="toggleAuthModal()" title="Mon Compte">
-                    <span class="btn-icon">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="12" cy="7" r="4"></circle>
-                        </svg>
-                    </span>
-                    <span class="btn-text">Se connecter</span>
-                </button>
-            </div>
+
+        <!-- BARRE DE RECHERCHE DÉPLIANTE -->
+        <div class="search-bar-container" id="search-bar-container">
+            <input type="text" id="global-search-input" placeholder="Rechercher un article, émission, animateur..." oninput="handleGlobalSearch(event)">
+            <button class="btn-close-search" onclick="closeSearchBar()" title="Fermer la recherche">✕</button>
+            <div id="search-results-dropdown" class="search-results-dropdown"></div>
         </div>
-    </header>
+    </div>
+
+    <!-- ACTIONS : LOUPE + PROFIL -->
+    <div class="nav-actions">
+        <button class="btn-search-trigger" id="search-trigger-btn" onclick="openSearchBar()" title="Rechercher">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+        </button>
+
+        <div id="user-profile-zone">
+            <!-- État non connecté par défaut (icône seule) -->
+            <button class="btn-user-avatar" id="user-menu-btn" onclick="toggleAuthModal()" title="Mon compte">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+            </button>
+        </div>
+    </div>
+</header>
 
     <!-- CONTENU PRINCIPAL -->
     <main id="content">
