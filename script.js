@@ -1170,17 +1170,16 @@ function initFileUploadDragAndDrop() {
 /* ==========================================================================
 9. ENREGISTREMENT & SUPPRESSION (CORRIGÉ DES ERREURS HTTP 400 ET LAGS)
 ========================================================================== */
-// Seul l'App ID public doit figurer côté client
 const ONESIGNAL_APP_ID = "0d3922a5-cccc-44c2-b3e3-81027e516568";
 
-// Fonction d'envoi qui appelle TON serveur (Backend)
+// Fonction d'envoi de notification (Appelle PocketBase qui relaie vers OneSignal)
 async function sendOneSignalNotification(title, message, recordId = '') {
   try {
-    // On appelle l'API backend de VAFM au lieu de contacter OneSignal directement
-    const response = await fetch("https://api.vafmlaradio.fr/api/push/send", {
+    const res = await fetch(`${POCKETBASE_URL}/api/vafm/push-notification`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        ...getAuthHeaders(true)
       },
       body: JSON.stringify({
         title: title || message,
@@ -1188,13 +1187,13 @@ async function sendOneSignalNotification(title, message, recordId = '') {
       })
     });
 
-    if (response.ok) {
-      console.log("Demande de notification transmise au serveur.");
+    if (res.ok) {
+      console.log("Notification envoyée avec succès !");
     } else {
-      console.error("Erreur serveur notification :", await response.json());
+      console.warn("Échec d'envoi notification via PocketBase");
     }
   } catch (err) {
-    console.error("Erreur réseau :", err);
+    console.error("Erreur d'envoi notification :", err);
   }
 }
 
@@ -1233,7 +1232,6 @@ async function handleCardFormSubmit(e) {
 
   const formData = new FormData();
 
-  // Seul le champ 'user' officiel PocketBase est conservé pour éviter les erreurs HTTP 400
   if (appState && appState.currentUser) {
     formData.append('user', appState.currentUser.id);
   }
@@ -1247,13 +1245,13 @@ async function handleCardFormSubmit(e) {
     formData.append('description', text);
   }
 
+  // Correction : Par défaut un nouvel article créé depuis l'admin est publié (true)
   let isPublishedStatus = true;
   if (!id) {
-    isPublishedStatus = false;
-    formData.append('is_published', 'false');
+    formData.append('is_published', 'true');
   } else {
     const currentItem = appState[category]?.find(x => String(x.id) === String(id));
-    isPublishedStatus = currentItem ? currentItem.is_published : true;
+    isPublishedStatus = currentItem ? Boolean(currentItem.is_published) : true;
     formData.append('is_published', String(isPublishedStatus));
   }
 
@@ -1290,9 +1288,9 @@ async function handleCardFormSubmit(e) {
 
     const savedRecord = await res.json();
 
-    // Déclenchement de la notification si l'article/news est publié
-    if ((category === 'news' || category === 'hero') && (isPublishedStatus === true || isPublishedStatus === 'true')) {
-      await sendOneSignalNotification(title, text, savedRecord?.id || id);
+    // Notification uniquement lors de la création d'une news/hero publiée
+    if (!id && (category === 'news' || category === 'hero') && isPublishedStatus) {
+      await sendOneSignalNotification(title, text, savedRecord?.id);
     }
 
     closeEditorModal();
