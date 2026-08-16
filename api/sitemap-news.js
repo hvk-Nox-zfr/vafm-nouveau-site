@@ -17,11 +17,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. Calculer la date limite (48h en arrière)
-    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    // 1. Calculer la date limite (48h en arrière) au format PocketBase "YYYY-MM-DD HH:mm:ss"
+    const fortyEightHoursAgoDate = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    const pbFormattedDate = fortyEightHoursAgoDate.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
 
     // 2. Récupérer les articles publiés créés dans les dernières 48h
-    const filterQuery = encodeURIComponent(`is_published = true && created >= "${fortyEightHoursAgo}"`);
+    const filterQuery = encodeURIComponent(`is_published = true && created >= "${pbFormattedDate}"`);
     
     const response = await fetch(
       `${POCKETBASE_URL}/api/collections/actus/records?filter=(${filterQuery})&sort=-created`
@@ -51,8 +52,10 @@ export default async function handler(req, res) {
       }
 
       const fullSlug = slugPart ? `${article.id}-${slugPart}` : article.id;
-      const articleUrl = `${SITE_URL}/article/news/${fullSlug}`;
-      const pubDate = new Date(article.created).toISOString();
+      const articleUrl = `${SITE_URL}/article/news/${fullSlug}`.trim();
+      
+      // Date W3C ISO 8601 sans millisecondes pour Google News
+      const pubDate = new Date(article.created).toISOString().replace(/\.\d{3}Z$/, "Z");
 
       return `<url>
 <loc>${articleUrl}</loc>
@@ -67,13 +70,13 @@ export default async function handler(req, res) {
 </url>`;
     }).join("\n");
 
-    // 5. Assemblage final avec la déclaration XML stricte en toute première ligne
+    // 5. Assemblage final
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
 ${urlsXml}
 </urlset>`;
 
-    // Envoi HTTP direct
+    // Envoi HTTP
     res.setHeader("Content-Type", "application/xml; charset=utf-8");
     res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
     return res.status(200).send(xml);
