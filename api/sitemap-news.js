@@ -65,7 +65,7 @@ export default async function handler(req, res) {
     <loc>${articleUrl}</loc>
     <news:news>
       <news:publication>
-        <news:name>VAFM</news:name>
+        <news:name>VAFM - La Radio qu'il vous faut</news:name>
         <news:language>fr</news:language>
       </news:publication>
       <news:publication_date>${pubDate}</news:publication_date>
