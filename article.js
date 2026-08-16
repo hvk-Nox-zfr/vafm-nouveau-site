@@ -143,24 +143,39 @@ async function openArticleView(category, id) {
     const cleanUrlPath = `/article/${category}/${id}-${cleanSlug}`;
     const fullArticleUrl = `https://vafmlaradio.fr${cleanUrlPath}`;
 
-    // 1. Mise à jour du titre de l'onglet du navigateur
+    // 1. Mise à jour du titre
     document.title = `${title} – VAFM`;
 
-    // 2. Mise à jour dynamique des balises Open Graph (Aperçu au partage)
-    const ogTitle = document.getElementById('og-title');
-    const ogDesc = document.getElementById('og-desc');
-    const ogImage = document.getElementById('og-image');
-    const ogUrl = document.getElementById('og-url');
-
-    // Extrait de texte propre pour la description (sans balises HTML)
+    // Extrait de texte propre
     const plainTextSnippet = rawText.replace(/<[^>]*>/g, '').substring(0, 160).trim();
 
-    if (ogTitle) ogTitle.setAttribute('content', title);
-    if (ogDesc) ogDesc.setAttribute('content', plainTextSnippet || "Découvrez cet article sur VAFM.");
-    if (ogImage) ogImage.setAttribute('content', articleImageUrl);
-    if (ogUrl) ogUrl.setAttribute('content', fullArticleUrl);
+    // 2. Gestion/Mise à jour dynamique des balises meta (OG & Canonical)
+    function setMetaTag(attr, attrValue, content) {
+        let element = document.querySelector(`meta[${attr}="${attrValue}"]`);
+        if (!element) {
+            element = document.createElement('meta');
+            element.setAttribute(attr, attrValue);
+            document.head.appendChild(element);
+        }
+        element.setAttribute('content', content);
+    }
 
-    // 3. Schema.org NewsArticle (Balisage JSON-LD complet Google News)
+    setMetaTag('property', 'og:title', title);
+    setMetaTag('property', 'og:description', plainTextSnippet || "Découvrez cet article sur VAFM.");
+    setMetaTag('property', 'og:image', articleImageUrl);
+    setMetaTag('property', 'og:url', fullArticleUrl);
+    setMetaTag('property', 'og:type', 'article');
+
+    // Balise Canonical
+    let canonicalEl = document.querySelector('link[rel="canonical"]');
+    if (!canonicalEl) {
+        canonicalEl = document.createElement('link');
+        canonicalEl.setAttribute('rel', 'canonical');
+        document.head.appendChild(canonicalEl);
+    }
+    canonicalEl.setAttribute('href', fullArticleUrl);
+
+    // 3. Schema.org NewsArticle
     const publishedIsoDate = new Date(data.published_at || data.created).toISOString();
     const modifiedIsoDate = new Date(data.updated || data.created).toISOString();
 
@@ -171,14 +186,15 @@ async function openArticleView(category, id) {
         "@type": "WebPage",
         "@id": fullArticleUrl
       },
-      "headline": title,
-      "image": [articleImageUrl],
+      "headline": title.substring(0, 110), // Google préconise < 110 caractères pour les titres
+      "image": [
+        articleImageUrl
+      ],
       "datePublished": publishedIsoDate,
       "dateModified": modifiedIsoDate,
       "author": [{
-          "@type": "Organization",
-          "name": "VAFM - La Radio qu'il vous faut",
-          "url": "https://vafmlaradio.fr"
+          "@type": "Person",
+          "name": authorName || "Équipe VAFM"
       }],
       "publisher": {
         "@type": "Organization",
