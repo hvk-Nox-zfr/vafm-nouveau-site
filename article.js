@@ -177,12 +177,12 @@ async function openArticleView(category, id) {
       "dateModified": modifiedIsoDate,
       "author": [{
           "@type": "Organization",
-          "name": "VAFM",
+          "name": "VAFM - La Radio qu'il vous faut",
           "url": "https://vafmlaradio.fr"
       }],
       "publisher": {
         "@type": "Organization",
-        "name": "VAFM",
+        "name": "VAFM - La Radio qu'il vous faut",
         "url": "https://vafmlaradio.fr",
         "logo": {
           "@type": "ImageObject",
