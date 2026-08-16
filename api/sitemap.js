@@ -2,23 +2,18 @@ export default async function handler(req, res) {
   const POCKETBASE_URL = "https://api.vafmlaradio.fr";
   const SITE_URL = "https://vafmlaradio.fr";
 
-  // Fonction utilitaire pour formater la date PocketBase au format YYYY-MM-DD
   function formatDate(rawDate) {
     if (!rawDate) return "2026-01-01";
     try {
       const cleanDateStr = String(rawDate).trim().replace(' ', 'T');
       const d = new Date(cleanDateStr);
-      
-      if (isNaN(d.getTime())) {
-        return "2026-01-01";
-      }
+      if (isNaN(d.getTime())) return "2026-01-01";
       return d.toISOString().split('T')[0];
     } catch (e) {
       return "2026-01-01";
     }
   }
 
-  // Fonction utilitaire pour échapper les caractères spéciaux XML
   function escapeXml(str) {
     if (!str) return "";
     return String(str).replace(/[<>&'"]/g, function (c) {
@@ -35,7 +30,8 @@ export default async function handler(req, res) {
   try {
     let articles = [];
     try {
-      const response = await fetch(`${POCKETBASE_URL}/api/collections/actus/records?sort=-created`);
+      // Ajout de perPage=500 pour récupérer tous les articles sans blocage à 30
+      const response = await fetch(`${POCKETBASE_URL}/api/collections/actus/records?sort=-created&perPage=500`);
       if (response.ok) {
         const data = await response.json();
         articles = data.items || [];
@@ -44,7 +40,8 @@ export default async function handler(req, res) {
       console.error("Erreur de connexion PocketBase:", e);
     }
 
-    const staticPages = ["", "/articles", "/contact"];
+    // Uniquement la page d'accueil si /articles et /contact n'existent pas
+    const staticPages = [""];
     const today = new Date().toISOString().split('T')[0];
 
     let urlsXml = staticPages.map(page => `
@@ -52,14 +49,12 @@ export default async function handler(req, res) {
     <loc>${SITE_URL}${page}</loc>
     <lastmod>${today}</lastmod>
     <changefreq>daily</changefreq>
-    <priority>${page === "" ? "1.0" : "0.8"}</priority>
+    <priority>1.0</priority>
   </url>`).join("");
 
     articles.forEach(article => {
-      // Utilisation stricte de la date de création 'created'
       const rawDate = article.created;
       const articleDate = formatDate(rawDate);
-      
       const rawTitle = article.titre || article.title || article.slug || article.nom || article.subject || "";
 
       let slugPart = "";
@@ -74,7 +69,6 @@ export default async function handler(req, res) {
       const fullSlug = slugPart ? `${article.id}-${slugPart}` : article.id;
       const articlePath = `/article/news/${fullSlug}`;
 
-      // Récupération de l'image de l'article depuis PocketBase
       let imageXmlBlock = "";
       const imageFileName = article.image || article.img || article.poster || article.illustration;
       if (imageFileName) {
@@ -97,7 +91,6 @@ export default async function handler(req, res) {
   </url>`;
     });
 
-    // En-tête XML & Namespace
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
