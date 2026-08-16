@@ -17,9 +17,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. Calculer la date limite (48h en arrière) au format PocketBase "YYYY-MM-DD HH:mm:ss"
-    const fortyEightHoursAgoDate = new Date(Date.now() - 48 * 60 * 60 * 1000);
-    const pbFormattedDate = fortyEightHoursAgoDate.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
+    // 1. Calculer la date limite (48h en arrière) au format PocketBase UTC "YYYY-MM-DD HH:mm:ss"
+    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    const pbFormattedDate = fortyEightHoursAgo
+      .toISOString()
+      .replace("T", " ")
+      .replace(/\.\d{3}Z$/, "");
 
     // 2. Récupérer les articles publiés créés dans les dernières 48h
     const filterQuery = encodeURIComponent(`is_published = true && created >= "${pbFormattedDate}"`);
@@ -46,7 +49,8 @@ export default async function handler(req, res) {
       if (cleanTitle) {
         slugPart = cleanTitle
           .toLowerCase()
-          .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/^-+|-+$/g, "");
       }
@@ -57,17 +61,17 @@ export default async function handler(req, res) {
       // Date W3C ISO 8601 sans millisecondes pour Google News
       const pubDate = new Date(article.created).toISOString().replace(/\.\d{3}Z$/, "Z");
 
-      return `<url>
-<loc>${articleUrl}</loc>
-<news:news>
-<news:publication>
-<news:name>VAFM</news:name>
-<news:language>fr</news:language>
-</news:publication>
-<news:publication_date>${pubDate}</news:publication_date>
-<news:title>${escapeXmlText(cleanTitle)}</news:title>
-</news:news>
-</url>`;
+      return `  <url>
+    <loc>${articleUrl}</loc>
+    <news:news>
+      <news:publication>
+        <news:name>VAFM</news:name>
+        <news:language>fr</news:language>
+      </news:publication>
+      <news:publication_date>${pubDate}</news:publication_date>
+      <news:title>${escapeXmlText(cleanTitle)}</news:title>
+    </news:news>
+  </url>`;
     }).join("\n");
 
     // 5. Assemblage final
