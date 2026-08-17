@@ -3423,13 +3423,30 @@ body.drawer-open {
 
 /* Le rond rouge reste actif uniquement quand l'utilisateur est connecté */
 .btn-user-avatar.logged-in {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: #E50914;
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(229, 9, 20, 0.35);
+  background: transparent;
   padding: 0;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* Le fond rouge s'applique uniquement à l'initiale de secours */
+.user-initial {
+  width: 100%;
+  height: 100%;
+  background-color: #E50914;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  border-radius: 50%;
 }
 
 .btn-user-avatar.logged-in:hover {

@@ -1771,21 +1771,25 @@ function updateAuthUI() {
   const profileZone = document.getElementById('user-profile-zone');
   if (!profileZone) return;
 
-  if (appState && appState.currentUser) {
-    const displayName = appState.currentUser.name || appState.currentUser.username || appState.currentUser.email || "Utilisateur";
+  const user = appState && appState.currentUser;
+
+  if (user) {
+    const displayName = user.name || user.username || user.email || "Utilisateur";
     const initial = displayName[0].toUpperCase();
     
     let roleLabel = 'Membre VAFM';
     if (appState.userRole === 'admin') roleLabel = 'Administrateur';
     if (appState.userRole === 'journaliste' || appState.userRole === 'journalist') roleLabel = 'Journaliste';
 
-    // État connecté : uniquement le bouton rond rouge avec l'initiale
+    // Injection du bouton avec l'image ET le texte de secours
     profileZone.innerHTML = `
-      <button class="btn-user-avatar logged-in" onclick="openUserDrawer()" title="${displayName}">
-        <span class="user-initial">${initial}</span>
+      <button class="btn-user-avatar logged-in" id="user-menu-btn" onclick="openUserDrawer()" title="${displayName}" style="background: transparent; padding: 0; border: none; width: 36px; height: 36px; border-radius: 50%; overflow: hidden; cursor: pointer;">
+        <img id="user-avatar-img" src="" alt="${displayName}" style="display: none; width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" />
+        <span id="default-user-icon" class="user-initial" style="width: 100%; height: 100%; background-color: #E50914; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 50%;">${initial}</span>
       </button>
     `;
 
+    // Drawer
     const drawerAvatar = document.getElementById('drawer-user-avatar');
     const drawerName = document.getElementById('drawer-user-name');
     const drawerRole = document.getElementById('drawer-user-role');
@@ -1800,16 +1804,19 @@ function updateAuthUI() {
     if (adminSectionTitle) adminSectionTitle.style.display = isAdminOrJournalist ? 'block' : 'none';
     if (adminBtn) adminBtn.style.display = isAdminOrJournalist ? 'flex' : 'none';
 
+    // Chargement de l'avatar
+    updateHeaderAvatar(displayName);
+
   } else {
-    // État non connecté : uniquement l'icône bonhomme
     profileZone.innerHTML = `
-      <button class="btn-user-avatar" onclick="toggleAuthModal()" title="Se connecter">
+      <button class="btn-user-avatar" id="user-menu-btn" onclick="toggleAuthModal()" title="Se connecter">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
           <circle cx="12" cy="7" r="4"></circle>
         </svg>
       </button>
     `;
+    updateHeaderAvatar(null);
   }
 }
 
@@ -3241,26 +3248,26 @@ function getUserAvatarPath(username) {
     return null;
 }
 
-// Fonction pour mettre à jour l'affichage de l'avatar dans le header
 function updateHeaderAvatar(username) {
-    const imgEl = document.getElementById('user-avatar-img');
-    const svgEl = document.getElementById('default-user-icon');
+  const imgEl = document.getElementById('user-avatar-img');
+  const fallbackEl = document.getElementById('default-user-icon');
 
-    const avatarPath = getUserAvatarPath(username);
+  if (!imgEl) return;
 
-    if (avatarPath && imgEl && svgEl) {
-        imgEl.src = avatarPath;
-        imgEl.style.display = 'block';
-        svgEl.style.display = 'none';
+  const avatarPath = getUserAvatarPath(username);
 
-        // En cas d'erreur de chargement de l'image (ex: fichier manquant)
-        imgEl.onerror = () => {
-            imgEl.style.display = 'none';
-            svgEl.style.display = 'block';
-        };
-    } else if (imgEl && svgEl) {
-        // Si non connecté
-        imgEl.style.display = 'none';
-        svgEl.style.display = 'block';
-    }
+  if (avatarPath) {
+    imgEl.src = avatarPath;
+    imgEl.style.display = 'block';
+    if (fallbackEl) fallbackEl.style.display = 'none';
+
+    imgEl.onerror = () => {
+      // Si le fichier png renvoie une erreur 404
+      imgEl.style.display = 'none';
+      if (fallbackEl) fallbackEl.style.display = 'flex';
+    };
+  } else {
+    imgEl.style.display = 'none';
+    if (fallbackEl) fallbackEl.style.display = 'flex';
+  }
 }
