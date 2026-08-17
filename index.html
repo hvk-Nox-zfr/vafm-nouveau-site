@@ -65,6 +65,15 @@
         });
       });
     </script>
+    <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-E9V5XJYL0E"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-E9V5XJYL0E');
+</script>
 </head>
 <body>
 
@@ -374,16 +383,16 @@
             </svg>
         </button>
 
-        <div id="user-profile-zone">
-            <!-- État non connecté par défaut (icône seule) -->
-            <button class="btn-user-avatar" id="user-menu-btn" onclick="toggleAuthModal()" title="Mon compte">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-            </button>
-        </div>
-    </div>
+<div id="user-profile-zone">
+    <!-- Bouton profil qui affichera soit l'image dynamique, soit le SVG par défaut -->
+    <button class="btn-user-avatar" id="user-menu-btn" onclick="toggleAuthModal()" title="Mon compte">
+        <img id="user-avatar-img" src="" alt="Avatar" style="display: none; width: 32px; height: 32px; border-radius: 50%; object-fit: cover;" />
+        <svg id="default-user-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+    </button>
+</div>
 </header>
 
     <!-- CONTENU PRINCIPAL -->

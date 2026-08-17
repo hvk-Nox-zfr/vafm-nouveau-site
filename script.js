@@ -3223,3 +3223,44 @@ function handleGlobalSearch(event) {
     dropdown.classList.add('active');
   }
 }
+
+// Fonction pour déterminer le chemin de l'image d'avatar selon la 1ère lettre
+function getUserAvatarPath(username) {
+    if (!username || typeof username !== 'string') return null;
+
+    const firstLetter = username
+        .trim()
+        .charAt(0)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+
+    if (/^[a-z]$/.test(firstLetter)) {
+        return `/avatars/${firstLetter}.png`;
+    }
+    return null;
+}
+
+// Fonction pour mettre à jour l'affichage de l'avatar dans le header
+function updateHeaderAvatar(username) {
+    const imgEl = document.getElementById('user-avatar-img');
+    const svgEl = document.getElementById('default-user-icon');
+
+    const avatarPath = getUserAvatarPath(username);
+
+    if (avatarPath && imgEl && svgEl) {
+        imgEl.src = avatarPath;
+        imgEl.style.display = 'block';
+        svgEl.style.display = 'none';
+
+        // En cas d'erreur de chargement de l'image (ex: fichier manquant)
+        imgEl.onerror = () => {
+            imgEl.style.display = 'none';
+            svgEl.style.display = 'block';
+        };
+    } else if (imgEl && svgEl) {
+        // Si non connecté
+        imgEl.style.display = 'none';
+        svgEl.style.display = 'block';
+    }
+}
