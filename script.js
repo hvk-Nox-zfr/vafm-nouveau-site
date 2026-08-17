@@ -1781,7 +1781,7 @@ function updateAuthUI() {
     if (appState.userRole === 'admin') roleLabel = 'Administrateur';
     if (appState.userRole === 'journaliste' || appState.userRole === 'journalist') roleLabel = 'Journaliste';
 
-    // Injection du bouton avec l'image ET le texte de secours
+    // Injection du bouton avec l'image ET le texte de secours pour le header
     profileZone.innerHTML = `
       <button class="btn-user-avatar logged-in" id="user-menu-btn" onclick="openUserDrawer()" title="${displayName}" style="background: transparent; padding: 0; border: none; width: 36px; height: 36px; border-radius: 50%; overflow: hidden; cursor: pointer;">
         <img id="user-avatar-img" src="" alt="${displayName}" style="display: none; width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" />
@@ -1789,14 +1789,12 @@ function updateAuthUI() {
       </button>
     `;
 
-    // Drawer
-    const drawerAvatar = document.getElementById('drawer-user-avatar');
+    // Mise à jour des textes du drawer
     const drawerName = document.getElementById('drawer-user-name');
     const drawerRole = document.getElementById('drawer-user-role');
     const adminSectionTitle = document.getElementById('drawer-admin-section-title');
     const adminBtn = document.getElementById('drawer-admin-btn');
 
-    if (drawerAvatar) drawerAvatar.textContent = initial;
     if (drawerName) drawerName.textContent = displayName;
     if (drawerRole) drawerRole.textContent = roleLabel;
 
@@ -1804,8 +1802,9 @@ function updateAuthUI() {
     if (adminSectionTitle) adminSectionTitle.style.display = isAdminOrJournalist ? 'block' : 'none';
     if (adminBtn) adminBtn.style.display = isAdminOrJournalist ? 'flex' : 'none';
 
-    // Chargement de l'avatar
+    // Chargement des avatars (Header + Drawer)
     updateHeaderAvatar(displayName);
+    updateDrawerAvatar(displayName);
 
   } else {
     profileZone.innerHTML = `
@@ -1817,6 +1816,38 @@ function updateAuthUI() {
       </button>
     `;
     updateHeaderAvatar(null);
+    updateDrawerAvatar(null);
+  }
+}
+
+// Fonction pour gérer l'avatar image du menu déroulant (Drawer)
+function updateDrawerAvatar(username) {
+  const imgEl = document.getElementById('drawer-user-avatar-img');
+  const fallbackEl = document.getElementById('drawer-user-avatar-fallback');
+
+  if (!imgEl) return;
+
+  const avatarPath = getUserAvatarPath(username);
+  const initial = username ? username.trim()[0].toUpperCase() : 'U';
+
+  if (avatarPath) {
+    imgEl.src = avatarPath;
+    imgEl.style.display = 'block';
+    if (fallbackEl) fallbackEl.style.display = 'none';
+
+    imgEl.onerror = () => {
+      imgEl.style.display = 'none';
+      if (fallbackEl) {
+        fallbackEl.textContent = initial;
+        fallbackEl.style.display = 'flex';
+      }
+    };
+  } else {
+    imgEl.style.display = 'none';
+    if (fallbackEl) {
+      fallbackEl.textContent = initial;
+      fallbackEl.style.display = 'flex';
+    }
   }
 }
 
