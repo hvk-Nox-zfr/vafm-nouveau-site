@@ -3302,3 +3302,28 @@ function updateHeaderAvatar(username) {
     if (fallbackEl) fallbackEl.style.display = 'flex';
   }
 }
+
+document.addEventListener("DOMContentLoaded", function() {
+  const logoBtn = document.getElementById('home-logo-btn'); // Cible l'élément complet du logo
+  const footer = document.getElementById('main-footer'); // Cible le vrai footer du bas
+
+  if (logoBtn && footer) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          logoBtn.style.opacity = '0';
+          logoBtn.style.pointerEvents = 'none';
+          logoBtn.style.visibility = 'hidden';
+        } else {
+          logoBtn.style.opacity = '1';
+          logoBtn.style.pointerEvents = 'auto';
+          logoBtn.style.visibility = 'visible';
+        }
+      });
+    }, {
+      threshold: 0.1
+    });
+
+    observer.observe(footer);
+  }
+});

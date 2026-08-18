@@ -3617,3 +3617,98 @@ body.drawer-open {
   font-size: 0.9rem;
   font-weight: 600;
 }
+
+#home-logo-btn {
+  transition: opacity 0.3s ease, visibility 0.3s ease !important;
+}
+
+#main-footer {
+  background-color: #121214;
+  color: #a0a0a0;
+  padding: 40px 20px 90px 20px; /* Espace en bas pour le lecteur audio */
+  font-family: system-ui, -apple-system, sans-serif;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Force l'alignement de gauche à droite */
+.footer-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 40px;
+}
+
+/* Alignement du contenu de chaque colonne */
+.footer-col {
+  flex: 1;
+  text-align: left; /* Aligne le texte à gauche au lieu d'être centré */
+}
+
+.footer-brand {
+  flex: 1.5; /* Donne un peu plus de largeur à la colonne du logo */
+}
+
+/* Logo en gris à gauche */
+.footer-logo-img {
+  max-width: 130px;
+  height: auto;
+  filter: grayscale(100%);
+  opacity: 0.8;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.about-text {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: #888888;
+  margin: 0;
+}
+
+.footer-col h3 {
+  color: #ffffff;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.footer-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footer-list li {
+  margin-bottom: 10px;
+}
+
+.footer-list a {
+  color: #a0a0a0;
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: color 0.2s ease;
+}
+
+.footer-list a:hover {
+  color: #ffffff;
+}
+
+.footer-bottom {
+  max-width: 1100px;
+  margin: 30px auto 0 auto;
+  padding-top: 20px;
+  border-top: 1px solid #222222;
+  text-align: center;
+}
+
+.footer-copy {
+  font-size: 0.8rem;
+  color: #666666;
+  margin: 0;
+}
