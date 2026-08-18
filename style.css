@@ -3638,27 +3638,30 @@ body.drawer-open {
   display: flex !important;
   flex-direction: row !important;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: flex-start !important; /* Aligne parfaitement le haut de chaque colonne */
   gap: 40px;
 }
 
-/* Alignement du contenu de chaque colonne */
+/* Alignement global des colonnes */
 .footer-col {
   flex: 1;
-  text-align: left; /* Aligne le texte à gauche au lieu d'être centré */
+  text-align: left;
+  padding-top: 70px; /* Décale CONTACT et INFORMATIONS vers le bas pour s'aligner avec l'image */
 }
 
+/* La première colonne (Logo) ne doit pas avoir de décalage */
 .footer-brand {
-  flex: 1.5; /* Donne un peu plus de largeur à la colonne du logo */
+  flex: 1.5;
+  padding-top: 0 !important;
 }
 
-/* Logo en gris à gauche */
+/* Ajuste la marge sous le logo */
 .footer-logo-img {
   max-width: 130px;
   height: auto;
   filter: grayscale(100%);
   opacity: 0.8;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   display: block;
 }
 
@@ -3669,23 +3672,28 @@ body.drawer-open {
   margin: 0;
 }
 
-.footer-col h3 {
+/* Titres des colonnes (ex: CONTACT, INFORMATIONS) */
+.footer-col h3,
+.footer-col h4 {
   color: #ffffff;
   font-size: 0.95rem;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-top: 0;
+  margin-top: 0 !important; /* Annule tout décalage supérieur */
   margin-bottom: 16px;
+  line-height: 1; /* Assure la même hauteur de ligne sur tous les titres */
 }
 
+/* Listes */
 .footer-list {
   list-style: none;
-  padding: 0;
-  margin: 0;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 .footer-list li {
-  margin-bottom: 10px;
+  margin: 0 0 10px 0;
 }
 
 .footer-list a {
@@ -3699,6 +3707,13 @@ body.drawer-open {
   color: #ffffff;
 }
 
+/* Textes et paragraphes dans les colonnes */
+.footer-col p {
+  margin: 0 0 10px 0;
+  font-size: 0.9rem;
+}
+
+/* Bas du footer (Copyright) */
 .footer-bottom {
   max-width: 1100px;
   margin: 30px auto 0 auto;
