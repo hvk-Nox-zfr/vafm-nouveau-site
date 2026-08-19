@@ -153,8 +153,6 @@ function getPocketBaseImageUrl(collectionName, recordId, fileName, thumb = null)
   if (!fileName) return null;
   if (fileName.startsWith('http://') || fileName.startsWith('https://') || fileName.startsWith('data:')) return fileName;
   const base = `${POCKETBASE_URL}/api/files/${collectionName}/${recordId}/${fileName}`;
-  // PocketBase génère une miniature à la volée côté serveur (ex: "500x350") au lieu
-  // d'envoyer l'image originale : bien plus rapide pour les grilles/cartes/slider.
   return thumb ? `${base}?thumb=${thumb}` : base;
 }
 
@@ -233,10 +231,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // L'écran de chargement disparaît dès que les données sont prêtes (avec un
-  // minimum de 300ms pour éviter un flash trop brutal), au lieu d'un délai
-  // fixe de 1.8s à chaque visite. Un filet de sécurité à 4s évite un blocage
-  // si l'API PocketBase répond lentement.
   const minDelay = new Promise(resolve => setTimeout(resolve, 300));
   const safetyTimeout = new Promise(resolve => setTimeout(resolve, 4000));
 
@@ -305,9 +299,6 @@ async function checkUrlForArticle() {
 async function fetchAllFromPocketBase() {
   try {
     const getCollectionData = async (collection, fields = null) => {
-      // "fields" permet de ne demander à PocketBase que les colonnes utiles
-      // sur l'accueil, au lieu de tout le contenu de chaque article (qui peut
-      // contenir d'anciennes images encodées en base64 très lourdes).
       const url = fields
         ? `${POCKETBASE_URL}/api/collections/${collection}/records?fields=${encodeURIComponent(fields)}&perPage=200`
         : `${POCKETBASE_URL}/api/collections/${collection}/records?perPage=200`;
@@ -326,9 +317,6 @@ async function fetchAllFromPocketBase() {
 
     const [heroItems, actusItems, emissionsItems, animateursItems, videosItems, actuLikesItems] = await Promise.all([
       getCollectionData('hero'),
-      // On exclut explicitement le champ 'contenu' : c'est un doublon exact de
-      // 'texte' (jamais utilisé côté accueil) qui, pour les anciens articles,
-      // peut à lui seul peser plusieurs Mo à cause des images intégrées.
       getCollectionData('actus', 'id,titre,title,texte,contenu,description,image,is_published,position,created'),
       getCollectionData('emissions'),
       getCollectionData('animateurs'),
@@ -429,7 +417,6 @@ function togglePublishMenu(event) {
   }
 }
 
-// Fonction génératrice de HTML pour les cartes d'articles
 function createNewsCardHTML(item, category = 'news', collectionName = 'actus') {
   const cleanText = stripHTML(item.text);
   const truncatedText = cleanText.length > 40 ? cleanText.substring(0, 40) + '...' : cleanText;
@@ -498,7 +485,6 @@ function createNewsCardHTML(item, category = 'news', collectionName = 'actus') {
   `;
 }
 
-// Rendu standard pour grilles classiques
 const renderGrid = (gridElement, dataArray, category, collectionName) => {
   if (!gridElement) return;
 
@@ -510,11 +496,9 @@ const renderGrid = (gridElement, dataArray, category, collectionName) => {
   gridElement.innerHTML = dataArray.map((item) => createNewsCardHTML(item, category, collectionName)).join('');
 };
 
-// Rendu du carrousel par pages de 8 cartes
 const renderCarouselGrid = (gridElement, dataArray, category, collectionName) => {
   if (!gridElement) return;
 
-  // Découpe les articles par paquets de 8
   const pages = [];
   for (let i = 0; i < dataArray.length; i += 8) {
     pages.push(dataArray.slice(i, i + 8));
@@ -549,7 +533,6 @@ const renderCarouselGrid = (gridElement, dataArray, category, collectionName) =>
   `;
 };
 
-// Fonction de défilement page par page
 window.scrollNewsCarousel = function(buttonEl, direction) {
   const wrapper = buttonEl.closest('.vafm-carousel-wrapper');
   if (!wrapper) return;
@@ -563,7 +546,6 @@ window.scrollNewsCarousel = function(buttonEl, direction) {
   });
 };
 
-// Nettoyage radical de la box grise parente pour le carrousel d'actus
 function removeCarouselBoxBackground() {
   const carouselGrids = document.querySelectorAll('#recent-news-grid.vafm-news-carousel-mode, #old-news-grid.vafm-news-carousel-mode');
   carouselGrids.forEach(grid => {
@@ -586,17 +568,12 @@ window.addEventListener('DOMContentLoaded', () => {
 
 function renderAll() {
   const heroWrapper = document.getElementById('hero-wrapper');
-  
   const topLikedGrid = document.getElementById('top-liked-news-grid');
   const topLikedSubsection = document.getElementById('top-liked-subsection');
-  
   const recentNewsGrid = document.getElementById('recent-news-grid');
-  
   const oldNewsGrid = document.getElementById('old-news-grid');
   const oldNewsSubsection = document.getElementById('old-news-subsection');
-
   const showsGrid = document.getElementById('shows-grid');
-
   const teamDirecteurGrid = document.getElementById('vafm-team-directeur');
   const teamDjGrid = document.getElementById('vafm-team-dj');
   const teamAnimateurGrid = document.getElementById('vafm-team-animateur');
@@ -620,8 +597,6 @@ function renderAll() {
       heroWrapper.innerHTML = appState.hero.map((slide, slideIndex) => {
         const cleanText = stripHTML(slide.text);
         const truncatedText = cleanText.length > 70 ? cleanText.substring(0, 70) + '...' : cleanText;
-        // Seule la 1ère slide (visible immédiatement) charge en priorité ;
-        // les autres attendent d'être nécessaires pour ne pas ralentir l'affichage initial.
         const loadingAttrs = slideIndex === 0
           ? 'loading="eager" fetchpriority="high"'
           : 'loading="lazy" decoding="async"';
@@ -793,7 +768,6 @@ function renderAll() {
   }
 }
 
-// GESTION DU LIKE SUR ACTU
 async function handleLikeActu(actuId) {
     if (!appState || !appState.currentUser) {
         alert("🔒 Vous devez être connecté pour aimer cet article.");
@@ -996,7 +970,6 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// Déclenchement automatique de l'indexation Google
 async function triggerGoogleIndexing(id, title) {
     try {
         const cleanSlug = (title || '')
@@ -1172,7 +1145,6 @@ function initFileUploadDragAndDrop() {
 ========================================================================== */
 const ONESIGNAL_APP_ID = "0d3922a5-cccc-44c2-b3e3-81027e516568";
 
-// Fonction d'envoi de notification (Appelle PocketBase qui relaie vers OneSignal)
 async function sendOneSignalNotification(title, message, recordId = '') {
   try {
     const res = await fetch(`${POCKETBASE_URL}/api/vafm/push-notification`, {
@@ -1245,7 +1217,6 @@ async function handleCardFormSubmit(e) {
     formData.append('description', text);
   }
 
-  // Correction : Par défaut un nouvel article créé depuis l'admin est publié (true)
   let isPublishedStatus = true;
   if (!id) {
     formData.append('is_published', 'true');
@@ -1288,7 +1259,6 @@ async function handleCardFormSubmit(e) {
 
     const savedRecord = await res.json();
 
-    // Notification uniquement lors de la création d'une news/hero publiée
     if (!id && (category === 'news' || category === 'hero') && isPublishedStatus) {
       await sendOneSignalNotification(title, text, savedRecord?.id);
     }
@@ -1781,7 +1751,6 @@ function updateAuthUI() {
     if (appState.userRole === 'admin') roleLabel = 'Administrateur';
     if (appState.userRole === 'journaliste' || appState.userRole === 'journalist') roleLabel = 'Journaliste';
 
-    // Injection du bouton avec l'image ET le texte de secours pour le header
     profileZone.innerHTML = `
       <button class="btn-user-avatar logged-in" id="user-menu-btn" onclick="openUserDrawer()" title="${displayName}" style="background: transparent; padding: 0; border: none; width: 36px; height: 36px; border-radius: 50%; overflow: hidden; cursor: pointer;">
         <img id="user-avatar-img" src="" alt="${displayName}" style="display: none; width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" />
@@ -1789,7 +1758,6 @@ function updateAuthUI() {
       </button>
     `;
 
-    // Mise à jour des textes du drawer
     const drawerName = document.getElementById('drawer-user-name');
     const drawerRole = document.getElementById('drawer-user-role');
     const adminSectionTitle = document.getElementById('drawer-admin-section-title');
@@ -1802,7 +1770,6 @@ function updateAuthUI() {
     if (adminSectionTitle) adminSectionTitle.style.display = isAdminOrJournalist ? 'block' : 'none';
     if (adminBtn) adminBtn.style.display = isAdminOrJournalist ? 'flex' : 'none';
 
-    // Chargement des avatars (Header + Drawer)
     updateHeaderAvatar(displayName);
     updateDrawerAvatar(displayName);
 
@@ -1820,7 +1787,49 @@ function updateAuthUI() {
   }
 }
 
-// Fonction pour gérer l'avatar image du menu déroulant (Drawer)
+function updateHeaderAvatar(username) {
+  const imgEl = document.getElementById('user-avatar-img');
+  const fallbackEl = document.getElementById('default-user-icon');
+
+  if (!imgEl) return;
+
+  if (!username) {
+    imgEl.style.display = 'none';
+    if (fallbackEl) fallbackEl.style.display = 'flex';
+    return;
+  }
+
+  const avatarPath = getUserAvatarPath(username);
+  const initial = username.trim()[0].toUpperCase();
+
+  if (avatarPath) {
+    imgEl.src = avatarPath;
+    imgEl.style.display = 'block';
+    if (fallbackEl) fallbackEl.style.display = 'none';
+
+    imgEl.onerror = () => {
+      imgEl.style.display = 'none';
+      if (fallbackEl) {
+        fallbackEl.textContent = initial;
+        fallbackEl.style.display = 'flex';
+      }
+    };
+  } else {
+    imgEl.style.display = 'none';
+    if (fallbackEl) {
+      fallbackEl.textContent = initial;
+      fallbackEl.style.display = 'flex';
+    }
+  }
+}
+
+function getUserAvatarPath(username) {
+  if (!username) return null;
+  const cleanName = username.toLowerCase().trim();
+  if (cleanName.includes('hugo')) return '/avatars/hugo.jpg';
+  return null;
+}
+
 function updateDrawerAvatar(username) {
   const imgEl = document.getElementById('drawer-user-avatar-img');
   const fallbackEl = document.getElementById('drawer-user-avatar-fallback');
@@ -2343,7 +2352,7 @@ function initRadioPlayer() {
 
           window[callbackName] = function(data) {
               delete window[callbackName];
-              document.body.removeChild(script);
+              if (script.parentNode) document.body.removeChild(script);
 
               if (data && data.results && data.results.length > 0) {
                   const coverUrl = data.results[0].artworkUrl100.replace('100x100bb', '300x300bb');
@@ -2621,6 +2630,110 @@ function initRadioPlayer() {
     }, 1000);
   }
 
+  async function updateMetadata() {
+    try {
+      const res = await fetch(STATS_URL);
+      if (!res.ok) return;
+
+      const data = await res.json();
+      let rawTitle = data.icestats?.source?.title || "VAFM – En Direct";
+
+      if (rawTitle !== lastTitleSeen) {
+        lastTitleSeen = rawTitle;
+        lancerDefilementVoiture(rawTitle);
+
+        const liveTitleEl = document.getElementById("vafm-live-title");
+        const liveArtistEl = document.getElementById("vafm-live-artist");
+        const liveCoverEl = document.getElementById("vafm-live-cover");
+
+        const parts = rawTitle.split(" – ");
+        const trackTitle = parts[1] || parts[0];
+        const artistName = parts[1] ? parts[0] : "VAFM Direct";
+
+        if (liveTitleEl) liveTitleEl.textContent = trackTitle;
+        if (liveArtistEl) liveArtistEl.textContent = artistName;
+
+        const coverUrl = await fetchTrackCover(rawTitle);
+        if (liveCoverEl) liveCoverEl.src = coverUrl;
+
+        if (!isVafmIdent(rawTitle)) {
+            await saveSongToPocketBase(rawTitle, coverUrl);
+            await fetchServerHistoryDirectly();
+        }
+      }
+    } catch (e) {
+      console.warn("Erreur métadonnées flux :", e);
+    }
+  }
+
+  fetchServerHistoryDirectly();
+  updateMetadata();
+  setInterval(updateMetadata, 10000);
+}
+
+  playBtn.addEventListener("click", async () => {
+    try {
+      if (audio.paused) {
+        audio.src = STREAM_URL;
+        audio.load();
+
+        await audio.play();
+        audio.volume = 1;
+
+        if (playIcon) playIcon.textContent = "⏸";
+        playBtn.classList.add("playing");
+      } else {
+        audio.pause();
+        audio.src = "";
+
+        if (playIcon) playIcon.textContent = "▶";
+        playBtn.classList.remove("playing");
+      }
+      updateMiniPlayState();
+    } catch (e) {
+      console.warn("Erreur de lecture gérée :", e.message);
+      audio.pause();
+      audio.src = "";
+      if (playIcon) playIcon.textContent = "▶";
+      playBtn.classList.remove("playing");
+      updateMiniPlayState();
+    }
+  });
+
+  audio.addEventListener("play", updateMiniPlayState);
+  audio.addEventListener("pause", updateMiniPlayState);
+
+  let animTimeout = null;
+
+  function lancerDefilementVoiture(titre) {
+    if (!marquee || !trackSpan) return;
+
+    clearTimeout(animTimeout);
+
+    trackSpan.textContent = titre;
+    trackSpan.style.transition = "none";
+    trackSpan.style.transform = "translateX(0)";
+
+    animTimeout = setTimeout(() => {
+      const containerWidth = marquee.offsetWidth;
+      const textWidth = trackSpan.offsetWidth;
+
+      if (textWidth <= containerWidth) return;
+
+      const distance = textWidth - containerWidth + 20;
+      const duration = distance * 15;
+
+      trackSpan.style.transition = `transform ${duration}ms linear`;
+      trackSpan.style.transform = `translateX(-${distance}px)`;
+
+      animTimeout = setTimeout(() => {
+        trackSpan.style.transition = "none";
+        trackSpan.style.transform = "translateX(0)";
+      }, duration + 1000);
+
+    }, 1000);
+  }
+
   async function updateCurrentTitle() {
     try {
       const response = await fetch(`${STATS_URL}?nocache=${Date.now()}`);
@@ -2683,7 +2796,6 @@ function initRadioPlayer() {
   fetchServerHistoryDirectly();
   updateCurrentTitle();
   setInterval(updateCurrentTitle, 15000);
-}
 
 // Fonction utilitaire pour changer dynamiquement les balises de partage Open Graph
 function updateOpenGraphTags(title, imageUrl, url) {
