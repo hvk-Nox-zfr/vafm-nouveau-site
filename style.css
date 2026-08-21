@@ -3766,19 +3766,20 @@ body.drawer-open {
   color: #1877F2;
 }
 
+/* Écran de maintenance sur fond blanc */
 #maintenance-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  background-color: #ffffff; /* Fond blanc */
-  color: #0f172a; /* Texte foncé pour la lisibilité */
+  background-color: #ffffff !important;
+  color: #0f172a;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  z-index: 9999; /* Par-dessus tout le site */
+  z-index: 999999 !important; /* Très élevé pour couvrir le site */
   padding: 20px;
   box-sizing: border-box;
 }
@@ -3793,14 +3794,13 @@ body.drawer-open {
   align-items: center;
   max-width: 480px;
   width: 100%;
-  margin-bottom: 60px; /* Décale le texte vers le haut pour laisser respirer le lecteur radio */
+  margin-bottom: 80px; /* Espace pour laisser voir le lecteur en bas */
 }
 
 .maintenance-logo {
-  max-width: 220px;
+  max-width: 200px;
   height: auto;
   margin-bottom: 24px;
-  object-fit: contain;
 }
 
 .maintenance-content h1 {
@@ -3814,23 +3814,20 @@ body.drawer-open {
   font-size: 1rem;
   color: #475569;
   margin-bottom: 28px;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .maintenance-btn {
   background-color: #e11d48;
-  color: #ffffff;
+  color: white;
   border: none;
-  padding: 14px 28px;
+  padding: 12px 28px;
   border-radius: 8px;
   font-weight: 600;
-  font-size: 1rem;
   cursor: pointer;
-  transition: transform 0.2s ease, background-color 0.2s ease;
-  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25);
 }
 
-.maintenance-btn:hover {
-  background-color: #be123c;
-  transform: translateY(-2px);
+/* Forcer le lecteur floating à rester AU-DESSUS du fond de maintenance */
+footer.vafm-player-premium {
+  z-index: 2147483647 !important; /* Priorité absolue sur l'écran de maintenance */
 }

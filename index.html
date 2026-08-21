@@ -77,6 +77,14 @@
 </script>
 </head>
 <body>
+<div id="maintenance-overlay" class="hidden">
+      <div class="maintenance-content">
+        <img src="LOGO - VAFM.png" alt="VAFM Logo" class="maintenance-logo" />
+        <h1>Maintenance en cours</h1>
+        <p>Notre serveur est actuellement indisponible. L'équipe VAFM fait au plus vite pour rétablir le service.</p>
+        <button onclick="fetchAllFromPocketBase()" class="maintenance-btn">Réessayer</button>
+      </div>
+    </div>
 
     <!-- LOADER GLOBAL -->
     <div id="loader">
@@ -597,14 +605,6 @@
             </div>
         </form>
     </div>
-</div>
-<div id="maintenance-overlay" class="hidden">
-  <div class="maintenance-content">
-    <img src="LOGO - VAFM.png" alt="VAFM Logo" class="maintenance-logo" />
-    <h1>Maintenance en cours</h1>
-    <p>Notre serveur est actuellement indisponible. L'équipe VAFM fait au plus vite pour rétablir le service.</p>
-    <button onclick="fetchAllFromPocketBase()" class="maintenance-btn">Réessayer</button>
-  </div>
 </div>
 </body>
 </html>

@@ -299,22 +299,51 @@ async function checkUrlForArticle() {
 function showMaintenanceScreen() {
   const overlay = document.getElementById('maintenance-overlay');
   if (overlay) overlay.classList.remove('hidden');
+
+  // Si ton lecteur a une fonction de rendu dédiée :
+  if (typeof renderPlayer === 'function') {
+    renderPlayer();
+  }
+  
+  // Ou si le lecteur a simplement une classe pour le masquer/afficher :
+  const player = document.querySelector('.vafm-player-premium');
+  if (player) {
+    player.style.display = 'flex';
+  }
 }
 
 async function fetchAllFromPocketBase() {
+  let isServerDown = false;
+
   try {
     const getCollectionData = async (collection, fields = null) => {
       const url = fields
         ? `${POCKETBASE_URL}/api/collections/${collection}/records?fields=${encodeURIComponent(fields)}&perPage=200`
         : `${POCKETBASE_URL}/api/collections/${collection}/records?perPage=200`;
       
-      const res = await fetch(url);
-      if (!res.ok) {
-        console.warn(`Erreur ${res.status} sur la collection : ${collection}`);
+      // On crée un annulateur avec une limite de 2,5 secondes
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+      try {
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId); // Si le serveur répond, on annule le timer
+        
+        if (!res.ok) {
+          console.warn(`Erreur ${res.status} sur : ${collection}`);
+          isServerDown = true;
+          return [];
+        }
+        
+        const data = await res.json();
+        return data.items || [];
+      } catch (err) {
+        clearTimeout(timeoutId);
+        // Si le serveur met plus de 2,5s à répondre ou est hors ligne
+        console.error(`Délai dépassé ou serveur injoignable pour ${collection}`);
+        isServerDown = true;
         return [];
       }
-      const data = await res.json();
-      return data.items || [];
     };
 
     const [heroItems, actusItems, emissionsItems, animateursItems, videosItems, actuLikesItems] = await Promise.all([
@@ -326,78 +355,20 @@ async function fetchAllFromPocketBase() {
       getCollectionData('actu_likes')
     ]);
 
-    // Masque l'écran de maintenance si le serveur répond de nouveau
+    if (isServerDown) {
+      showMaintenanceScreen();
+      return;
+    }
+
+    // Masque l'écran de maintenance si tout est OK
     document.getElementById('maintenance-overlay')?.classList.add('hidden');
 
-    const canSeeDrafts = Boolean(appState.editMode && appState.currentUser);
-    const filterPublished = (items) => {
-      if (canSeeDrafts) return items;
-      return items.filter(item => item.is_published === undefined || item.is_published === true || item.is_published === 1);
-    };
-
-    appState.hero = filterPublished(heroItems).map(h => ({
-      id: h.id,
-      title: h.titre || h.title || '',
-      text: h.description || h.texte || '',
-      img: getPocketBaseImageUrl('hero', h.id, h.image, '1600x800') || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=1200',
-      is_published: h.is_published !== undefined ? Boolean(h.is_published) : true,
-      position: h.position || 0
-    }));
-
-    appState.news = filterPublished(actusItems).map(a => {
-      const likesForThisActu = actuLikesItems.filter(l => l.actu === a.id);
-
-      return {
-        id: a.id,
-        title: a.titre || a.title || '',
-        text: a.texte || a.description || '',
-        img: getPocketBaseImageUrl('actus', a.id, a.image, '500x350') || 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600',
-        is_published: a.is_published !== undefined ? Boolean(a.is_published) : true,
-        position: a.position || 0,
-        likesList: likesForThisActu,
-        created: a.created
-      };
-    });
-
-    appState.shows = filterPublished(emissionsItems).map(e => ({
-      id: e.id,
-      title: e.titre || e.title || '',
-      text: e.description || e.texte || '',
-      img: getPocketBaseImageUrl('emissions', e.id, e.image, '500x350') || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&q=80',
-      is_published: e.is_published !== undefined ? Boolean(e.is_published) : true,
-      position: e.position || 0
-    }));
-
-    appState.team = filterPublished(animateursItems).map(anim => ({
-      id: anim.id,
-      title: anim.nom || anim.name || anim.titre || anim.title || '',
-      text: anim.description || anim.role || anim.texte || '',
-      role: anim.role || anim.category || 'animateur',
-      img: getPocketBaseImageUrl('animateurs', anim.id, anim.image, '400x400') || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400',
-      is_published: anim.is_published !== undefined ? Boolean(anim.is_published) : true,
-      position: anim.position || 0
-    }));
-
-    appState.videos = filterPublished(videosItems).map(v => ({
-      id: v.id,
-      title: v.titre || v.title || '',
-      text: v.description || v.texte || '',
-      img: getPocketBaseImageUrl('videos', v.id, v.poster || v.image, '500x350') || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=600',
-      videoUrl: getPocketBaseImageUrl('videos', v.id, v.video_file || v.file) || '',
-      is_published: v.is_published !== undefined ? Boolean(v.is_published) : true,
-      position: v.position || 0,
-      created: v.created
-    }));
+    // ... la suite de ton code d'origine (canSeeDrafts, appState.hero, etc.) ...
 
     renderAll();
   } catch (err) {
     console.error("Serveur inaccessible :", err);
-    
-    // Affiche l'écran de maintenance si le serveur (PC) est éteint/hors-ligne
-    const maintenanceOverlay = document.getElementById('maintenance-overlay');
-    if (maintenanceOverlay) {
-      maintenanceOverlay.classList.remove('hidden');
-    }
+    showMaintenanceScreen();
   }
 }
 
