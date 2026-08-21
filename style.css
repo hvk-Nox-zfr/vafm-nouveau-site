@@ -1171,7 +1171,7 @@ body.admin-logged-in #article-modal {
     align-items: center !important;
     justify-content: space-between !important;
     padding: 0 40px !important;
-    z-index: 99999 !important;
+    z-index: 2147483647 !important; /* Valeur maximale possible en CSS */
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
     overflow: visible !important;
 }
@@ -3770,19 +3770,17 @@ body.drawer-open {
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
-  /* On dégage le bas pour laisser voir et cliquer sur le lecteur */
-  bottom: 80px; /* Ajuste cette valeur selon la hauteur exacte de ton lecteur */
-  background-color: #0f172a;
-  color: #ffffff;
+  width: 100vw;
+  height: 100vh;
+  background-color: #ffffff; /* Fond blanc */
+  color: #0f172a; /* Texte foncé pour la lisibilité */
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  /* Un z-index élevé mais inférieur à celui du lecteur audio */
-  z-index: 999;
+  z-index: 9999; /* Par-dessus tout le site */
   padding: 20px;
-  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 #maintenance-overlay.hidden {
@@ -3793,40 +3791,46 @@ body.drawer-open {
   display: flex;
   flex-direction: column;
   align-items: center;
-  max-width: 450px;
+  max-width: 480px;
   width: 100%;
+  margin-bottom: 60px; /* Décale le texte vers le haut pour laisser respirer le lecteur radio */
 }
 
 .maintenance-logo {
-  max-width: 180px;
+  max-width: 220px;
   height: auto;
   margin-bottom: 24px;
+  object-fit: contain;
 }
 
 .maintenance-content h1 {
-  font-size: 1.8rem;
+  font-size: 2rem;
+  color: #0f172a;
   margin-bottom: 12px;
   font-weight: 700;
 }
 
 .maintenance-content p {
   font-size: 1rem;
-  color: #cbd5e1;
-  margin-bottom: 24px;
-  line-height: 1.5;
+  color: #475569;
+  margin-bottom: 28px;
+  line-height: 1.6;
 }
 
 .maintenance-btn {
   background-color: #e11d48;
-  color: white;
+  color: #ffffff;
   border: none;
-  padding: 12px 24px;
+  padding: 14px 28px;
   border-radius: 8px;
   font-weight: 600;
+  font-size: 1rem;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25);
 }
 
 .maintenance-btn:hover {
   background-color: #be123c;
+  transform: translateY(-2px);
 }
