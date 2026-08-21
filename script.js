@@ -26,7 +26,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Gestion du bouton de fermeture (masque le bandeau pour 7 jours)
   document.getElementById('close-ios-prompt')?.addEventListener('click', function() {
-    document.getElementById('ios-pwa-prompt').style.display = 'none';
+    const banner = document.getElementById('ios-pwa-prompt');
+    if (banner) banner.style.display = 'none';
     localStorage.setItem('vafm_ios_prompt_dismissed', 'true');
   });
 });
@@ -300,12 +301,10 @@ function showMaintenanceScreen() {
   const overlay = document.getElementById('maintenance-overlay');
   if (overlay) overlay.classList.remove('hidden');
 
-  // Si ton lecteur a une fonction de rendu dédiée :
   if (typeof renderPlayer === 'function') {
     renderPlayer();
   }
   
-  // Ou si le lecteur a simplement une classe pour le masquer/afficher :
   const player = document.querySelector('.vafm-player-premium');
   if (player) {
     player.style.display = 'flex';
@@ -321,13 +320,12 @@ async function fetchAllFromPocketBase() {
         ? `${POCKETBASE_URL}/api/collections/${collection}/records?fields=${encodeURIComponent(fields)}&perPage=200`
         : `${POCKETBASE_URL}/api/collections/${collection}/records?perPage=200`;
       
-      // On crée un annulateur avec une limite de 2,5 secondes
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2500);
 
       try {
         const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeoutId); // Si le serveur répond, on annule le timer
+        clearTimeout(timeoutId);
         
         if (!res.ok) {
           console.warn(`Erreur ${res.status} sur : ${collection}`);
@@ -339,7 +337,6 @@ async function fetchAllFromPocketBase() {
         return data.items || [];
       } catch (err) {
         clearTimeout(timeoutId);
-        // Si le serveur met plus de 2,5s à répondre ou est hors ligne
         console.error(`Délai dépassé ou serveur injoignable pour ${collection}`);
         isServerDown = true;
         return [];
@@ -360,10 +357,51 @@ async function fetchAllFromPocketBase() {
       return;
     }
 
-    // Masque l'écran de maintenance si tout est OK
     document.getElementById('maintenance-overlay')?.classList.add('hidden');
 
-    // ... la suite de ton code d'origine (canSeeDrafts, appState.hero, etc.) ...
+    appState.hero = heroItems.map(item => ({
+      id: item.id,
+      title: item.titre || item.title || '',
+      text: item.texte || item.contenu || item.description || '',
+      img: getPocketBaseImageUrl('hero', item.id, item.image),
+      is_published: item.is_published !== false
+    }));
+
+    appState.news = actusItems.map(item => ({
+      id: item.id,
+      title: item.titre || item.title || '',
+      text: item.texte || item.contenu || item.description || '',
+      img: getPocketBaseImageUrl('actus', item.id, item.image),
+      is_published: item.is_published !== false,
+      position: item.position || 0,
+      created: item.created,
+      likesList: actuLikesItems.filter(l => l.actu === item.id)
+    }));
+
+    appState.shows = emissionsItems.map(item => ({
+      id: item.id,
+      title: item.titre || item.title || '',
+      text: item.texte || item.description || '',
+      img: getPocketBaseImageUrl('emissions', item.id, item.image),
+      is_published: item.is_published !== false
+    }));
+
+    appState.team = animateursItems.map(item => ({
+      id: item.id,
+      title: item.nom || item.title || '',
+      text: item.description || item.text || '',
+      img: getPocketBaseImageUrl('animateurs', item.id, item.image),
+      is_published: item.is_published !== false
+    }));
+
+    appState.videos = videosItems.map(item => ({
+      id: item.id,
+      title: item.titre || item.title || '',
+      videoUrl: item.video_file ? `${POCKETBASE_URL}/api/files/videos/${item.id}/${item.video_file}` : null,
+      img: getPocketBaseImageUrl('videos', item.id, item.poster) || 'https://vafmlaradio.fr/LOGO-VAFM.png',
+      is_published: item.is_published !== false,
+      created: item.created
+    }));
 
     renderAll();
   } catch (err) {
@@ -1024,7 +1062,6 @@ function openEditorModal(category, id = null) {
     return;
   }
 
-  // Si la catégorie est "videos", on ouvre la modale dédiée aux vidéos
   if (category === 'videos') {
     const modal = document.getElementById('vafm-upload-modal');
     if (modal) {
@@ -1072,10 +1109,8 @@ function openEditorModal(category, id = null) {
 async function handleVideoUploadSubmit(e) {
   e.preventDefault();
 
-  // 1. Récupération dynamique du token dans le localStorage
   let token = '';
   
-  // Parcours des clés possibles utilisées par PocketBase
   for (const key of ['pocketbase_auth', 'pb_auth', 'pktb_auth']) {
     const item = localStorage.getItem(key);
     if (item) {
@@ -1084,7 +1119,7 @@ async function handleVideoUploadSubmit(e) {
         token = parsed.token || (typeof parsed === 'string' ? parsed : '');
         if (token) break;
       } catch (e) {
-        token = item; // Si c'est le token brut directement en string
+        token = item;
         break;
       }
     }
@@ -1207,7 +1242,7 @@ function initFileUploadDragAndDrop() {
 }
 
 /* ==========================================================================
-9. ENREGISTREMENT & SUPPRESSION (CORRIGÉ DES ERREURS HTTP 400 ET LAGS)
+9. ENREGISTREMENT & SUPPRESSION
 ========================================================================== */
 const ONESIGNAL_APP_ID = "0d3922a5-cccc-44c2-b3e3-81027e516568";
 
@@ -1484,15 +1519,8 @@ function openAuthModal() {
 }
 
 function toggleAuthMode() {
-  const isLogin = appState.authMode === 'login';
-  appState.authMode = isLogin ? 'signup' : 'login';
-
-  document.getElementById('auth-title').innerText = isLogin ? "Rejoindre le Club VAFM" : "Connexion VAFM";
-  document.getElementById('auth-subtitle').innerText = isLogin ? "Créez votre compte en quelques secondes" : "Accédez à votre espace ou gérez la station";
-  document.getElementById('btn-auth-submit').innerText = isLogin ? "S'inscrire" : "Se connecter";
-  document.getElementById('auth-switch-link').innerText = isLogin ? "Déjà membre ? Se connecter" : "Pas encore membre ? S'inscrire";
-  
-  document.getElementById('newsletter-optin-group').style.display = isLogin ? "block" : "none";
+  currentAuthMode = currentAuthMode === 'login' ? 'signup' : 'login';
+  updateAuthModalState();
 }
 
 function updateAuthModalState() {
@@ -1500,17 +1528,20 @@ function updateAuthModalState() {
   const authSubtitle = document.getElementById('auth-subtitle');
   const authSwitchLink = document.getElementById('auth-switch-link');
   const btnSubmit = document.getElementById('btn-auth-submit');
+  const optinGroup = document.getElementById('newsletter-optin-group');
 
   if (currentAuthMode === "signup") {
     if (authTitle) authTitle.innerText = "Rejoindre le Club VAFM";
     if (authSubtitle) authSubtitle.innerText = "Créez votre compte en quelques secondes";
     if (authSwitchLink) authSwitchLink.innerText = "Déjà membre ? Se connecter";
     if (btnSubmit) btnSubmit.innerText = "S'inscrire";
+    if (optinGroup) optinGroup.style.display = "block";
   } else {
     if (authTitle) authTitle.innerText = "Connexion VAFM";
     if (authSubtitle) authSubtitle.innerText = "Accédez à votre espace ou gérez la station";
     if (authSwitchLink) authSwitchLink.innerText = "Pas encore membre ? S'inscrire";
     if (btnSubmit) btnSubmit.innerText = "Se connecter";
+    if (optinGroup) optinGroup.style.display = "none";
   }
 }
 
@@ -1971,6 +2002,23 @@ async function saveSongToPocketBase(title, coverUrl) {
     } catch (err) {
         console.error("❌ Erreur lors de l'enregistrement du titre :", err);
     }
+}
+
+function updateMiniPlayState() {
+  const playBtn = document.getElementById('playBtn') || document.getElementById('play-btn');
+  const audio = document.getElementById('radio-audio');
+  if (!playBtn || !audio) return;
+
+  if (audio.paused) {
+    playBtn.classList.remove('playing');
+  } else {
+    playBtn.classList.add('playing');
+  }
+
+  const miniPlayBtn = document.querySelector('.vafm-mini-play-btn');
+  if (miniPlayBtn) {
+    miniPlayBtn.textContent = audio.paused ? "▶" : "⏸";
+  }
 }
 
 function initRadioPlayer() {
@@ -2595,12 +2643,6 @@ function initRadioPlayer() {
       miniPlayBtn = playerBar?.querySelector('.vafm-mini-play-btn');
   }
 
-  function updateMiniPlayState() {
-      if (miniPlayBtn) {
-          miniPlayBtn.textContent = audio.paused ? "▶" : "⏸";
-      }
-  }
-
   function renderHistoryList() {
       const listEl = document.getElementById('vafm-history-list');
       if (!listEl) return;
@@ -2632,110 +2674,6 @@ function initRadioPlayer() {
   }
 
   renderHistoryList();
-
-  playBtn.addEventListener("click", async () => {
-    try {
-      if (audio.paused) {
-        audio.src = STREAM_URL;
-        audio.load();
-
-        await audio.play();
-        audio.volume = 1;
-
-        if (playIcon) playIcon.textContent = "⏸";
-        playBtn.classList.add("playing");
-      } else {
-        audio.pause();
-        audio.src = "";
-
-        if (playIcon) playIcon.textContent = "▶";
-        playBtn.classList.remove("playing");
-      }
-      updateMiniPlayState();
-    } catch (e) {
-      console.warn("Erreur de lecture gérée :", e.message);
-      audio.pause();
-      audio.src = "";
-      if (playIcon) playIcon.textContent = "▶";
-      playBtn.classList.remove("playing");
-      updateMiniPlayState();
-    }
-  });
-
-  audio.addEventListener("play", updateMiniPlayState);
-  audio.addEventListener("pause", updateMiniPlayState);
-
-  let animTimeout = null;
-
-  function lancerDefilementVoiture(titre) {
-    if (!marquee || !trackSpan) return;
-
-    clearTimeout(animTimeout);
-
-    trackSpan.textContent = titre;
-    trackSpan.style.transition = "none";
-    trackSpan.style.transform = "translateX(0)";
-
-    animTimeout = setTimeout(() => {
-      const containerWidth = marquee.offsetWidth;
-      const textWidth = trackSpan.offsetWidth;
-
-      if (textWidth <= containerWidth) return;
-
-      const distance = textWidth - containerWidth + 20;
-      const duration = distance * 15;
-
-      trackSpan.style.transition = `transform ${duration}ms linear`;
-      trackSpan.style.transform = `translateX(-${distance}px)`;
-
-      animTimeout = setTimeout(() => {
-        trackSpan.style.transition = "none";
-        trackSpan.style.transform = "translateX(0)";
-      }, duration + 1000);
-
-    }, 1000);
-  }
-
-  async function updateMetadata() {
-    try {
-      const res = await fetch(STATS_URL);
-      if (!res.ok) return;
-
-      const data = await res.json();
-      let rawTitle = data.icestats?.source?.title || "VAFM – En Direct";
-
-      if (rawTitle !== lastTitleSeen) {
-        lastTitleSeen = rawTitle;
-        lancerDefilementVoiture(rawTitle);
-
-        const liveTitleEl = document.getElementById("vafm-live-title");
-        const liveArtistEl = document.getElementById("vafm-live-artist");
-        const liveCoverEl = document.getElementById("vafm-live-cover");
-
-        const parts = rawTitle.split(" – ");
-        const trackTitle = parts[1] || parts[0];
-        const artistName = parts[1] ? parts[0] : "VAFM Direct";
-
-        if (liveTitleEl) liveTitleEl.textContent = trackTitle;
-        if (liveArtistEl) liveArtistEl.textContent = artistName;
-
-        const coverUrl = await fetchTrackCover(rawTitle);
-        if (liveCoverEl) liveCoverEl.src = coverUrl;
-
-        if (!isVafmIdent(rawTitle)) {
-            await saveSongToPocketBase(rawTitle, coverUrl);
-            await fetchServerHistoryDirectly();
-        }
-      }
-    } catch (e) {
-      console.warn("Erreur métadonnées flux :", e);
-    }
-  }
-
-  fetchServerHistoryDirectly();
-  updateMetadata();
-  setInterval(updateMetadata, 10000);
-}
 
   playBtn.addEventListener("click", async () => {
     try {
@@ -2840,6 +2778,9 @@ function initRadioPlayer() {
 
       if (formattedTitle.toLowerCase().trim() !== lastTitleSeen.toLowerCase().trim() && formattedTitle !== "VAFM – En Direct") {
         lastTitleSeen = formattedTitle;
+        if (!isVafmIdent(formattedTitle)) {
+            await saveSongToPocketBase(formattedTitle, coverUrl);
+        }
         await fetchServerHistoryDirectly();
       }
 
@@ -2862,8 +2803,11 @@ function initRadioPlayer() {
   fetchServerHistoryDirectly();
   updateCurrentTitle();
   setInterval(updateCurrentTitle, 15000);
+}
 
-// Fonction utilitaire pour changer dynamiquement les balises de partage Open Graph
+/* ==========================================================================
+13. OPEN GRAPH & MODALE VIDÉO
+========================================================================== */
 function updateOpenGraphTags(title, imageUrl, url) {
     const setMeta = (property, content) => {
         let tag = document.querySelector(`meta[property="${property}"]`) || document.querySelector(`meta[name="${property}"]`);
@@ -2999,242 +2943,56 @@ async function openVideoPlayerModal(url, title, videoId) {
 
                 <div class="vafm-tiktok-action-item">
                     <button class="vafm-tiktok-action-btn" id="vafm-toggle-mute" title="Son">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        </svg>
                     </button>
                 </div>
-            </div>
-
-            <div class="vafm-comments-drawer" id="vafm-comments-drawer">
-                <div class="vafm-comments-header">
-                    <span id="vafm-drawer-title">Commentaires (${commentsList.length})</span>
-                    <button id="close-comments-drawer" style="background:none; border:none; color:#fff; font-size:1.2rem; cursor:pointer;">✕</button>
-                </div>
-                <div class="vafm-comments-list" id="vafm-comments-list"></div>
-                <div class="vafm-comments-input-zone">
-                    <input type="text" id="vafm-comment-input" placeholder="Ajouter un commentaire...">
-                    <button class="vafm-comments-send-btn" id="vafm-send-comment">Envoyer</button>
-                </div>
-            </div>
-
-            <div class="vafm-tiktok-progress-bar">
-                <div class="vafm-tiktok-progress-fill" id="vafm-reel-progress"></div>
             </div>
         </div>
     `;
 
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
+    modal.style.display = 'flex';
 
-    const video = document.getElementById('vafm-reel-video');
-    const playCenter = document.getElementById('vafm-play-center-icon');
-    const progressBar = document.getElementById('vafm-reel-progress');
-    const likeBtn = document.getElementById('vafm-like-btn');
-    const likeCountEl = document.getElementById('vafm-like-count');
-    const commentsBtn = document.getElementById('vafm-comments-btn');
-    const commentsCountEl = document.getElementById('vafm-comments-count');
-    const commentsDrawer = document.getElementById('vafm-comments-drawer');
-    const closeComments = document.getElementById('close-comments-drawer');
-    const sendCommentBtn = document.getElementById('vafm-send-comment');
-    const commentInput = document.getElementById('vafm-comment-input');
-    const listEl = document.getElementById('vafm-comments-list');
-    const drawerTitle = document.getElementById('vafm-drawer-title');
+    const videoEl = document.getElementById('vafm-reel-video');
+    const closeBtn = document.getElementById('close-tiktok-player');
     const shareBtn = document.getElementById('vafm-share-btn');
     const muteBtn = document.getElementById('vafm-toggle-mute');
 
-    function renderComments() {
-        if (!commentsList || commentsList.length === 0) {
-            listEl.innerHTML = `<p style="color: #8e8e93; font-size: 0.85rem; text-align: center; margin-top: 20px;">Aucun commentaire pour le moment. Soyez le premier !</p>`;
-            return;
-        }
-
-        listEl.innerHTML = commentsList.map(c => {
-            const name = c.author_name || "Membre VAFM";
-            const initial = name[0].toUpperCase();
-            return `
-                <div class="vafm-comment-item">
-                    <div class="vafm-comment-avatar">${initial}</div>
-                    <div class="vafm-comment-body">
-                        <span class="vafm-comment-user">${name}</span>
-                        <span class="vafm-comment-text">${c.content}</span>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    renderComments();
-
-    video.addEventListener('timeupdate', () => {
-        if (video.duration) {
-            const pct = (video.currentTime / video.duration) * 100;
-            progressBar.style.width = pct + '%';
-        }
+    closeBtn?.addEventListener('click', () => {
+        modal.style.display = 'none';
+        if (videoEl) videoEl.pause();
+        window.history.replaceState({}, '', window.location.pathname);
     });
 
-    video.addEventListener('click', () => {
-        if (commentsDrawer.classList.contains('open')) {
-            commentsDrawer.classList.remove('open');
-            return;
-        }
-        if (video.paused) {
-            video.play();
-            playCenter.classList.remove('visible');
-        } else {
-            video.pause();
-            playCenter.classList.add('visible');
-        }
-    });
-
-    likeBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        if (!appState || !appState.currentUser) {
-            closePlayer();
-            openAuthModal();
-            return;
-        }
-
-        likeBtn.disabled = true;
-
-        try {
-            if (!isLiked) {
-                const res = await fetch(`${POCKETBASE_URL}/api/collections/video_likes/records`, {
-                    method: 'POST',
-                    headers: getAuthHeaders(true),
-                    body: JSON.stringify({
-                        video: videoId,
-                        user: appState.currentUser.id
-                    })
-                });
-
-                if (res.ok) {
-                    const createdRecord = await res.json();
-                    isLiked = true;
-                    likeRecordId = createdRecord.id;
-                    likeCount++;
-                    likeBtn.classList.add('liked');
-                }
-            } else {
-                if (likeRecordId) {
-                    const res = await fetch(`${POCKETBASE_URL}/api/collections/video_likes/records/${likeRecordId}`, {
-                        method: 'DELETE',
-                        headers: getAuthHeaders(true)
-                    });
-
-                    if (res.ok) {
-                        isLiked = false;
-                        likeRecordId = null;
-                        likeCount = Math.max(0, likeCount - 1);
-                        likeBtn.classList.remove('liked');
-                    }
-                }
-            }
-            likeCountEl.textContent = likeCount;
-        } catch (err) {
-            console.error("Erreur like :", err);
-        } finally {
-            likeBtn.disabled = false;
-        }
-    });
-
-    commentsBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        commentsDrawer.classList.add('open');
-    });
-
-    closeComments.addEventListener('click', () => {
-        commentsDrawer.classList.remove('open');
-    });
-
-    commentInput.addEventListener('click', (e) => {
-        if (!appState || !appState.currentUser) {
-            e.preventDefault();
-            closePlayer();
-            openAuthModal();
-        }
-    });
-
-    sendCommentBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        if (!appState || !appState.currentUser) {
-            closePlayer();
-            openAuthModal();
-            return;
-        }
-        
-        const content = commentInput.value.trim();
-        if (!content || !videoId) return;
-
-        sendCommentBtn.disabled = true;
-        const authorName = appState.currentUser.name || appState.currentUser.username || "Membre VAFM";
-
-        try {
-            const res = await fetch(`${POCKETBASE_URL}/api/collections/video_comments/records`, {
-                method: 'POST',
-                headers: getAuthHeaders(true),
-                body: JSON.stringify({
-                    video: videoId,
-                    user: appState.currentUser.id,
-                    content: content,
-                    author_name: authorName
-                })
-            });
-
-            if (res.ok) {
-                const newComment = await res.json();
-                commentsList.unshift(newComment);
-                renderComments();
-                
-                commentInput.value = "";
-                commentsCountEl.textContent = commentsList.length;
-                drawerTitle.textContent = `Commentaires (${commentsList.length})`;
-            } else {
-                alert("Erreur lors de l'envoi du commentaire.");
-            }
-        } catch (err) {
-            console.error("Erreur envoi commentaire :", err);
-        } finally {
-            sendCommentBtn.disabled = false;
-        }
-    });
-
-    shareBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const shareData = {
-            title: title || 'Vidéo VAFM',
-            text: `Regarde cette vidéo sur VAFM : ${title}`,
-            url: directVideoShareUrl,
-        };
-
+    shareBtn?.addEventListener('click', async () => {
         if (navigator.share) {
             try {
-                await navigator.share(shareData);
-            } catch (err) {
-                console.log("Partage annulé :", err);
-            }
+                await navigator.share({
+                    title: title,
+                    text: `${title} – À regarder sur VAFM`,
+                    url: directVideoShareUrl
+                });
+            } catch (err) {}
         } else {
-            navigator.clipboard.writeText(directVideoShareUrl);
-            const toast = document.getElementById('vafm-toast');
-            toast.classList.add('show');
-            setTimeout(() => toast.classList.remove('show'), 2500);
+            try {
+                await navigator.clipboard.writeText(directVideoShareUrl);
+                const toast = document.getElementById('vafm-toast');
+                if (toast) {
+                    toast.classList.add('show');
+                    setTimeout(() => toast.classList.remove('show'), 2500);
+                }
+            } catch (err) {
+                alert("Lien : " + directVideoShareUrl);
+            }
         }
     });
 
-    muteBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        video.muted = !video.muted;
-        muteBtn.style.opacity = video.muted ? '0.5' : '1';
-    });
-
-    const closePlayer = () => {
-        if (video) video.pause();
-        modal.classList.remove('active');
-        document.body.style.overflow = '';
-        window.history.replaceState({}, document.title, window.location.pathname);
-    };
-
-    document.getElementById('close-tiktok-player').addEventListener('click', closePlayer);
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) closePlayer();
+    muteBtn?.addEventListener('click', () => {
+        if (videoEl) {
+            videoEl.muted = !videoEl.muted;
+        }
     });
 }
 
