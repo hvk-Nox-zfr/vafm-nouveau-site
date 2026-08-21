@@ -320,25 +320,19 @@ async function fetchAllFromPocketBase() {
         ? `${POCKETBASE_URL}/api/collections/${collection}/records?fields=${encodeURIComponent(fields)}&perPage=200`
         : `${POCKETBASE_URL}/api/collections/${collection}/records?perPage=200`;
       
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2500);
-
       try {
-        const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        
+        const res = await fetch(url);
         if (!res.ok) {
-          console.warn(`Erreur ${res.status} sur : ${collection}`);
-          isServerDown = true;
+          console.warn(`Erreur ${res.status} sur la collection : ${collection}`);
+          // Si l'erreur est un problème serveur (5xx), on active le mode maintenance
+          if (res.status >= 500) isServerDown = true;
           return [];
         }
-        
         const data = await res.json();
         return data.items || [];
-      } catch (err) {
-        clearTimeout(timeoutId);
-        console.error(`Délai dépassé ou serveur injoignable pour ${collection}`);
-        isServerDown = true;
+      } catch (e) {
+        console.error(`Injoignable : ${collection}`, e);
+        isServerDown = true; // Serveur indisponible ou coupure réseau
         return [];
       }
     };
@@ -352,77 +346,80 @@ async function fetchAllFromPocketBase() {
       getCollectionData('actu_likes')
     ]);
 
+    // Si le serveur ne répond pas du tout, affichage de l'écran de maintenance
     if (isServerDown) {
       showMaintenanceScreen();
       return;
     }
 
+    // Le serveur répond : masque de l'overlay de maintenance si présent
     document.getElementById('maintenance-overlay')?.classList.add('hidden');
 
-    // Mappage avec la vraie valeur de publication
-    let hero = heroItems.map(item => ({
-      id: item.id,
-      title: item.titre || item.title || '',
-      text: item.texte || item.contenu || item.description || '',
-      img: getPocketBaseImageUrl('hero', item.id, item.image),
-      is_published: Boolean(item.is_published)
+    // Récupération de la condition d'origine pour afficher les brouillons aux admins
+    const canSeeDrafts = Boolean(appState.editMode && appState.currentUser);
+
+    const filterPublished = (items) => {
+      if (canSeeDrafts) return items;
+      return items.filter(item => item.is_published === undefined || item.is_published === true || item.is_published === 1);
+    };
+
+    appState.hero = filterPublished(heroItems).map(h => ({
+      id: h.id,
+      title: h.titre || h.title || '',
+      text: h.description || h.texte || '',
+      img: getPocketBaseImageUrl('hero', h.id, h.image, '1600x800') || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=1200',
+      is_published: h.is_published !== undefined ? Boolean(h.is_published) : true,
+      position: h.position || 0
     }));
 
-    let news = actusItems.map(item => ({
-      id: item.id,
-      title: item.titre || item.title || '',
-      text: item.texte || item.contenu || item.description || '',
-      img: getPocketBaseImageUrl('actus', item.id, item.image),
-      is_published: Boolean(item.is_published),
-      position: item.position || 0,
-      created: item.created,
-      likesList: actuLikesItems.filter(l => l.actu === item.id)
+    appState.news = filterPublished(actusItems).map(a => {
+      const likesForThisActu = actuLikesItems.filter(l => l.actu === a.id);
+
+      return {
+        id: a.id,
+        title: a.titre || a.title || '',
+        text: a.texte || a.description || '',
+        img: getPocketBaseImageUrl('actus', a.id, a.image, '500x350') || 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600',
+        is_published: a.is_published !== undefined ? Boolean(a.is_published) : true,
+        position: a.position || 0,
+        likesList: likesForThisActu,
+        created: a.created
+      };
+    });
+
+    appState.shows = filterPublished(emissionsItems).map(e => ({
+      id: e.id,
+      title: e.titre || e.title || '',
+      text: e.description || e.texte || '',
+      img: getPocketBaseImageUrl('emissions', e.id, e.image, '500x350') || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&q=80',
+      is_published: e.is_published !== undefined ? Boolean(e.is_published) : true,
+      position: e.position || 0
     }));
 
-    let shows = emissionsItems.map(item => ({
-      id: item.id,
-      title: item.titre || item.title || '',
-      text: item.texte || item.description || '',
-      img: getPocketBaseImageUrl('emissions', item.id, item.image),
-      is_published: Boolean(item.is_published)
+    appState.team = filterPublished(animateursItems).map(anim => ({
+      id: anim.id,
+      title: anim.nom || anim.name || anim.titre || anim.title || '',
+      text: anim.description || anim.role || anim.texte || '',
+      role: anim.role || anim.category || 'animateur',
+      img: getPocketBaseImageUrl('animateurs', anim.id, anim.image, '400x400') || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400',
+      is_published: anim.is_published !== undefined ? Boolean(anim.is_published) : true,
+      position: anim.position || 0
     }));
 
-    let team = animateursItems.map(item => ({
-      id: item.id,
-      title: item.nom || item.title || '',
-      text: item.description || item.text || '',
-      img: getPocketBaseImageUrl('animateurs', item.id, item.image),
-      is_published: Boolean(item.is_published)
+    appState.videos = filterPublished(videosItems).map(v => ({
+      id: v.id,
+      title: v.titre || v.title || '',
+      text: v.description || v.texte || '',
+      img: getPocketBaseImageUrl('videos', v.id, v.poster || v.image, '500x350') || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=600',
+      videoUrl: getPocketBaseImageUrl('videos', v.id, v.video_file || v.file) || '',
+      is_published: v.is_published !== undefined ? Boolean(v.is_published) : true,
+      position: v.position || 0,
+      created: v.created
     }));
-
-    let videos = videosItems.map(item => ({
-      id: item.id,
-      title: item.titre || item.title || '',
-      videoUrl: item.video_file ? `${POCKETBASE_URL}/api/files/videos/${item.id}/${item.video_file}` : null,
-      img: getPocketBaseImageUrl('videos', item.id, item.poster) || 'https://vafmlaradio.fr/LOGO-VAFM.png',
-      is_published: Boolean(item.is_published),
-      created: item.created
-    }));
-
-    // Si pas admin, on filtre les brouillons pour toutes les sections
-    if (!isAdmin) {
-      hero = hero.filter(item => item.is_published);
-      news = news.filter(item => item.is_published);
-      shows = shows.filter(item => item.is_published);
-      team = team.filter(item => item.is_published);
-      videos = videos.filter(item => item.is_published);
-    }
-
-    // Attribution au state
-    appState.hero = hero;
-    appState.news = news;
-    appState.shows = shows;
-    appState.team = team;
-    appState.videos = videos;
 
     renderAll();
   } catch (err) {
-    console.error("Serveur inaccessible :", err);
+    console.error("Erreur générale :", err);
     showMaintenanceScreen();
   }
 }
