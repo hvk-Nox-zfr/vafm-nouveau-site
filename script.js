@@ -296,23 +296,25 @@ async function checkUrlForArticle() {
 /* ==========================================================================
 5. RÉCUPÉRATION DES DONNÉES POCKETBASE
 ========================================================================== */
+function showMaintenanceScreen() {
+  const overlay = document.getElementById('maintenance-overlay');
+  if (overlay) overlay.classList.remove('hidden');
+}
+
 async function fetchAllFromPocketBase() {
   try {
     const getCollectionData = async (collection, fields = null) => {
       const url = fields
         ? `${POCKETBASE_URL}/api/collections/${collection}/records?fields=${encodeURIComponent(fields)}&perPage=200`
         : `${POCKETBASE_URL}/api/collections/${collection}/records?perPage=200`;
-      try {
-        const res = await fetch(url);
-        if (!res.ok) {
-          console.warn(`Erreur ${res.status} sur la collection : ${collection}`);
-          return [];
-        }
-        const data = await res.json();
-        return data.items || [];
-      } catch (e) {
+      
+      const res = await fetch(url);
+      if (!res.ok) {
+        console.warn(`Erreur ${res.status} sur la collection : ${collection}`);
         return [];
       }
+      const data = await res.json();
+      return data.items || [];
     };
 
     const [heroItems, actusItems, emissionsItems, animateursItems, videosItems, actuLikesItems] = await Promise.all([
@@ -323,6 +325,9 @@ async function fetchAllFromPocketBase() {
       getCollectionData('videos'),
       getCollectionData('actu_likes')
     ]);
+
+    // Masque l'écran de maintenance si le serveur répond de nouveau
+    document.getElementById('maintenance-overlay')?.classList.add('hidden');
 
     const canSeeDrafts = Boolean(appState.editMode && appState.currentUser);
     const filterPublished = (items) => {
@@ -386,8 +391,13 @@ async function fetchAllFromPocketBase() {
 
     renderAll();
   } catch (err) {
-    console.error("Erreur générale :", err);
-    renderAll();
+    console.error("Serveur inaccessible :", err);
+    
+    // Affiche l'écran de maintenance si le serveur (PC) est éteint/hors-ligne
+    const maintenanceOverlay = document.getElementById('maintenance-overlay');
+    if (maintenanceOverlay) {
+      maintenanceOverlay.classList.remove('hidden');
+    }
   }
 }
 

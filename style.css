@@ -3765,3 +3765,68 @@ body.drawer-open {
 .social-icons a .fa-facebook-f {
   color: #1877F2;
 }
+
+#maintenance-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* On dégage le bas pour laisser voir et cliquer sur le lecteur */
+  bottom: 80px; /* Ajuste cette valeur selon la hauteur exacte de ton lecteur */
+  background-color: #0f172a;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  /* Un z-index élevé mais inférieur à celui du lecteur audio */
+  z-index: 999;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+#maintenance-overlay.hidden {
+  display: none !important;
+}
+
+.maintenance-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 450px;
+  width: 100%;
+}
+
+.maintenance-logo {
+  max-width: 180px;
+  height: auto;
+  margin-bottom: 24px;
+}
+
+.maintenance-content h1 {
+  font-size: 1.8rem;
+  margin-bottom: 12px;
+  font-weight: 700;
+}
+
+.maintenance-content p {
+  font-size: 1rem;
+  color: #cbd5e1;
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+.maintenance-btn {
+  background-color: #e11d48;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.maintenance-btn:hover {
+  background-color: #be123c;
+}
