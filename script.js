@@ -1043,13 +1043,14 @@ function openEditorModal(category, id = null) {
     return;
   }
 
+  // Si la catégorie est "videos", on ouvre la modale dédiée aux vidéos
   if (category === 'videos') {
-    let modal = document.getElementById('vafm-upload-modal');
-    if (!modal) {
-      createUploadModal();
-      modal = document.getElementById('vafm-upload-modal');
+    const modal = document.getElementById('vafm-upload-modal');
+    if (modal) {
+      openModal('vafm-upload-modal');
+    } else {
+      alert("La modale vidéo est introuvable dans le HTML.");
     }
-    if (modal) modal.classList.add('active');
     return;
   }
 
@@ -1085,6 +1086,90 @@ function openEditorModal(category, id = null) {
   }
 
   openModal('card-editor-modal');
+}
+
+async function handleVideoUploadSubmit(e) {
+  e.preventDefault();
+
+  // 1. Récupération dynamique du token dans le localStorage
+  let token = '';
+  
+  // Parcours des clés possibles utilisées par PocketBase
+  for (const key of ['pocketbase_auth', 'pb_auth', 'pktb_auth']) {
+    const item = localStorage.getItem(key);
+    if (item) {
+      try {
+        const parsed = JSON.parse(item);
+        token = parsed.token || (typeof parsed === 'string' ? parsed : '');
+        if (token) break;
+      } catch (e) {
+        token = item; // Si c'est le token brut directement en string
+        break;
+      }
+    }
+  }
+
+  if (!token) {
+    alert("Session expirée ou utilisateur non connecté. Veuillez vous reconnecter.");
+    return;
+  }
+
+  const titleInput = document.getElementById('video-title');
+  const videoInput = document.getElementById('video-file');
+  const posterInput = document.getElementById('video-poster');
+  const btnSave = document.getElementById('btn-save-video');
+
+  if (!titleInput || !videoInput || !videoInput.files[0]) {
+    alert("Veuillez remplir le titre et sélectionner une vidéo.");
+    return;
+  }
+
+  if (btnSave) {
+    btnSave.innerText = "Envoi en cours...";
+    btnSave.disabled = true;
+  }
+
+  const formData = new FormData();
+  formData.append('title', titleInput.value.trim());
+  formData.append('is_published', 'true');
+  formData.append('video_file', videoInput.files[0]);
+
+  if (posterInput && posterInput.files[0]) {
+    const compressedPoster = typeof compressPosterImage === 'function' 
+      ? await compressPosterImage(posterInput.files[0]) 
+      : posterInput.files[0];
+    formData.append('poster', compressedPoster);
+  }
+
+  try {
+    const res = await fetch(`${POCKETBASE_URL}/api/collections/videos/records`, {
+      method: 'POST',
+      headers: {
+        'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}`
+      },
+      body: formData
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.message || `Erreur HTTP ${res.status}`);
+    }
+
+    if (typeof closeModal === 'function') closeModal('vafm-upload-modal');
+    document.getElementById('vafm-video-upload-form').reset();
+    if (typeof fetchAllFromPocketBase === 'function') await fetchAllFromPocketBase();
+    
+    alert("Vidéo ajoutée avec succès !");
+  } catch (err) {
+    console.error("Erreur PB:", err);
+    alert("Impossible d'uploader la vidéo : " + err.message);
+  } finally {
+    if (btnSave) {
+      btnSave.innerText = "Uploader la vidéo";
+      btnSave.disabled = false;
+    }
+  }
 }
 
 function closeEditorModal() {

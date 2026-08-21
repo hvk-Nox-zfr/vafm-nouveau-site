@@ -568,5 +568,35 @@
     <script defer src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script defer src="/article.js"></script>
     <script defer src="/script.js"></script>
+    <!-- MODALE AJOUT DE VIDÉO -->
+<div id="vafm-upload-modal" class="modal" style="display: none;">
+    <div class="modal-content editor-modal-content">
+        <div class="modal-header">
+            <h3>Ajouter une vidéo</h3>
+            <button class="close-btn" onclick="closeModal('vafm-upload-modal')">✕</button>
+        </div>
+        <form id="vafm-video-upload-form" onsubmit="handleVideoUploadSubmit(event)">
+            <div class="input-group">
+                <label for="video-title">Titre de la vidéo</label>
+                <input type="text" id="video-title" required placeholder="Titre de la vidéo">
+            </div>
+
+            <div class="input-group">
+                <label for="video-file">Fichier vidéo (MP4, WebM)</label>
+                <input type="file" id="video-file" accept="video/*" required>
+            </div>
+
+            <div class="input-group">
+                <label for="video-poster">Image de couverture (Optionnel)</label>
+                <input type="file" id="video-poster" accept="image/*">
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" onclick="closeModal('vafm-upload-modal')">Annuler</button>
+                <button type="submit" class="btn-submit" id="btn-save-video">Uploader la vidéo</button>
+            </div>
+        </form>
+    </div>
+</div>
 </body>
 </html>
