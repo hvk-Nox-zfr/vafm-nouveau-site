@@ -359,49 +359,66 @@ async function fetchAllFromPocketBase() {
 
     document.getElementById('maintenance-overlay')?.classList.add('hidden');
 
-    appState.hero = heroItems.map(item => ({
+    // Mappage avec la vraie valeur de publication
+    let hero = heroItems.map(item => ({
       id: item.id,
       title: item.titre || item.title || '',
       text: item.texte || item.contenu || item.description || '',
       img: getPocketBaseImageUrl('hero', item.id, item.image),
-      is_published: item.is_published !== false
+      is_published: Boolean(item.is_published)
     }));
 
-    appState.news = actusItems.map(item => ({
+    let news = actusItems.map(item => ({
       id: item.id,
       title: item.titre || item.title || '',
       text: item.texte || item.contenu || item.description || '',
       img: getPocketBaseImageUrl('actus', item.id, item.image),
-      is_published: item.is_published !== false,
+      is_published: Boolean(item.is_published),
       position: item.position || 0,
       created: item.created,
       likesList: actuLikesItems.filter(l => l.actu === item.id)
     }));
 
-    appState.shows = emissionsItems.map(item => ({
+    let shows = emissionsItems.map(item => ({
       id: item.id,
       title: item.titre || item.title || '',
       text: item.texte || item.description || '',
       img: getPocketBaseImageUrl('emissions', item.id, item.image),
-      is_published: item.is_published !== false
+      is_published: Boolean(item.is_published)
     }));
 
-    appState.team = animateursItems.map(item => ({
+    let team = animateursItems.map(item => ({
       id: item.id,
       title: item.nom || item.title || '',
       text: item.description || item.text || '',
       img: getPocketBaseImageUrl('animateurs', item.id, item.image),
-      is_published: item.is_published !== false
+      is_published: Boolean(item.is_published)
     }));
 
-    appState.videos = videosItems.map(item => ({
+    let videos = videosItems.map(item => ({
       id: item.id,
       title: item.titre || item.title || '',
       videoUrl: item.video_file ? `${POCKETBASE_URL}/api/files/videos/${item.id}/${item.video_file}` : null,
       img: getPocketBaseImageUrl('videos', item.id, item.poster) || 'https://vafmlaradio.fr/LOGO-VAFM.png',
-      is_published: item.is_published !== false,
+      is_published: Boolean(item.is_published),
       created: item.created
     }));
+
+    // Si pas admin, on filtre les brouillons pour toutes les sections
+    if (!isAdmin) {
+      hero = hero.filter(item => item.is_published);
+      news = news.filter(item => item.is_published);
+      shows = shows.filter(item => item.is_published);
+      team = team.filter(item => item.is_published);
+      videos = videos.filter(item => item.is_published);
+    }
+
+    // Attribution au state
+    appState.hero = hero;
+    appState.news = news;
+    appState.shows = shows;
+    appState.team = team;
+    appState.videos = videos;
 
     renderAll();
   } catch (err) {
