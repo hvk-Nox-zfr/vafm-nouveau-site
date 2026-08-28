@@ -89,9 +89,44 @@ async function runAICorrection() {
     }
 }
 
-/* --------------------------------------------------------------------------
-   1. NAVIGATION ET AFFICHAGE (CANVA STUDIO)
-   -------------------------------------------------------------------------- */
+/* ==========================================================================
+   HELPER DE RENDU SÉCURISÉ DU CONTENU
+   ========================================================================== */
+function safeRenderCanvaContent(rawText, isAdmin) {
+    if (!rawText) {
+        return `<div class="canva-block p" ${isAdmin ? 'contenteditable="true"' : ''}><p>Aucun contenu pour cet article.</p></div>`;
+    }
+
+    // 1. Essayer le formateur Canva natif
+    if (typeof formatContentToCanvaBlocks === 'function') {
+        try {
+            const html = formatContentToCanvaBlocks(rawText, isAdmin);
+            if (html && html.trim().length > 0) return html;
+        } catch (e) {
+            console.warn("[VAFM] Échec de formatContentToCanvaBlocks, bascule sur le rendu HTML standard :", e);
+        }
+    }
+
+    // 2. Si le texte contient déjà du HTML
+    if (rawText.includes('<p>') || rawText.includes('<div') || rawText.includes('<h')) {
+        return `<div class="canva-block p" ${isAdmin ? 'contenteditable="true"' : ''}>${rawText}</div>`;
+    }
+
+    // 3. Texte brut -> Conversion automatique en paragraphes
+    return rawText.split(/\n\s*\n/).map(p => {
+        const clean = p.trim();
+        if (!clean) return '';
+        return `
+            <div class="canva-block p" style="margin-bottom: 1.2rem; line-height: 1.7; font-size: 1.1rem; color: #222;" ${isAdmin ? 'contenteditable="true"' : ''}>
+                <p style="margin: 0;">${clean.replace(/\n/g, '<br>')}</p>
+            </div>
+        `;
+    }).join('');
+}
+
+/* ==========================================================================
+   OUVERTURE ET INJECTION DE L'ARTICLE
+   ========================================================================== */
 async function openArticleView(category, id) {
     // ❌ Bloquer l'affichage de la page article pour les émissions et les animateurs
     if (category === 'shows' || category === 'emissions' || category === 'team' || category === 'animateurs') {
@@ -119,7 +154,14 @@ async function openArticleView(category, id) {
     currentId = id;
 
     const title = data.titre || data.title || data.nom || 'Sans titre';
-    const rawText = data.texte || data.contenu || data.description || '';
+    const rawText = data.texte || data.contenu || data.description || data.text || '';
+
+    // Vérification du mode admin (placé AVANT la génération du HTML)
+    const isAdmin = Boolean(
+        (window.appState && window.appState.editMode) || 
+        document.body.classList.contains('admin-logged-in') || 
+        document.body.classList.contains('edit-mode-active')
+    );
 
     // ==========================================================================
     // INJECTION DES DONNÉES STRUCTURÉES (SEO GOOGLE NEWS & OPEN GRAPH)
@@ -143,16 +185,15 @@ async function openArticleView(category, id) {
     const cleanUrlPath = `/article/${category}/${id}-${cleanSlug}`;
     const fullArticleUrl = `https://vafmlaradio.fr${cleanUrlPath}`;
 
-    // 1. Mise à jour du titre de l'onglet du navigateur
+    // 1. Mise à jour du titre de l'onglet
     document.title = `${title} – VAFM`;
 
-    // 2. Mise à jour dynamique des balises Open Graph (Aperçu au partage)
+    // 2. Open Graph
     const ogTitle = document.getElementById('og-title');
     const ogDesc = document.getElementById('og-desc');
     const ogImage = document.getElementById('og-image');
     const ogUrl = document.getElementById('og-url');
 
-    // Extrait de texte propre pour la description (sans balises HTML)
     const plainTextSnippet = rawText.replace(/<[^>]*>/g, '').substring(0, 160).trim();
 
     if (ogTitle) ogTitle.setAttribute('content', title);
@@ -160,7 +201,7 @@ async function openArticleView(category, id) {
     if (ogImage) ogImage.setAttribute('content', articleImageUrl);
     if (ogUrl) ogUrl.setAttribute('content', fullArticleUrl);
 
-    // 3. Schema.org NewsArticle (Balisage JSON-LD complet Google News)
+    // 3. Schema.org JSON-LD
     const publishedIsoDate = new Date(data.published_at || data.created).toISOString();
     const modifiedIsoDate = new Date(data.updated || data.created).toISOString();
 
@@ -204,19 +245,16 @@ async function openArticleView(category, id) {
 
     const isPublished = Boolean(data.is_published);
     
-    // On lit uniquement ce qui est enregistré dans la base de données pour cet article
     let authorName = data.name || 
                      data.author_name || 
                      data.expand?.author?.name || 
                      data.expand?.user?.name || 
                      data.expand?.user_id?.name;
 
-    // Valeur de secours si l'article n'a aucun auteur en base
     if (!authorName || authorName.trim() === '') {
         authorName = 'Équipe VAFM';
     }
 
-    // Capitalisation propre de la première lettre
     if (authorName && authorName !== 'Équipe VAFM') {
         authorName = authorName.charAt(0).toUpperCase() + authorName.slice(1);
     }
@@ -233,13 +271,7 @@ async function openArticleView(category, id) {
         })}`;
     }
 
-    const readTimeMinutes = calculateReadTime(rawText);
-
-    const isAdmin = Boolean(
-        (window.appState && window.appState.editMode) || 
-        document.body.classList.contains('admin-logged-in') || 
-        document.body.classList.contains('edit-mode-active')
-    );
+    const readTimeMinutes = typeof calculateReadTime === 'function' ? calculateReadTime(rawText) : 3;
 
     const articleContainer = document.getElementById('article-modal');
     if (!articleContainer) {
@@ -249,221 +281,233 @@ async function openArticleView(category, id) {
 
     articleContainer.innerHTML = `
        <style>
-            ::selection { background-color: #E50914 !important; color: #ffffff !important; }
-            ::-moz-selection { background-color: #E50914 !important; color: #ffffff !important; }
+    ::selection { background-color: #E50914 !important; color: #ffffff !important; }
+    ::-moz-selection { background-color: #E50914 !important; color: #ffffff !important; }
 
-            #article-modal {
-                position: relative !important;
-                width: 100% !important;
-                min-height: 100vh !important;
-                background-color: #f4f4f7 !important;
-            }
+    /* Conteneur de la modale dans le flux principal sous le bandeau d'origine */
+    #article-modal {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        position: relative !important;
+        width: 100% !important;
+        min-height: calc(100vh - 80px) !important;
+        background-color: #f4f4f7 !important;
+        z-index: 10 !important;
+        padding-top: 40px !important;
+        padding-bottom: 140px !important;
+        box-sizing: border-box !important;
+    }
 
-            header, .navbar, nav { border-bottom: none !important; box-shadow: none !important; }
+    /* Barre Studio au-dessus du lecteur audio */
+    .vafm-player-toolbar {
+        position: fixed !important;
+        bottom: 110px !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        background: #18181c !important;
+        border: 1px solid rgba(255, 255, 255, 0.18) !important;
+        border-radius: 12px !important;
+        padding: 6px 12px !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+        z-index: 9999999 !important;
+        flex-wrap: nowrap !important;
+        overflow: visible !important;
+        max-width: 95vw !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6) !important;
+    }
 
-            .vafm-player-toolbar {
-                position: fixed !important;
-                bottom: 95px !important;
-                left: 50% !important;
-                transform: translateX(-50%) !important;
-                background: #18181c !important;
-                border: 1px solid rgba(255, 255, 255, 0.18) !important;
-                border-radius: 12px !important;
-                padding: 6px 12px !important;
-                display: flex !important;
-                align-items: center !important;
-                gap: 4px !important;
-                z-index: 999999 !important;
-                flex-wrap: nowrap !important;
-                overflow: visible !important;
-                max-width: 95vw !important;
-                box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5) !important;
-            }
+    .vafm-tb-label {
+        font-size: 0.7rem !important;
+        font-weight: 800 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.8px !important;
+        color: #E50914 !important;
+        margin-right: 4px !important;
+        display: flex !important;
+        align-items: center !important;
+    }
 
-            .vafm-tb-label {
-                font-size: 0.7rem !important;
-                font-weight: 800 !important;
-                text-transform: uppercase !important;
-                letter-spacing: 0.8px !important;
-                color: #E50914 !important;
-                margin-right: 4px !important;
-                display: flex !important;
-                align-items: center !important;
-            }
+    .vafm-tb-divider {
+        width: 1px !important;
+        height: 18px !important;
+        background: rgba(255, 255, 255, 0.15) !important;
+        margin: 0 3px !important;
+    }
 
-            .vafm-tb-divider {
-                width: 1px !important;
-                height: 18px !important;
-                background: rgba(255, 255, 255, 0.15) !important;
-                margin: 0 3px !important;
-            }
+    .vafm-tb-btn {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.06);
+        color: #b0b0bb;
+        cursor: pointer;
+        transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
+    }
 
-            .vafm-tb-btn {
-                position: relative;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 34px;
-                height: 34px;
-                padding: 0;
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 8px;
-                background: rgba(255, 255, 255, 0.06);
-                color: #b0b0bb;
-                cursor: pointer;
-                transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
-            }
+    .vafm-tb-btn svg { 
+        width: 16px !important; 
+        height: 16px !important; 
+        stroke: currentColor !important; 
+        stroke-width: 2 !important; 
+        fill: none !important; 
+        stroke-linecap: round !important;
+        stroke-linejoin: round !important;
+    }
 
-            .vafm-tb-btn svg { 
-                width: 16px !important; 
-                height: 16px !important; 
-                stroke: currentColor !important; 
-                stroke-width: 2 !important; 
-                fill: none !important; 
-                stroke-linecap: round !important;
-                stroke-linejoin: round !important;
-            }
+    .vafm-tb-btn:hover {
+        background: rgba(255, 255, 255, 0.18) !important;
+        color: #ffffff !important;
+        border-color: rgba(255, 255, 255, 0.3) !important;
+        transform: translateY(-2px) !important;
+    }
 
-            .vafm-tb-btn:hover {
-                background: rgba(255, 255, 255, 0.18) !important;
-                color: #ffffff !important;
-                border-color: rgba(255, 255, 255, 0.3) !important;
-                transform: translateY(-2px) !important;
-            }
+    .vafm-tb-btn.btn-ai {
+        background: rgba(142, 68, 173, 0.2) !important;
+        color: #d288f8 !important;
+        border-color: rgba(155, 89, 182, 0.4) !important;
+    }
 
-            .vafm-tb-btn.btn-ai {
-                background: rgba(142, 68, 173, 0.2) !important;
-                color: #d288f8 !important;
-                border-color: rgba(155, 89, 182, 0.4) !important;
-            }
+    .vafm-tb-btn.btn-ai:hover {
+        background: #8e44ad !important;
+        color: #ffffff !important;
+        border-color: #9b59b6 !important;
+    }
 
-            .vafm-tb-btn.btn-ai:hover {
-                background: #8e44ad !important;
-                color: #ffffff !important;
-                border-color: #9b59b6 !important;
-            }
+    .vafm-dynamic-tooltip {
+        position: fixed;
+        background: #000000;
+        color: #ffffff;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 5px 10px;
+        border-radius: 6px;
+        white-space: nowrap;
+        pointer-events: none;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        z-index: 10000000 !important;
+        transform: translateX(-50%) translateY(-100%);
+        opacity: 0;
+        transition: opacity 0.15s ease;
+    }
 
-            .vafm-dynamic-tooltip {
-                position: fixed;
-                background: #000000;
-                color: #ffffff;
-                font-size: 0.72rem;
-                font-weight: 700;
-                padding: 5px 10px;
-                border-radius: 6px;
-                white-space: nowrap;
-                pointer-events: none;
-                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
-                border: 1px solid rgba(255, 255, 255, 0.15);
-                z-index: 10000000 !important;
-                transform: translateX(-50%) translateY(-100%);
-                opacity: 0;
-                transition: opacity 0.15s ease;
-            }
+    .vafm-dynamic-tooltip.visible { opacity: 1; }
 
-            .vafm-dynamic-tooltip.visible { opacity: 1; }
+    .vafm-tb-btn.status-published { color: #34c759 !important; }
+    .vafm-tb-btn.status-draft { color: #ff9500 !important; }
 
-            .vafm-tb-btn.status-published { color: #34c759 !important; }
-            .vafm-tb-btn.status-draft { color: #ff9500 !important; }
+    .vafm-tb-btn.btn-save:hover { background: #34c759 !important; color: #ffffff !important; border-color: #34c759 !important; }
+    .vafm-tb-btn.btn-delete:hover { background: #ff3b30 !important; color: #ffffff !important; border-color: #ff3b30 !important; }
 
-            .vafm-tb-btn.btn-save:hover { background: #34c759 !important; color: #ffffff !important; border-color: #34c759 !important; }
-            .vafm-tb-btn.btn-delete:hover { background: #ff3b30 !important; color: #ffffff !important; border-color: #ff3b30 !important; }
+    .canva-layout { width: 100% !important; display: flex !important; flex-direction: column !important; }
+    .canva-workspace { width: 100% !important; padding: 0 !important; margin: 0 !important; box-sizing: border-box !important; background-color: #f4f4f7 !important; display: flex !important; justify-content: center !important; }
+    
+    /* Document central */
+    .canva-document { 
+        width: 100% !important; 
+        max-width: 850px !important; 
+        margin: 100px 0 auto !important; 
+        background: #ffffff !important; 
+        padding: 50px !important; 
+        box-sizing: border-box !important; 
+        border: 1px solid #e0e0e8 !important; 
+        border-radius: 12px !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06) !important; 
+        position: relative !important;
+        display: block !important;
+        overflow-wrap: break-word !important;
+        word-break: break-word !important;
+    }
 
-            .canva-layout { width: 100% !important; min-height: 100vh !important; display: flex !important; flex-direction: column !important; }
-            .canva-workspace { width: 100% !important; min-height: 100vh !important; padding: 0 !important; margin: 0 !important; box-sizing: border-box !important; background-color: #f4f4f7 !important; display: flex !important; justify-content: center !important; }
-            .canva-document { 
-                width: 100% !important; 
-                max-width: 850px !important; 
-                min-height: 100vh !important; 
-                margin: 0 auto !important; 
-                background: #ffffff !important; 
-                padding: 40px 50px 180px 50px !important; 
-                box-sizing: border-box !important; 
-                border-left: 1px solid #e0e0e8 !important; 
-                border-right: 1px solid #e0e0e8 !important; 
-                box-shadow: -15px 0 25px -10px rgba(0, 0, 0, 0.07), 15px 0 25px -10px rgba(0, 0, 0, 0.07) !important; 
-                position: relative; 
-                overflow-wrap: break-word !important;
-                word-break: break-word !important;
-            }
+    .canva-document a { color: #E50914 !important; text-decoration: underline !important; font-weight: 600; cursor: pointer; }
 
-            .canva-document a { color: #E50914 !important; text-decoration: underline !important; font-weight: 600; cursor: pointer; }
+    .canva-document::after, .article-content::after, #canva-doc-content::after {
+        content: "";
+        display: table;
+        clear: both;
+    }
 
-            .canva-document::after, .article-content::after, #canva-doc-content::after {
-                content: "";
-                display: table;
-                clear: both;
-            }
+    .canva-header-fixed {
+        position: static !important;
+        width: 100% !important;
+        margin-bottom: 30px !important;
+        user-select: none;
+        display: block !important;
+    }
 
-            .canva-header-fixed {
-                margin-bottom: 35px;
-                user-select: none;
-            }
+    .article-meta-details {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 6px;
+        color: #8e8e93;
+        font-size: 0.85rem;
+    }
 
-            .article-meta-details {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                margin-top: 6px;
-                color: #8e8e93;
-                font-size: 0.85rem;
-            }
+    .article-read-time {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-weight: 600;
+        color: #666;
+    }
 
-            .article-read-time {
-                display: inline-flex;
-                align-items: center;
-                gap: 4px;
-                font-weight: 600;
-                color: #666;
-            }
+    .article-author-info {
+        margin-top: 4px;
+        font-weight: 600;
+        color: #e50914;
+    }
 
-            .article-author-info {
-                margin-top: 4px;
-                font-weight: 600;
-                color: #e50914;
-            }
+    .canva-admin-active .canva-block {
+        position: relative;
+        margin-bottom: 12px;
+        padding: 8px;
+        border: 1px dashed transparent;
+        border-radius: 8px;
+        cursor: grab;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        overflow-wrap: break-word !important;
+        word-break: break-word !important;
+    }
 
-            .canva-admin-active .canva-block {
-                position: relative;
-                margin-bottom: 12px;
-                padding: 8px;
-                border: 1px dashed transparent;
-                border-radius: 8px;
-                cursor: grab;
-                transition: border-color 0.15s ease, box-shadow 0.15s ease;
-                overflow-wrap: break-word !important;
-                word-break: break-word !important;
-            }
+    .canva-admin-active .canva-block:hover { border-color: rgba(229, 9, 20, 0.4); }
+    .canva-admin-active .canva-block.selected { border: 2px solid #E50914 !important; box-shadow: 0 0 10px rgba(229, 9, 20, 0.15); }
+    .canva-admin-active .canva-block.dragging { opacity: 0.35; border: 2px dashed #E50914 !important; }
+    .canva-admin-active .canva-block.editing { cursor: text !important; border: 2px solid #34c759 !important; }
 
-            .canva-admin-active .canva-block:hover { border-color: rgba(229, 9, 20, 0.4); }
-            .canva-admin-active .canva-block.selected { border: 2px solid #E50914 !important; box-shadow: 0 0 10px rgba(229, 9, 20, 0.15); }
-            .canva-admin-active .canva-block.dragging { opacity: 0.35; border: 2px dashed #E50914 !important; }
-            .canva-admin-active .canva-block.editing { cursor: text !important; border: 2px solid #34c759 !important; }
+    .canva-drop-indicator {
+        height: 4px; background-color: #E50914; border-radius: 2px; margin: 6px 0;
+        box-shadow: 0 0 8px rgba(229, 9, 20, 0.8); transition: all 0.1s ease; pointer-events: none; clear: both;
+    }
 
-            .canva-drop-indicator {
-                height: 4px; background-color: #E50914; border-radius: 2px; margin: 6px 0;
-                box-shadow: 0 0 8px rgba(229, 9, 20, 0.8); transition: all 0.1s ease; pointer-events: none; clear: both;
-            }
+    .canva-block.img-left { float: left !important; margin-right: 20px !important; margin-bottom: 15px !important; clear: left; }
+    .canva-block.img-right { float: right !important; margin-left: 20px !important; margin-bottom: 15px !important; clear: right; }
+    .canva-block.img-center { float: none !important; margin-left: auto !important; margin-right: auto !important; margin-top: 20px !important; margin-bottom: 20px !important; clear: both; }
+    .canva-block.img-full { float: none !important; width: 100% !important; margin: 20px 0 !important; clear: both; }
 
-            .canva-block.img-left { float: left !important; margin-right: 20px !important; margin-bottom: 15px !important; clear: left; }
-            .canva-block.img-right { float: right !important; margin-left: 20px !important; margin-bottom: 15px !important; clear: right; }
-            .canva-block.img-center { float: none !important; margin-left: auto !important; margin-right: auto !important; margin-top: 20px !important; margin-bottom: 20px !important; clear: both; }
-            .canva-block.img-full { float: none !important; width: 100% !important; margin: 20px 0 !important; clear: both; }
+    .canva-block.size-sm { width: 30% !important; }
+    .canva-block.size-md { width: 50% !important; }
+    .canva-block.size-lg { width: 75% !important; }
+    .canva-block.size-full { width: 100% !important; }
 
-            .canva-block.size-sm { width: 30% !important; }
-            .canva-block.size-md { width: 50% !important; }
-            .canva-block.size-lg { width: 75% !important; }
-            .canva-block.size-full { width: 100% !important; }
+    .canva-block img { width: 100%; border-radius: 8px; display: block; }
+    blockquote.canva-quote { border-left: 4px solid #E50914; padding-left: 16px; margin: 20px 0; font-style: italic; color: #555; }
 
-            .canva-block img { width: 100%; border-radius: 8px; display: block; }
-            blockquote.canva-quote { border-left: 4px solid #E50914; padding-left: 16px; margin: 20px 0; font-style: italic; color: #555; }
-            
-            .vafm-ad-placeholder {
-                background: #f8f9fa; border: 2px dashed #E50914; border-radius: 8px;
-                padding: 15px; text-align: center; color: #555; font-weight: 600; font-size: 0.85rem;
-                user-select: none;
-            }
-        </style>
+    .vafm-ad-placeholder {
+        background: #f8f9fa; border: 2px dashed #E50914; border-radius: 8px;
+        padding: 15px; text-align: center; color: #555; font-weight: 600; font-size: 0.85rem;
+        user-select: none;
+    }
+</style>
 
         <div class="canva-layout ${isAdmin ? 'canva-admin-active' : ''}">
             <main class="canva-workspace">
@@ -482,7 +526,7 @@ async function openArticleView(category, id) {
                     </header>
 
                     <div class="article-content" id="canva-doc-content">
-                        ${formatContentToCanvaBlocks(rawText, isAdmin)}
+                        ${safeRenderCanvaContent(rawText, isAdmin)}
                     </div>
                 </article>
             </main>
@@ -570,14 +614,31 @@ async function openArticleView(category, id) {
         </div>
     `;
 
+    // 1. Masquer les vues d'accueil ET la grille des actualités SPA pour laisser toute la place
     const mainContent = document.getElementById('content');
-    if (mainContent) mainContent.style.display = 'none';
-    
-    articleContainer.style.display = 'block';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const newsSpa = document.getElementById('news-page-spa');
 
+    // On mémorise d'où vient l'utilisateur (Accueil ou page Actus) pour pouvoir
+    // y revenir correctement à la fermeture de l'article.
+    window._articleReturnTo = (newsSpa && newsSpa.classList.contains('active')) ? 'news' : 'home';
+
+    if (mainContent) mainContent.style.display = 'none';
+    if (newsSpa) {
+        // Important : la classe "active" pilote un `display: block !important` dans
+        // news.css. Un simple style.display = 'none' ne suffit donc pas à la masquer,
+        // il faut aussi retirer la classe, sinon la page Actus reste visible derrière
+        // et pousse la fiche article tout en bas de la page.
+        newsSpa.classList.remove('active');
+        newsSpa.style.display = 'none';
+    }
+    
+    // 2. Afficher la vue article et scroller en haut de la page
+    articleContainer.style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'instant' });
+
+    // 3. Initialisation des scripts Admin / AdSense
     if (isAdmin) {
-        initCanvaInteractions();
+        if (typeof initCanvaInteractions === 'function') initCanvaInteractions();
         initDynamicTooltips();
         initStudioShortcuts(collectionName, id);
     } else {
@@ -590,13 +651,12 @@ async function openArticleView(category, id) {
         }, 300);
     }
 
-    // Mise à jour de l'URL dans la barre d'adresse
     history.pushState({ page: 'article', category, id }, title, cleanUrlPath);
 }
 
-/* --------------------------------------------------------------------------
-   2. POPUPS DYNAMIQUES ET RACCOURCIS CLAVIER
-   -------------------------------------------------------------------------- */
+/* ==========================================================================
+   POPUPS DYNAMIQUES ET RACCOURCIS CLAVIER
+   ========================================================================== */
 function initDynamicTooltips() {
     let tooltipEl = document.getElementById('vafm-global-tooltip');
     if (!tooltipEl) {
@@ -646,16 +706,16 @@ function handleStudioKeydown(e) {
     
     if (key === 'b') {
         e.preventDefault();
-        applyFormat('bold');
+        if (typeof applyFormat === 'function') applyFormat('bold');
     } else if (key === 'i') {
         e.preventDefault();
-        applyFormat('italic');
+        if (typeof applyFormat === 'function') applyFormat('italic');
     } else if (key === 'u') {
         e.preventDefault();
-        applyFormat('underline');
+        if (typeof applyFormat === 'function') applyFormat('underline');
     } else if (key === 's') {
         e.preventDefault();
-        if (window._currentStudioContext) {
+        if (window._currentStudioContext && typeof saveCanvaArticle === 'function') {
             saveCanvaArticle(window._currentStudioContext.collectionName, window._currentStudioContext.id);
         }
     }
@@ -931,10 +991,31 @@ function closeArticleView() {
     // Supprime le balisage Schema de l'article fermé
     document.getElementById('news-schema')?.remove();
 
-    const mainContent = document.getElementById('content');
-    if (mainContent) mainContent.style.display = 'block';
-    
-    history.pushState({ page: 'home' }, '', '/');
+    // Rétablir la vue précédente (page Actus ou Accueil), en se basant sur l'origine
+    // mémorisée à l'ouverture plutôt que sur un test de contenu HTML (toujours vrai
+    // pour la grille Actus, qui est statique). On réutilise les fonctions de news.js
+    // qui gèrent déjà correctement les classes "active" et les menus de navigation.
+    const returnTo = window._articleReturnTo || 'home';
+    delete window._articleReturnTo;
+
+    if (returnTo === 'news' && typeof openNewsPage === 'function') {
+        openNewsPage();
+        history.pushState({ page: 'news' }, '', '#actus');
+    } else if (typeof showHomePage === 'function') {
+        showHomePage();
+        history.pushState({ page: 'home' }, '', '/');
+    } else {
+        // Repli si news.js n'est pas chargé (ne devrait pas arriver)
+        const newsSpa = document.getElementById('news-page-spa');
+        const mainContent = document.getElementById('content');
+        if (returnTo === 'news' && newsSpa) {
+            newsSpa.classList.add('active');
+            newsSpa.style.display = 'block';
+        } else if (mainContent) {
+            mainContent.style.display = 'block';
+        }
+        history.pushState({ page: returnTo }, '', returnTo === 'news' ? '#actus' : '/');
+    }
 }
 
 window.addEventListener('popstate', (e) => {

@@ -3528,6 +3528,8 @@ body.drawer-open {
 /* Barre de recherche animée */
 .search-bar-container {
   position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   width: 0%;
   max-width: 520px;
   opacity: 0;
@@ -3830,4 +3832,218 @@ body.drawer-open {
 /* Forcer le lecteur floating à rester AU-DESSUS du fond de maintenance */
 footer.vafm-player-premium {
   z-index: 2147483647 !important; /* Priorité absolue sur l'écran de maintenance */
+}
+
+/* S'assurer que le header est la référence d'affichage */
+.navbar {
+    position: relative;
+    z-index: 10000;
+}
+
+/* Bouton Hamburger : caché sur PC par défaut */
+.mobile-menu-btn {
+    display: none;
+    flex-direction: column;
+    justify-content: space-around;
+    width: 28px;
+    height: 22px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin: 0 10px;
+    z-index: 10001;
+}
+
+.mobile-menu-btn span {
+    width: 100%;
+    height: 2.5px;
+    background-color: #1c1c1e;
+    border-radius: 4px;
+    transition: all 0.25s ease-in-out;
+}
+
+/* Transformation en X au clic */
+.mobile-menu-btn.open span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+}
+.mobile-menu-btn.open span:nth-child(2) {
+    opacity: 0;
+}
+.mobile-menu-btn.open span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+}
+
+/* MENU DROPDOWN MOBILE */
+.mobile-dropdown-menu {
+    position: absolute;
+    top: 100%; /* Se colle exactement sous le header */
+    left: 0;
+    width: 100%;
+    background: #ffffff;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    padding: 12px 16px;
+    z-index: 999999; /* Passe au-dessus de tout le reste */
+    box-sizing: border-box;
+
+    display: none; /* Masqué par défaut */
+}
+
+/* Affichage forcé au clic */
+.mobile-dropdown-menu.active {
+    display: block !important;
+}
+
+/* Style du bouton d'action */
+.mobile-dropdown-menu a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 16px;
+    color: #1a1a1a;
+    font-weight: 700;
+    font-size: 1rem;
+    text-decoration: none;
+    border-radius: 10px;
+    background: #f4f4f6;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.mobile-dropdown-menu a:active {
+    background-color: #E50914;
+    color: #ffffff;
+}
+
+/* Affichage du bouton sur mobile */
+@media screen and (max-width: 768px) {
+    .mobile-menu-btn {
+        display: flex !important;
+    }
+}
+
+/* Suppression des marges supérieures */
+body, #content {
+    margin-top: 0;
+    padding-top: 0;
+}
+
+.hero-section, #home {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* Cache les liens de navigation quand la recherche s'ouvre */
+.nav-links.hidden {
+    display: none !important;
+}
+
+/* Zone centrale */
+.nav-center-zone {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Container de recherche (nettoyé de tout fond/ombre fantôme) */
+.search-bar-container {
+    display: none;
+    width: 100%;
+    max-width: 600px;
+    position: relative; /* Indispensable pour caler la croix à l'intérieur */
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+.search-bar-container.active {
+    display: flex !important;
+}
+
+/* Le champ de recherche */
+.search-bar-container input {
+    width: 100%;
+    padding: 10px 42px 10px 18px; /* 42px à droite pour laisser de la place à la croix */
+    border-radius: 20px;
+    border: 1px solid #e0e0e0;
+    background-color: #f5f5f7;
+    font-size: 0.95rem;
+    outline: none;
+    box-sizing: border-box; /* Évite que l'input ne déborde du container */
+}
+
+/* Bouton fermer (Croix) bien calé à l'intérieur */
+.btn-close-search {
+    position: absolute;
+    right: 14px; /* Rentrée de quelques pixels vers la gauche pour épouser l'arrondi */
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    color: #666;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    line-height: 1;
+    z-index: 2;
+}
+
+.btn-close-search:hover {
+    color: #000;
+}
+
+/* Panneau latéral du compte (sidebar) */
+.user-sidebar, 
+.account-drawer, 
+#user-drawer, 
+#auth-modal { /* Remplace par le sélecteur exact de ton panneau latéral */
+    z-index: 2000 !important; /* Force le panneau à passer au-dessus de tout le reste */
+}
+
+/* Overlay sombre derrière le panneau (si présent) */
+.drawer-overlay, 
+.modal-overlay {
+    z-index: 1999 !important;
+}
+
+/* Header principal */
+header, 
+.navbar {
+    z-index: 1000; /* Valeur inférieure au panneau */
+}
+
+#news-page-spa {
+    display: none;
+    width: 100%;
+    min-height: 100vh; /* S'assure de couvrir au moins toute la hauteur de l'écran */
+    background-color: #ffffff; /* Ajuste selon ton thème (#09090b si thème sombre) */
+    position: relative;
+    z-index: 10;
+    box-sizing: border-box;
+}
+
+/* Seul le header principal est fixé en haut */
+header, 
+.navbar {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000 !important;
+}
+
+/* On remet la zone centrale du menu en position normale dans le flexbox */
+.nav-center-zone {
+    position: static !important; /* Annule le fixed sur les boutons */
+}
+
+/* Décale le contenu principal sous la barre fixe sans la cacher */
+#content, 
+#news-page-spa {
+    padding-top: 80px; /* Ajuste si besoin selon la hauteur exacte de ta navbar */
 }

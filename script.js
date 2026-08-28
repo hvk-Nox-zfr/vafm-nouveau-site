@@ -324,7 +324,6 @@ async function fetchAllFromPocketBase() {
         const res = await fetch(url);
         if (!res.ok) {
           console.warn(`Erreur ${res.status} sur la collection : ${collection}`);
-          // Si l'erreur est un problème serveur (5xx), on active le mode maintenance
           if (res.status >= 500) isServerDown = true;
           return [];
         }
@@ -332,30 +331,28 @@ async function fetchAllFromPocketBase() {
         return data.items || [];
       } catch (e) {
         console.error(`Injoignable : ${collection}`, e);
-        isServerDown = true; // Serveur indisponible ou coupure réseau
+        isServerDown = true;
         return [];
       }
     };
 
     const [heroItems, actusItems, emissionsItems, animateursItems, videosItems, actuLikesItems] = await Promise.all([
       getCollectionData('hero'),
-      getCollectionData('actus', 'id,titre,title,texte,contenu,description,image,is_published,position,created'),
+      // CORRECTION 1 : Ajout de "category" dans le paramètre fields
+      getCollectionData('actus', 'id,titre,title,texte,contenu,description,image,category,is_published,position,created'),
       getCollectionData('emissions'),
       getCollectionData('animateurs'),
       getCollectionData('videos'),
       getCollectionData('actu_likes')
     ]);
 
-    // Si le serveur ne répond pas du tout, affichage de l'écran de maintenance
     if (isServerDown) {
       showMaintenanceScreen();
       return;
     }
 
-    // Le serveur répond : masque de l'overlay de maintenance si présent
     document.getElementById('maintenance-overlay')?.classList.add('hidden');
 
-    // Récupération de la condition d'origine pour afficher les brouillons aux admins
     const canSeeDrafts = Boolean(appState.editMode && appState.currentUser);
 
     const filterPublished = (items) => {
@@ -379,6 +376,8 @@ async function fetchAllFromPocketBase() {
         id: a.id,
         title: a.titre || a.title || '',
         text: a.texte || a.description || '',
+        // CORRECTION 2 : Récupération du champ category
+        category: a.category || 'sport',
         img: getPocketBaseImageUrl('actus', a.id, a.image, '500x350') || 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600',
         is_published: a.is_published !== undefined ? Boolean(a.is_published) : true,
         position: a.position || 0,
@@ -418,6 +417,11 @@ async function fetchAllFromPocketBase() {
     }));
 
     renderAll();
+    
+    // Si la vue SPA news est ouverte, on la rafraîchit
+    if (typeof renderNewsSpa === 'function') {
+      renderNewsSpa(appState.news);
+    }
   } catch (err) {
     console.error("Erreur générale :", err);
     showMaintenanceScreen();
@@ -599,13 +603,70 @@ window.addEventListener('DOMContentLoaded', () => {
   setTimeout(removeCarouselBoxBackground, 300);
 });
 
-function renderAll() {
-  const heroWrapper = document.getElementById('hero-wrapper');
+// Rend les 3 sous-sections Actualités de l'accueil (Nouveaux, Plus likés,
+// Plus anciennes) avec le carrousel bento (tailles de cartes aléatoires,
+// pagination limitée + carte "Voir plus" vers la page Actus dédiée).
+function renderHomeNewsGrids() {
   const topLikedGrid = document.getElementById('top-liked-news-grid');
   const topLikedSubsection = document.getElementById('top-liked-subsection');
   const recentNewsGrid = document.getElementById('recent-news-grid');
   const oldNewsGrid = document.getElementById('old-news-grid');
   const oldNewsSubsection = document.getElementById('old-news-subsection');
+
+  if (!appState.news) return;
+
+  const renderBento = typeof renderHomeNewsBento === 'function' ? renderHomeNewsBento : null;
+
+  if (topLikedGrid) {
+    const topLikedNews = [...appState.news]
+      .filter(item => Array.isArray(item.likesList) && item.likesList.length > 0)
+      .sort((a, b) => (b.likesList?.length || 0) - (a.likesList?.length || 0))
+      .slice(0, 3);
+
+    if (topLikedNews.length > 0) {
+      if (topLikedSubsection) topLikedSubsection.style.display = 'block';
+      if (renderBento) renderBento(topLikedGrid, topLikedNews, 'home_top_liked');
+    } else {
+      if (topLikedSubsection) topLikedSubsection.style.display = 'none';
+    }
+  }
+
+  const now = new Date();
+  const twoWeeksInMs = 14 * 24 * 60 * 60 * 1000;
+  const sortByRecentDate = (a, b) => new Date(b.created || 0) - new Date(a.created || 0);
+
+  const recentNews = appState.news
+    .filter(item => {
+      if (!item.created) return true;
+      const createdDate = new Date(item.created);
+      return (now - createdDate) < twoWeeksInMs;
+    })
+    .sort(sortByRecentDate);
+
+  const oldNews = appState.news
+    .filter(item => {
+      if (!item.created) return false;
+      const createdDate = new Date(item.created);
+      return (now - createdDate) >= twoWeeksInMs;
+    })
+    .sort(sortByRecentDate);
+
+  if (recentNewsGrid && renderBento) {
+    renderBento(recentNewsGrid, recentNews, 'home_recent');
+  }
+
+  if (oldNewsGrid) {
+    if (oldNews.length > 0) {
+      if (oldNewsSubsection) oldNewsSubsection.style.display = 'block';
+      if (renderBento) renderBento(oldNewsGrid, oldNews, 'home_old');
+    } else {
+      if (oldNewsSubsection) oldNewsSubsection.style.display = 'none';
+    }
+  }
+}
+
+function renderAll() {
+  const heroWrapper = document.getElementById('hero-wrapper');
   const showsGrid = document.getElementById('shows-grid');
   const teamDirecteurGrid = document.getElementById('vafm-team-directeur');
   const teamDjGrid = document.getElementById('vafm-team-dj');
@@ -674,64 +735,7 @@ function renderAll() {
     });
   }
 
-  if (topLikedGrid) {
-    const topLikedNews = [...appState.news]
-      .filter(item => Array.isArray(item.likesList) && item.likesList.length > 0)
-      .sort((a, b) => (b.likesList?.length || 0) - (a.likesList?.length || 0))
-      .slice(0, 3);
-
-    if (topLikedNews.length > 0) {
-      if (topLikedSubsection) topLikedSubsection.style.display = 'block';
-      renderGrid(topLikedGrid, topLikedNews, 'news', 'actus');
-    } else {
-      if (topLikedSubsection) topLikedSubsection.style.display = 'none';
-    }
-  }
-
-  const now = new Date();
-  const twoWeeksInMs = 14 * 24 * 60 * 60 * 1000;
-  const sortByRecentDate = (a, b) => new Date(b.created || 0) - new Date(a.created || 0);
-
-  const recentNews = appState.news
-    .filter(item => {
-      if (!item.created) return true;
-      const createdDate = new Date(item.created);
-      return (now - createdDate) < twoWeeksInMs;
-    })
-    .sort(sortByRecentDate);
-
-  const oldNews = appState.news
-    .filter(item => {
-      if (!item.created) return false;
-      const createdDate = new Date(item.created);
-      return (now - createdDate) >= twoWeeksInMs;
-    })
-    .sort(sortByRecentDate);
-
-  if (recentNewsGrid) {
-    if (recentNews.length >= 9) {
-      recentNewsGrid.classList.add('vafm-news-carousel-mode');
-      renderCarouselGrid(recentNewsGrid, recentNews, 'news', 'actus');
-    } else {
-      recentNewsGrid.classList.remove('vafm-news-carousel-mode');
-      renderGrid(recentNewsGrid, recentNews, 'news', 'actus');
-    }
-  }
-
-  if (oldNewsGrid) {
-    if (oldNews.length > 0) {
-      if (oldNewsSubsection) oldNewsSubsection.style.display = 'block';
-      if (oldNews.length >= 9) {
-        oldNewsGrid.classList.add('vafm-news-carousel-mode');
-        renderCarouselGrid(oldNewsGrid, oldNews, 'news', 'actus');
-      } else {
-        oldNewsGrid.classList.remove('vafm-news-carousel-mode');
-        renderGrid(oldNewsGrid, oldNews, 'news', 'actus');
-      }
-    } else {
-      if (oldNewsSubsection) oldNewsSubsection.style.display = 'none';
-    }
-  }
+  renderHomeNewsGrids();
 
   renderGrid(showsGrid, appState.shows, 'shows', 'emissions');
 
@@ -1091,11 +1095,20 @@ function openEditorModal(category, id = null) {
   const idInput = document.getElementById('editor-item-id');
   const preview = document.getElementById('file-preview');
   const fileInput = document.getElementById('file-input');
+  
+  // Éléments du sélecteur de catégorie d'actualité
+  const categoryGroup = document.getElementById('editor-category-select-group');
+  const categorySelect = document.getElementById('editor-news-category');
 
   if (catInput) catInput.value = category;
   if (idInput) idInput.value = id || '';
   if (preview) preview.innerHTML = '';
   if (fileInput) fileInput.value = '';
+
+  // Afficher le menu déroulant uniquement pour les actualités
+  if (categoryGroup) {
+    categoryGroup.style.display = (category === 'news') ? 'block' : 'none';
+  }
 
   const titleEl = document.getElementById('modal-editor-title');
 
@@ -1105,17 +1118,29 @@ function openEditorModal(category, id = null) {
       if (titleEl) titleEl.innerText = "Modifier l'élément";
       const edTitle = document.getElementById('editor-title');
       const edText = document.getElementById('editor-text');
-      if (edTitle) edTitle.value = item.title;
-      if (edText) edText.value = item.text;
+      if (edTitle) edTitle.value = item.title || '';
+      if (edText) edText.value = item.text || item.description || '';
+      
+      // Pré-sélectionner la catégorie existante
+      if (category === 'news' && categorySelect && item.category) {
+        categorySelect.value = item.category;
+      }
+
       if (item.img && preview) {
         preview.innerHTML = `<img src="${item.img}">`;
       }
     }
-  } else {
-    if (titleEl) titleEl.innerText = "Ajouter un élément";
-    const form = document.getElementById('card-editor-form');
-    if (form) form.reset();
+// À la fin de la fonction openEditorModal, dans le bloc "else" (Ajout d'un élément) :
+} else {
+  if (titleEl) titleEl.innerText = "Ajouter un élément";
+  const form = document.getElementById('card-editor-form');
+  if (form) form.reset();
+
+  // Forcer l'option par défaut "-- Sélectionner une catégorie --"
+  if (category === 'news' && categorySelect) {
+    categorySelect.selectedIndex = 0;
   }
+}
 
   openModal('card-editor-modal');
 }
@@ -1290,6 +1315,15 @@ async function handleCardFormSubmit(e) {
   const category = document.getElementById('editor-category')?.value;
   const id = document.getElementById('editor-item-id')?.value;
 
+// Vérification de la catégorie pour les actualités
+if (category === 'news') {
+  const newsCategorySelect = document.getElementById('editor-news-category');
+  if (!newsCategorySelect || !newsCategorySelect.value) {
+    alert("Veuillez sélectionner une catégorie pour l'actualité.");
+    return;
+  }
+}
+
   if (id && !canEditCategory(category)) {
     alert("Action non autorisée.");
     return;
@@ -1321,6 +1355,14 @@ async function handleCardFormSubmit(e) {
 
   if (appState && appState.currentUser) {
     formData.append('user', appState.currentUser.id);
+  }
+
+  // AJOUT : Récupération et envoi de la sous-catégorie d'actualité (sport, faits-divers, etc.)
+  if (category === 'news') {
+    const newsCategorySelect = document.getElementById('editor-news-category');
+    if (newsCategorySelect) {
+      formData.append('category', newsCategorySelect.value);
+    }
   }
 
   if (category === 'team') {
@@ -2510,9 +2552,9 @@ function initRadioPlayer() {
 
   let lastTitleSeen = songHistory.length > 0 ? songHistory[0].title : "";
 
-  async function fetchServerHistoryDirectly() {
+async function fetchServerHistoryDirectly() {
     try {
-        const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=20`);
+        const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=50`);
         if (!res.ok) return;
 
         const data = await res.json();
@@ -2524,44 +2566,42 @@ function initRadioPlayer() {
         for (const item of data.items) {
             const cleanTitle = (item.title || "").toLowerCase().trim();
             
-            if (!seenTitles.has(cleanTitle) && !cleanTitle.includes("vafm – en direct")) {
+            // On vérifie que le titre n'a pas déjà été ajouté dans notre Set
+            if (cleanTitle && !seenTitles.has(cleanTitle) && !cleanTitle.includes("vafm – en direct")) {
                 seenTitles.add(cleanTitle);
-                uniqueItems.push(item);
+                
+                let displayTime = item.time;
+                if (item.created) {
+                    const d = new Date(item.created);
+                    displayTime = d.toLocaleTimeString('fr-FR', { 
+                        hour: '2-digit', 
+                        minute: '2-digit', 
+                        timeZone: 'Europe/Paris' 
+                    });
+                }
+
+                uniqueItems.push({
+                    id: item.id,
+                    title: item.title,
+                    time: displayTime || 'En direct',
+                    cover: item.cover || '/LOGO - VAFM.png'
+                });
             }
 
             if (uniqueItems.length === 10) break;
         }
 
         if (uniqueItems.length > 0) {
-            lastTitleSeen = uniqueItems[0].title;
+            songHistory = uniqueItems;
+            lastTitleSeen = songHistory[0].title;
+            localStorage.setItem("vafm_song_history", JSON.stringify(songHistory));
+            renderHistoryList();
         }
-
-        songHistory = uniqueItems.map(item => {
-            let displayTime = item.time;
-            if (item.created) {
-                const d = new Date(item.created);
-                displayTime = d.toLocaleTimeString('fr-FR', { 
-                    hour: '2-digit', 
-                    minute: '2-digit', 
-                    timeZone: 'Europe/Paris' 
-                });
-            }
-
-            return {
-                id: item.id,
-                title: item.title,
-                time: displayTime || 'En direct',
-                cover: item.cover || '/LOGO - VAFM.png'
-            };
-        });
-
-        localStorage.setItem("vafm_song_history", JSON.stringify(songHistory));
-        renderHistoryList();
 
     } catch (e) {
         console.warn("Erreur chargement PocketBase song_history :", e);
     }
-  }
+}
 
   const playerBar = playBtn.closest('.player, .audio-player, div[style*="background"], footer') || playBtn.parentElement;
   let miniPlayBtn = null;
@@ -2790,13 +2830,32 @@ function initRadioPlayer() {
       const coverUrl = await fetchTrackCover(formattedTitle);
       if (liveCoverEl) liveCoverEl.src = coverUrl;
 
-      if (formattedTitle.toLowerCase().trim() !== lastTitleSeen.toLowerCase().trim() && formattedTitle !== "VAFM – En Direct") {
-        lastTitleSeen = formattedTitle;
-        if (!isVafmIdent(formattedTitle)) {
-            await saveSongToPocketBase(formattedTitle, coverUrl);
-        }
-        await fetchServerHistoryDirectly();
-      }
+      // Remplace ton bloc de détection dans updateCurrentTitle par ceci :
+if (formattedTitle.toLowerCase().trim() !== lastTitleSeen.toLowerCase().trim() && formattedTitle !== "VAFM – En Direct") {
+    lastTitleSeen = formattedTitle;
+    
+    if (!isVafmIdent(formattedTitle)) {
+        // 1. Sauvegarde dans PocketBase
+        saveSongToPocketBase(formattedTitle, coverUrl);
+
+        // 2. Ajout immédiat en mémoire locale sans doublon
+        const parts = formattedTitle.split(' – ');
+        const currentTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+        
+        const newSong = {
+            id: Date.now().toString(),
+            title: formattedTitle,
+            time: currentTime,
+            cover: coverUrl
+        };
+
+        // Filtrer au cas où le titre existe déjà dans le tableau local
+        songHistory = [newSong, ...songHistory.filter(s => s.title.toLowerCase().trim() !== formattedTitle.toLowerCase().trim())].slice(0, 10);
+        
+        localStorage.setItem("vafm_song_history", JSON.stringify(songHistory));
+        renderHistoryList();
+    }
+}
 
       if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({
@@ -3077,140 +3136,111 @@ function setupSystemNotifTrigger() {
   }
 }
 
-// OUVRIRE LA BARRE DE RECHERCHE ET MASQUER LE MENU
+/* ==========================================================================
+BARRE DE RECHERCHE GLOBALE
+========================================================================== */
 function openSearchBar() {
-  const navLinks = document.getElementById('nav-links');
-  const searchBar = document.getElementById('search-bar-container');
+  const container = document.getElementById('search-bar-container');
+  const triggerBtn = document.getElementById('search-trigger-btn');
+  const mainNav = document.getElementById('main-nav-links');
+  const newsNav = document.getElementById('news-nav-links');
   const searchInput = document.getElementById('global-search-input');
 
-  if (navLinks && searchBar) {
-    navLinks.classList.add('hidden');
-    searchBar.classList.add('active');
-    setTimeout(() => searchInput?.focus(), 150);
+  if (container) container.classList.add('active');
+  if (triggerBtn) triggerBtn.style.display = 'none';
+  if (mainNav) mainNav.style.display = 'none';
+  if (newsNav) newsNav.style.display = 'none';
+
+  if (searchInput) {
+    searchInput.focus();
   }
 }
 
-// FERMER LA BARRE DE RECHERCHE ET REFAIRE APPARAÎTRE LE MENU
 function closeSearchBar() {
-  const navLinks = document.getElementById('nav-links');
-  const searchBar = document.getElementById('search-bar-container');
-  const dropdown = document.getElementById('search-results-dropdown');
+  const container = document.getElementById('search-bar-container');
+  const triggerBtn = document.getElementById('search-trigger-btn');
+  const mainNav = document.getElementById('main-nav-links');
+  const newsNav = document.getElementById('news-nav-links');
   const searchInput = document.getElementById('global-search-input');
+  const dropdown = document.getElementById('search-results-dropdown');
+  const newsPage = document.getElementById('news-page-spa');
 
-  if (navLinks && searchBar) {
-    searchBar.classList.remove('active');
-    navLinks.classList.remove('hidden');
-    if (dropdown) dropdown.classList.remove('active');
-    if (searchInput) searchInput.value = '';
+  if (container) container.classList.remove('active');
+  if (triggerBtn) triggerBtn.style.display = 'flex';
+
+  // Réaffiche le bon menu selon qu'on est sur la page Actus ou sur l'accueil
+  const onNewsPage = Boolean(newsPage && newsPage.classList.contains('active'));
+  if (mainNav) mainNav.style.display = onNewsPage ? 'none' : 'flex';
+  if (newsNav) newsNav.style.display = onNewsPage ? 'flex' : 'none';
+
+  if (searchInput) searchInput.value = '';
+  if (dropdown) {
+    dropdown.innerHTML = '';
+    dropdown.style.display = 'none';
   }
 }
 
-// LOGIQUE DE RECHERCHE GLOBALE FIXÉE
-function handleGlobalSearch(event) {
-  const query = event.target.value.toLowerCase().trim();
+function handleGlobalSearch(e) {
+  const query = e.target.value.toLowerCase().trim();
   const dropdown = document.getElementById('search-results-dropdown');
   if (!dropdown) return;
 
   if (query.length < 2) {
-    dropdown.classList.remove('active');
     dropdown.innerHTML = '';
+    dropdown.style.display = 'none';
     return;
   }
 
-  let results = [];
+  const results = [];
 
-// 1. Recherche dans les articles / actualités
-  if (appState && appState.news) {
-    appState.news.forEach(item => {
-      const matchTitle = item.title && item.title.toLowerCase().includes(query);
-      const matchText = item.text && item.text.toLowerCase().includes(query);
-      
-      if (matchTitle || matchText) {
-        results.push({
-          type: 'Article',
-          title: item.title || 'Article sans titre',
-          action: () => {
-            closeSearchBar();
-            // Passe la catégorie ('actus') EN PREMIER, puis l'ID de l'article EN SECOND
-            const category = item.category || 'actus';
-            const id = item.id;
+  // Recherche dans les Actualités
+  (appState.news || []).forEach(item => {
+    if (item.title.toLowerCase().includes(query) || item.text.toLowerCase().includes(query)) {
+      results.push({ type: 'Actualité', category: 'news', ...item });
+    }
+  });
 
-            if (typeof openArticleView === 'function') {
-              openArticleView(category, id);
-            } else if (typeof openArticle === 'function') {
-              openArticle(category, id);
-            } else if (id) {
-              window.location.hash = `article-${id}`;
-            }
-          }
-        });
-      }
-    });
-  }
+  // Recherche dans les Émissions
+  (appState.shows || []).forEach(item => {
+    if (item.title.toLowerCase().includes(query) || item.text.toLowerCase().includes(query)) {
+      results.push({ type: 'Émission', category: 'shows', ...item });
+    }
+  });
 
-  // 2. Recherche dans les émissions
-  if (appState && appState.shows) {
-    appState.shows.forEach(item => {
-      if (item.title && item.title.toLowerCase().includes(query)) {
-        results.push({
-          type: 'Émission',
-          title: item.title,
-          action: () => {
-            closeSearchBar();
-            const el = document.getElementById('emissions');
-            if (el) el.scrollIntoView({ behavior: 'smooth' });
-            else window.location.hash = 'emissions';
-          }
-        });
-      }
-    });
-  }
+  // Recherche dans l'Équipe
+  (appState.team || []).forEach(item => {
+    if (item.title.toLowerCase().includes(query) || item.text.toLowerCase().includes(query)) {
+      results.push({ type: 'Équipe', category: 'team', ...item });
+    }
+  });
 
-  // 3. Recherche dans les animateurs
-  if (appState && appState.team) {
-    appState.team.forEach(item => {
-      if (item.title && item.title.toLowerCase().includes(query)) {
-        results.push({
-          type: 'Animateur',
-          title: item.title,
-          action: () => {
-            closeSearchBar();
-            const el = document.getElementById('animateurs');
-            if (el) el.scrollIntoView({ behavior: 'smooth' });
-            else window.location.hash = 'animateurs';
-          }
-        });
-      }
-    });
-  }
-
-  // Affichage des résultats
-  if (results.length > 0) {
-    dropdown.innerHTML = results.map((res, index) => `
-      <div class="search-result-item" data-index="${index}">
-        <span class="search-result-type">${res.type}</span>
-        <span class="search-result-title">${res.title}</span>
+  if (results.length === 0) {
+    dropdown.innerHTML = `<div class="search-no-result">Aucun résultat pour "${query}"</div>`;
+  } else {
+    dropdown.innerHTML = results.slice(0, 6).map(res => `
+      <div class="search-result-item" onclick="openArticleView('${res.category}', '${res.id}'); closeSearchBar();">
+        <img src="${res.img}" alt="${res.title}" class="search-result-img" onerror="this.src='https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600'">
+        <div class="search-result-info">
+          <span class="search-result-badge">${res.type}</span>
+          <span class="search-result-title">${res.title}</span>
+        </div>
       </div>
     `).join('');
-
-    // Attachement des événements au clic
-    dropdown.querySelectorAll('.search-result-item').forEach((el) => {
-      el.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const index = parseInt(el.getAttribute('data-index'), 10);
-        if (results[index] && typeof results[index].action === 'function') {
-          results[index].action();
-        }
-      });
-    });
-
-    dropdown.classList.add('active');
-  } else {
-    dropdown.innerHTML = `<div class="search-result-item" style="color: #888; cursor: default;">Aucun résultat trouvé</div>`;
-    dropdown.classList.add('active');
   }
+
+  dropdown.style.display = 'block';
 }
+
+// Fermeture de la recherche au clic à l'extérieur
+document.addEventListener('click', (e) => {
+  const container = document.getElementById('search-bar-container');
+  const triggerBtn = document.getElementById('search-trigger-btn');
+  if (container && container.classList.contains('active')) {
+    if (!container.contains(e.target) && !triggerBtn.contains(e.target)) {
+      closeSearchBar();
+    }
+  }
+});
 
 // Fonction pour déterminer le chemin de l'image d'avatar selon la 1ère lettre
 function getUserAvatarPath(username) {
@@ -3277,3 +3307,13 @@ document.addEventListener("DOMContentLoaded", function() {
     observer.observe(footer);
   }
 });
+
+function toggleMobileMenu() {
+    const menu = document.getElementById('mobile-dropdown-menu');
+    const btn = document.getElementById('mobile-menu-btn');
+    
+    if (menu && btn) {
+        menu.classList.toggle('active');
+        btn.classList.toggle('open');
+    }
+}

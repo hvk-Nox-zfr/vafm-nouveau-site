@@ -38,6 +38,9 @@
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
     <link rel="stylesheet" href="/style.css">
+    <!-- FICHIER CSS DÉDIÉ SPA ACTUALITÉS -->
+    <link rel="stylesheet" href="/news.css">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://api.vafmlaradio.fr">
     <link rel="dns-prefetch" href="https://api.vafmlaradio.fr">
@@ -67,17 +70,17 @@
       });
     </script>
     <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-E9V5XJYL0E"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-E9V5XJYL0E"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
 
-  gtag('config', 'G-E9V5XJYL0E');
-</script>
+      gtag('config', 'G-E9V5XJYL0E');
+    </script>
 </head>
 <body>
-<div id="maintenance-overlay" class="hidden">
+    <div id="maintenance-overlay" class="hidden">
       <div class="maintenance-content">
         <img src="LOGO - VAFM.png" alt="VAFM Logo" class="maintenance-logo" />
         <h1>Maintenance en cours</h1>
@@ -265,15 +268,15 @@
         <div class="drawer-panel drawer-panel-main" id="drawer-panel-main">
             <div class="drawer-header">
                 <div class="drawer-user-info">
-    <div class="drawer-avatar-container" style="width: 44px; height: 44px; position: relative; border-radius: 50%; overflow: hidden; flex-shrink: 0;">
-        <img id="drawer-user-avatar-img" src="" alt="Avatar" style="display: none; width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" />
-        <span id="drawer-user-avatar-fallback" class="user-initial" style="width: 100%; height: 100%; background-color: #E50914; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.1rem; border-radius: 50%;">U</span>
-    </div>
-    <div class="drawer-user-details">
-        <span class="drawer-user-name" id="drawer-user-name">Nom Utilisateur</span>
-        <span class="drawer-user-role" id="drawer-user-role">Membre VAFM</span>
-    </div>
-</div>
+                    <div class="drawer-avatar-container" style="width: 44px; height: 44px; position: relative; border-radius: 50%; overflow: hidden; flex-shrink: 0;">
+                        <img id="drawer-user-avatar-img" src="" alt="Avatar" style="display: none; width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" />
+                        <span id="drawer-user-avatar-fallback" class="user-initial" style="width: 100%; height: 100%; background-color: #E50914; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.1rem; border-radius: 50%;">U</span>
+                    </div>
+                    <div class="drawer-user-details">
+                        <span class="drawer-user-name" id="drawer-user-name">Nom Utilisateur</span>
+                        <span class="drawer-user-role" id="drawer-user-role">Membre VAFM</span>
+                    </div>
+                </div>
                 <button class="drawer-close-btn" onclick="closeUserDrawer()">✕</button>
             </div>
 
@@ -333,6 +336,19 @@
                 <input type="hidden" id="editor-category">
                 <input type="hidden" id="editor-item-id">
 
+                <!-- MENU DÉROULANT POUR DÉFINIR LA SECTION / CATÉGORIE D'ACTU (ORDRE CORRIGÉ) -->
+                <div class="input-group" id="editor-category-select-group" style="display: none;">
+                    <label for="editor-news-category">Section / Catégorie *</label>
+                    <select id="editor-news-category" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: #fff; font-size: 0.95rem; font-family: inherit; margin-top: 5px;">
+                        <option value="" disabled selected>-- Sélectionner une catégorie --</option>
+                        <option value="culture">Culture & Musique</option>
+                        <option value="tech">Tech</option>
+                        <option value="sport">Sport</option>
+                        <option value="societe">Société</option>
+                        <option value="faits-divers">Faits Divers</option>
+                    </select>
+                </div>
+
                 <div class="input-group">
                     <label for="editor-title">Titre</label>
                     <input type="text" id="editor-title" required placeholder="Titre principal">
@@ -362,50 +378,88 @@
     </div>
 
     <!-- NAVBAR -->
-<header class="navbar" id="main-navbar">
-    <div class="logo-container">
-        <a href="#" id="home-logo-btn">
-            <img src="VAFM logo rouge.png" alt="VAFM" class="nav-logo">
-        </a>
-    </div>
-
-    <!-- ZONE CENTRALE : NAVIGATION + BARRE DE RECHERCHE -->
-    <div class="nav-center-zone">
-        <nav class="nav-links" id="nav-links">
-            <a href="#" onclick="closeArticleView(); return false;">Accueil</a>
-            <a href="#actus">Actualités</a>
-            <a href="#emissions">Émissions</a>
-            <a href="#animateurs">Animateurs</a>
-        </nav>
-
-        <!-- BARRE DE RECHERCHE DÉPLIANTE -->
-        <div class="search-bar-container" id="search-bar-container">
-            <input type="text" id="global-search-input" placeholder="Rechercher un article, émission, animateur..." oninput="handleGlobalSearch(event)">
-            <button class="btn-close-search" onclick="closeSearchBar()" title="Fermer la recherche">✕</button>
-            <div id="search-results-dropdown" class="search-results-dropdown"></div>
+    <header class="navbar" id="main-navbar">
+        <div class="logo-container">
+            <a href="#" id="home-logo-btn" onclick="closeNewsPage(); window.scrollTo({ top: 0, behavior: 'smooth' }); return false;">
+                <img src="VAFM logo rouge.png" alt="VAFM" class="nav-logo">
+            </a>
         </div>
+
+<div class="nav-center-zone">
+    <nav class="nav-links" id="main-nav-links">
+        <a href="#actus">Actualités</a>
+        <a href="#emissions">Émissions</a>
+        <a href="#animateurs">Animateurs</a>
+    </nav>
+    <nav class="nav-links" id="news-nav-links" style="display: none;">
+        <a href="#" onclick="scrollToNewsCategory('culture'); return false;">Culture & Musique</a>
+        <a href="#" onclick="scrollToNewsCategory('tech'); return false;">Tech</a>
+        <a href="#" onclick="scrollToNewsCategory('sport'); return false;">Sport</a>
+        <a href="#" onclick="scrollToNewsCategory('societe'); return false;">Société</a>
+        <a href="#" onclick="scrollToNewsCategory('faits-divers'); return false;">Faits Divers</a>
+    </nav>
+</div>
+
+    <!-- BARRE DE RECHERCHE DÉPLIANTE -->
+    <div class="search-bar-container" id="search-bar-container">
+        <input type="text" id="global-search-input" placeholder="Rechercher un article, émission, animateur..." oninput="handleGlobalSearch(event)">
+        <button class="btn-close-search" onclick="closeSearchBar()" title="Fermer la recherche">✕</button>
+        <div id="search-results-dropdown" class="search-results-dropdown"></div>
     </div>
+</div>
 
-    <!-- ACTIONS : LOUPE + PROFIL -->
-    <div class="nav-actions">
-        <button class="btn-search-trigger" id="search-trigger-btn" onclick="openSearchBar()" title="Rechercher">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-        </button>
-
-<div id="user-profile-zone">
-    <!-- Bouton profil qui affichera soit l'image dynamique, soit le SVG par défaut -->
-    <button class="btn-user-avatar" id="user-menu-btn" onclick="toggleAuthModal()" title="Mon compte">
-        <img id="user-avatar-img" src="" alt="Avatar" style="display: none; width: 32px; height: 32px; border-radius: 50%; object-fit: cover;" />
-        <svg id="default-user-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-            <circle cx="12" cy="7" r="4"></circle>
+<!-- ACTIONS : LOUPE + PROFIL -->
+<div class="nav-actions">
+    <button class="btn-search-trigger" id="search-trigger-btn" onclick="openSearchBar()" title="Rechercher">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
     </button>
+
+    <div id="user-profile-zone">
+        <button class="btn-user-avatar" id="user-menu-btn" onclick="toggleAuthModal()" title="Mon compte">
+            <img id="user-avatar-img" src="" alt="Avatar" style="display: none; width: 32px; height: 32px; border-radius: 50%; object-fit: cover;" />
+            <svg id="default-user-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+        </button>
+    </div>
 </div>
-</header>
+    </header>
+
+    <!-- PAGE SPA DÉDIÉE ACTUALITÉS -->
+    <div id="news-page-spa" class="news-page-spa-container" style="display: none;">
+
+        <!-- CONTENU DE LA PAGE PAR SECTIONS (ORDRE CORRIGÉ) -->
+        <div class="news-spa-content">
+            <section id="news-cat-sec-culture" class="news-category-section">
+                <h2 class="category-title">Culture & Musique</h2>
+                <div class="grid" id="grid-news-culture"></div>
+            </section>
+
+            <section id="news-cat-sec-tech" class="news-category-section">
+                <h2 class="category-title">Tech</h2>
+                <div class="grid" id="grid-news-tech"></div>
+            </section>
+
+            <section id="news-cat-sec-sport" class="news-category-section">
+                <h2 class="category-title">Sport</h2>
+                <div class="grid" id="grid-news-sport"></div>
+            </section>
+
+            <section id="news-cat-sec-societe" class="news-category-section">
+                <h2 class="category-title">Société</h2>
+                <div class="grid" id="grid-news-societe"></div>
+            </section>
+
+            <section id="news-cat-sec-faits-divers" class="news-category-section">
+                <h2 class="category-title">Faits Divers</h2>
+                <div class="grid" id="grid-news-faits-divers"></div>
+            </section>
+        </div>
+    </div>
 
     <!-- CONTENU PRINCIPAL -->
     <main id="content">
@@ -518,57 +572,57 @@
         </div>
     </footer>
 
-<footer id="main-footer">
-  <div class="footer-container">
-    
-    <!-- Colonne 1 : Logo + Présentation -->
-    <div class="footer-col footer-brand">
-      <img src="VAFM logo rouge.png" alt="VAFM Logo" class="footer-logo-img">
-      <p class="about-text">
-        La radio qui anime Valenciennes et sa région. Créez votre compte membre VAFM pour interagir avec nos animateurs et profiter de tous les services.
-      </p>
-    </div>
+    <footer id="main-footer">
+      <div class="footer-container">
+        
+        <!-- Colonne 1 : Logo + Présentation -->
+        <div class="footer-col footer-brand">
+          <img src="VAFM logo rouge.png" alt="VAFM Logo" class="footer-logo-img">
+          <p class="about-text">
+            La radio qui anime Valenciennes et sa région. Créez votre compte membre VAFM pour interagir avec nos animateurs et profiter de tous les services.
+          </p>
+        </div>
 
-    <!-- Colonne 2 : Contact -->
-    <div class="footer-col">
-      <h3>Contact</h3>
-      <ul class="footer-list">
-        <li><a href="mailto:contact.vafm@gmail.com">contact.vafm@gmail.com</a></li>
-      </ul>
-    </div>
+        <!-- Colonne 2 : Contact -->
+        <div class="footer-col">
+          <h3>Contact</h3>
+          <ul class="footer-list">
+            <li><a href="mailto:contact.vafm@gmail.com">contact.vafm@gmail.com</a></li>
+          </ul>
+        </div>
 
-    <!-- Colonne 3 : Informations légales -->
-    <div class="footer-col">
-      <h3>Informations</h3>
-      <ul class="footer-list">
-        <li><a href="legal.html#mentions">Mentions Légales</a></li>
-        <li><a href="legal.html#privacy">Politique de Confidentialité</a></li>
-      </ul>
-    </div>
+        <!-- Colonne 3 : Informations légales -->
+        <div class="footer-col">
+          <h3>Informations</h3>
+          <ul class="footer-list">
+            <li><a href="legal.html#mentions">Mentions Légales</a></li>
+            <li><a href="legal.html#privacy">Politique de Confidentialité</a></li>
+          </ul>
+        </div>
 
-<div class="footer-col">
-  <h3>Nos réseaux</h3>
-  <div class="social-icons">
-    <a href="https://www.youtube.com/@VAFMlaradio" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
-      <i class="fab fa-youtube"></i>
-    </a>
-    <a href="https://www.tiktok.com/@vafmlaradio" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
-      <i class="fab fa-tiktok"></i>
-    </a>
-    <a href="https://www.instagram.com/vafmlaradio/" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-      <i class="fab fa-instagram"></i>
-    </a>
-    <a href="https://www.facebook.com/profile.php?id=61573373138285" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
-      <i class="fab fa-facebook-f"></i>
-    </a>
-  </div>
-</div>
-  </div>
+        <div class="footer-col">
+          <h3>Nos réseaux</h3>
+          <div class="social-icons">
+            <a href="https://www.youtube.com/@VAFMlaradio" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
+              <i class="fab fa-youtube"></i>
+            </a>
+            <a href="https://www.tiktok.com/@vafmlaradio" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
+              <i class="fab fa-tiktok"></i>
+            </a>
+            <a href="https://www.instagram.com/vafmlaradio/" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+              <i class="fab fa-instagram"></i>
+            </a>
+            <a href="https://www.facebook.com/profile.php?id=61573373138285" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+              <i class="fab fa-facebook-f"></i>
+            </a>
+          </div>
+        </div>
+      </div>
 
-  <div class="footer-bottom">
-    <p class="footer-copy">© 2026 VAFM — La radio qu'il vous faut.</p>
-  </div>
-</footer>
+      <div class="footer-bottom">
+        <p class="footer-copy">© 2026 VAFM — La radio qu'il vous faut.</p>
+      </div>
+    </footer>
 
     <!-- SCRIPTS DE FIN DE PAGE -->
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
@@ -576,35 +630,38 @@
     <script defer src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script defer src="/article.js"></script>
     <script defer src="/script.js"></script>
+    <!-- SCRIPT DÉDIÉ SPA ACTUALITÉS -->
+    <script defer src="/news.js"></script>
+
     <!-- MODALE AJOUT DE VIDÉO -->
-<div id="vafm-upload-modal" class="modal" style="display: none;">
-    <div class="modal-content editor-modal-content">
-        <div class="modal-header">
-            <h3>Ajouter une vidéo</h3>
-            <button class="close-btn" onclick="closeModal('vafm-upload-modal')">✕</button>
+    <div id="vafm-upload-modal" class="modal" style="display: none;">
+        <div class="modal-content editor-modal-content">
+            <div class="modal-header">
+                <h3>Ajouter une vidéo</h3>
+                <button class="close-btn" onclick="closeModal('vafm-upload-modal')">✕</button>
+            </div>
+            <form id="vafm-video-upload-form" onsubmit="handleVideoUploadSubmit(event)">
+                <div class="input-group">
+                    <label for="video-title">Titre de la vidéo</label>
+                    <input type="text" id="video-title" required placeholder="Titre de la vidéo">
+                </div>
+
+                <div class="input-group">
+                    <label for="video-file">Fichier vidéo (MP4, WebM)</label>
+                    <input type="file" id="video-file" accept="video/*" required>
+                </div>
+
+                <div class="input-group">
+                    <label for="video-poster">Image de couverture (Optionnel)</label>
+                    <input type="file" id="video-poster" accept="image/*">
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal('vafm-upload-modal')">Annuler</button>
+                    <button type="submit" class="btn-submit" id="btn-save-video">Uploader la vidéo</button>
+                </div>
+            </form>
         </div>
-        <form id="vafm-video-upload-form" onsubmit="handleVideoUploadSubmit(event)">
-            <div class="input-group">
-                <label for="video-title">Titre de la vidéo</label>
-                <input type="text" id="video-title" required placeholder="Titre de la vidéo">
-            </div>
-
-            <div class="input-group">
-                <label for="video-file">Fichier vidéo (MP4, WebM)</label>
-                <input type="file" id="video-file" accept="video/*" required>
-            </div>
-
-            <div class="input-group">
-                <label for="video-poster">Image de couverture (Optionnel)</label>
-                <input type="file" id="video-poster" accept="image/*">
-            </div>
-
-            <div class="modal-actions">
-                <button type="button" class="btn-secondary" onclick="closeModal('vafm-upload-modal')">Annuler</button>
-                <button type="submit" class="btn-submit" id="btn-save-video">Uploader la vidéo</button>
-            </div>
-        </form>
     </div>
-</div>
 </body>
 </html>
