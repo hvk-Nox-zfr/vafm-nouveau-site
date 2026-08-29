@@ -1106,8 +1106,19 @@ function openEditorModal(category, id = null) {
   if (fileInput) fileInput.value = '';
 
   // Afficher le menu déroulant uniquement pour les actualités
+  // (et rendre le champ "required" uniquement dans ce cas : un champ caché
+  // mais toujours required bloque la validation du formulaire sans aucun
+  // message visible, d'où le bouton "Enregistrer" qui semblait ne rien faire)
   if (categoryGroup) {
-    categoryGroup.style.display = (category === 'news') ? 'block' : 'none';
+    const isNews = category === 'news';
+    categoryGroup.style.display = isNews ? 'block' : 'none';
+    if (categorySelect) {
+      if (isNews) {
+        categorySelect.setAttribute('required', 'required');
+      } else {
+        categorySelect.removeAttribute('required');
+      }
+    }
   }
 
   const titleEl = document.getElementById('modal-editor-title');

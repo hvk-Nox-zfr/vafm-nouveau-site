@@ -1407,6 +1407,256 @@ body.admin-logged-in #article-modal {
     color: white;
 }
 
+/* ==========================================================================
+   MODALE ÉDITEUR D'ACTUS — VERSION SOIGNÉE (thème sombre cohérent)
+   ========================================================================== */
+#card-editor-modal .editor-modal-content {
+    background: #16161e;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
+    padding: 32px;
+    max-width: 560px;
+    width: 92%;
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.75);
+    position: relative;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Liseré d'accent en haut de la carte, pour ancrer le thème visuel de VAFM.
+   Arrondi aux mêmes coins que la carte plutôt que de compter sur
+   overflow:hidden sur le parent — sinon ça bloque le scroll interne
+   nécessaire quand une image est ajoutée (voir bug "boutons inaccessibles"). */
+#card-editor-modal .editor-modal-content::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    border-radius: 24px 24px 0 0;
+    background: linear-gradient(90deg, var(--accent), #ff5f6d);
+}
+
+#card-editor-modal .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 26px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#card-editor-modal .modal-header h3 {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.3px;
+}
+
+#card-editor-modal .close-btn {
+    position: static;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 50%;
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 16px;
+    transition: all 0.2s ease;
+}
+
+#card-editor-modal .close-btn:hover {
+    background: var(--accent);
+    color: #ffffff;
+    transform: rotate(90deg);
+}
+
+#card-editor-modal .input-group {
+    margin-bottom: 22px;
+}
+
+#card-editor-modal .input-group label {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    margin-bottom: 10px;
+}
+
+#card-editor-modal .input-group input,
+#card-editor-modal .input-group textarea,
+#card-editor-modal .input-group select {
+    width: 100%;
+    box-sizing: border-box;
+    background: #0e0e13;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #f2f2f5;
+    padding: 13px 16px;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#card-editor-modal .input-group input::placeholder,
+#card-editor-modal .input-group textarea::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+#card-editor-modal .input-group input:focus,
+#card-editor-modal .input-group textarea:focus,
+#card-editor-modal .input-group select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(230, 30, 42, 0.18);
+}
+
+#card-editor-modal .input-group textarea {
+    resize: vertical;
+    min-height: 110px;
+    line-height: 1.55;
+}
+
+#card-editor-modal .input-group select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath fill='none' stroke='%23ffffff' stroke-opacity='0.5' stroke-width='2' d='M1 1l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    cursor: pointer;
+}
+
+/* Glisser-Déposer Modernisé */
+#card-editor-modal .drop-zone {
+    position: relative;
+    border: 2px dashed rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    padding: 28px 20px;
+    text-align: center;
+    background: #0e0e13;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#card-editor-modal .drop-zone:hover,
+#card-editor-modal .drop-zone--over {
+    border-color: var(--accent);
+    background: rgba(230, 30, 42, 0.06);
+}
+
+#card-editor-modal .drop-icon {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 10px;
+    filter: grayscale(1) brightness(1.6);
+    opacity: 0.85;
+}
+
+#card-editor-modal .drop-zone-prompt {
+    display: block;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.88rem;
+}
+
+#card-editor-modal .drop-zone-prompt u {
+    color: #ffffff;
+    text-decoration-color: var(--accent);
+}
+
+/* Le vrai input file n'a pas besoin d'être visible : le clic est géré
+   par le conteneur .drop-zone (voir onclick sur la div). pointer-events:none
+   est indispensable ici : sans ça, le clic déclenche l'input DEUX FOIS
+   (une fois directement sur l'input superposé, une fois via le onclick du
+   parent qui appelle aussi .click()), ce qui rouvre/annule le dialogue et
+   empêche le fichier choisi de s'appliquer.
+   Un input file visible cassait aussi le design (bouton système + texte
+   superposés au message de la zone de dépôt). */
+#card-editor-modal .drop-zone-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    pointer-events: none;
+}
+
+#card-editor-modal .file-preview {
+    margin-top: 16px;
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    max-height: 190px;
+}
+
+#card-editor-modal .file-preview:empty {
+    margin-top: 0;
+}
+
+#card-editor-modal .file-preview img {
+    width: 100%;
+    height: 190px;
+    object-fit: cover;
+    display: block;
+}
+
+#card-editor-modal .modal-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+#card-editor-modal .modal-actions .btn-secondary {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 14px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#card-editor-modal .modal-actions .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+#card-editor-modal .btn-submit {
+    flex: 2;
+    background: linear-gradient(135deg, var(--accent), #b8141e);
+    color: #ffffff;
+    border: none;
+    border-radius: 12px;
+    padding: 14px;
+    font-weight: 800;
+    font-size: 0.95rem;
+    cursor: pointer;
+    box-shadow: 0 10px 25px rgba(230, 30, 42, 0.35);
+    transition: all 0.2s ease;
+    margin-top: 0;
+}
+
+#card-editor-modal .btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 30px rgba(230, 30, 42, 0.45);
+}
+
+#card-editor-modal .btn-submit:active {
+    transform: translateY(0);
+}
+
+/* Scrollbar discrète pour le contenu de la modale sur les longs textes */
+#card-editor-modal .editor-modal-content::-webkit-scrollbar {
+    width: 8px;
+}
+#card-editor-modal .editor-modal-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+}
+
 /* Modale Éditeur Sublimée */
 .editor-modal-content {
     background: #16161e;
