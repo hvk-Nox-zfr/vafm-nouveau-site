@@ -113,14 +113,31 @@ async function compressImage(file, maxWidth = 1200, quality = 0.8) {
         canvas.height = h;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, w, h);
-        canvas.toBlob((blob) => {
+
+        const finalize = (blob, mimeType, extension) => {
           // Libération explicite du Canvas pour la mémoire
           canvas.width = 0;
           canvas.height = 0;
-
           if (!blob) return resolve(file);
-          const safeName = (file.name || 'image').replace(/\.[^/.]+$/, "") + ".webp";
-          resolve(new File([blob], safeName, { type: "image/webp" }));
+          const safeName = (file.name || 'image').replace(/\.[^/.]+$/, "") + extension;
+          resolve(new File([blob], safeName, { type: mimeType }));
+        };
+
+        canvas.toBlob((blob) => {
+          // Certains navigateurs (notamment Safari) ne savent pas encoder du WebP
+          // via canvas.toBlob et renvoient silencieusement un PNG à la place, tout
+          // en gardant le type MIME demandé — le fichier final se retrouvait alors
+          // étiqueté ".webp" alors qu'il contenait en réalité un gros PNG non
+          // compressé. On vérifie ici le type RÉEL du blob produit par le
+          // navigateur, et on rebascule sur du JPEG (beaucoup plus fiable et
+          // universellement supporté) si l'encodage WebP a échoué.
+          if (blob && blob.type === 'image/webp') {
+            finalize(blob, 'image/webp', '.webp');
+          } else {
+            canvas.toBlob((jpegBlob) => {
+              finalize(jpegBlob, 'image/jpeg', '.jpg');
+            }, 'image/jpeg', quality);
+          }
         }, 'image/webp', quality);
       };
       img.onerror = () => resolve(file);
@@ -250,17 +267,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 async function checkUrlForArticle() {
   const path = window.location.pathname;
+  let articleId = null;
 
-  // L'ouverture automatique d'un article via l'URL est maintenant gérée par
-  // /api/article.js (indice window.AUTO_OPEN_ARTICLE, voir plus haut dans ce
-  // fichier). L'ancienne détection ici faisait doublon : sur toute URL
-  // /article/news/... elle appelait ENCORE openArticleView() en plus de
-  // l'appel déjà déclenché par AUTO_OPEN_ARTICLE, provoquant un double
-  // chargement de l'article (double appel réseau à PocketBase, double
-  // history.pushState). On ne garde ici que la gestion du paramètre ?video=,
-  // qui n'a rien à voir avec les articles.
-  if (!path.startsWith('/article/')) {
+  if (path.startsWith('/article/news/')) {
+    const slugWithId = path.replace('/article/news/', '');
+    articleId = slugWithId.substring(0, 15);
+  } else {
     const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('id')) {
+      articleId = urlParams.get('id');
+    }
+
     const videoParam = urlParams.get('video');
     if (videoParam) {
       const videoId = videoParam.split('-')[0];
@@ -274,7 +291,22 @@ async function checkUrlForArticle() {
       const targetVideo = appState.videos.find(v => String(v.id).trim() === String(videoId).trim());
       if (targetVideo && targetVideo.videoUrl) {
         openVideoPlayerModal(targetVideo.videoUrl, targetVideo.title, targetVideo.id);
+        return;
       }
+    }
+  }
+
+  if (articleId && articleId.length === 15) {
+    let retries = 20;
+    while (typeof openArticleView !== 'function' && retries > 0) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      retries--;
+    }
+
+    if (typeof openArticleView === 'function') {
+      openArticleView('news', articleId);
+    } else {
+      console.error("article.js n'a pas pu être chargé à temps pour ouvrir l'article.");
     }
   }
 }
