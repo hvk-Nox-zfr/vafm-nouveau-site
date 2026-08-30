@@ -28,6 +28,10 @@
       "destination": "/api/article?category=:category&id=:id"
     },
     {
+      "source": "/",
+      "destination": "/api/home"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/$1"
     },
