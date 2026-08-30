@@ -28,7 +28,10 @@
     <meta property="og:description" id="og-desc" content="Écoutez VAFM, la radio qu'il vous faut à Valenciennes. Retrouvez vos hits préférés et les actualités locales.">
     <meta property="og:image" id="og-image" content="https://vafmlaradio.fr/LOGO-VAFM.png">
     <meta property="og:url" id="og-url" content="https://vafmlaradio.fr">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Font Awesome chargé en asynchrone (utilisé seulement pour 4 icônes réseaux sociaux dans le footer, non prioritaire) -->
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" as="style">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"></noscript>
 
     <!-- TWITTER CARD -->
     <meta name="twitter:card" content="summary_large_image">
@@ -42,6 +45,9 @@
     <link rel="stylesheet" href="/news.css">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://api.vafmlaradio.fr">
     <link rel="dns-prefetch" href="https://api.vafmlaradio.fr">
     <link rel="manifest" href="/manifest.json">
