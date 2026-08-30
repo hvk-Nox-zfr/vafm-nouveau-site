@@ -171,7 +171,7 @@ async function openArticleView(category, id) {
 
     if (rawImg) {
         articleImageUrl = typeof getPocketBaseImageUrl === 'function' 
-            ? getPocketBaseImageUrl(collectionName, id, rawImg) 
+            ? getPocketBaseImageUrl(collectionName, id, rawImg, '1200x630') 
             : (rawImg.startsWith('http') ? rawImg : `https://vafmlaradio.fr${rawImg}`);
     }
 
@@ -1123,8 +1123,8 @@ async function handleCanvaImageUpload(event) {
 
         const record = await res.json();
         const finalUrl = (typeof getPocketBaseImageUrl === 'function')
-            ? getPocketBaseImageUrl('article_images', record.id, record.image)
-            : `${POCKETBASE_URL}/api/files/article_images/${record.id}/${record.image}`;
+            ? getPocketBaseImageUrl('article_images', record.id, record.image, '1000x0')
+            : `${POCKETBASE_URL}/api/files/article_images/${record.id}/${record.image}?thumb=1000x0`;
 
         targetImg.src = finalUrl;
         targetImg.removeAttribute('data-uploading');
