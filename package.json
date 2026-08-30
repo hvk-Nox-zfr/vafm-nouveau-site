@@ -2,11 +2,5 @@
   "dependencies": {
     "googleapis": "^174.0.1",
     "@vercel/functions": "^1.0.0"
-  },
-  "scripts": {
-    "build": "node build.js"
-  },
-  "devDependencies": {
-    "esbuild": "^0.27.7"
   }
 }

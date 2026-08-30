@@ -1,11 +1,24 @@
 {
-  "outputDirectory": "dist",
   "functions": {
     "api/*.js": {
       "memory": 1024,
       "maxDuration": 10
     }
   },
+  "headers": [
+    {
+      "source": "/(style|news|article|script)\\.css",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }
+      ]
+    },
+    {
+      "source": "/(script|news|article)\\.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/sitemap.xml",
@@ -26,10 +39,6 @@
     {
       "source": "/article/:category/:id*",
       "destination": "/api/article?category=:category&id=:id"
-    },
-    {
-      "source": "/",
-      "destination": "/api/home"
     },
     {
       "source": "/api/(.*)",
