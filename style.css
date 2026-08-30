@@ -1756,9 +1756,43 @@ footer#main-footer {
     width: 100% !important;
     background: #18181c !important;
     color: #a1a1aa !important;
-    /* Réduction du padding haut (30px) et bas (90px) pour enlever le vide */
-    padding: 30px 20px 90px 20px !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+
+    /* Piques plus aiguës, désordonnées et asymétriques */
+    clip-path: polygon(
+        0% 55px, 
+        3% 15px, 
+        6% 65px, 
+        10% 0px, 
+        14% 45px, 
+        17% 20px, 
+        21% 70px, 
+        26% 10px, 
+        30% 50px, 
+        34% 5px, 
+        38% 60px, 
+        43% 25px, 
+        47% 75px, 
+        51% 0px, 
+        55% 40px, 
+        59% 15px, 
+        63% 65px, 
+        68% 8px, 
+        72% 55px, 
+        76% 20px, 
+        80% 70px, 
+        85% 5px, 
+        89% 45px, 
+        93% 15px, 
+        97% 60px, 
+        100% 30px, 
+        100% 100%, 
+        0% 100%
+    ) !important;
+
+    /* Marge supérieure ajustée pour la hauteur des piques */
+    margin-top: -50px !important;
+    padding: 85px 20px 90px 20px !important;
+    border-top: none !important;
     box-sizing: border-box !important;
 }
 
@@ -1768,22 +1802,20 @@ footer#main-footer {
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
-    gap: 12px !important; /* Espacement réduit entre les éléments */
+    gap: 12px !important;
     text-align: center !important;
 }
 
 /* LOGO IMAGE EN GRIS SOBRE */
 .footer-logo-img {
-height: 180px !important; /* Ajuste la hauteur du logo */
+    height: 180px !important;
     width: auto !important;
     object-fit: contain !important;
-    /* Convertit l'image rouge en niveau de gris propre */
     filter: grayscale(100%) opacity(0.4) !important;
     transition: filter 0.3s ease !important;
 }
 
 .footer-logo-img:hover {
-    /* Éclaircit le logo gris au survol */
     filter: grayscale(100%) opacity(0.85) !important;
 }
 
