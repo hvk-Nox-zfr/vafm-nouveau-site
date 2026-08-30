@@ -3,14 +3,15 @@ export default async function handler(req, res) {
   const SITE_URL = "https://vafmlaradio.fr";
 
   function formatDate(rawDate) {
-    if (!rawDate) return "2026-01-01";
+    const fallback = new Date().toISOString().split('T')[0];
+    if (!rawDate) return fallback;
     try {
       const cleanDateStr = String(rawDate).trim().replace(' ', 'T');
       const d = new Date(cleanDateStr);
-      if (isNaN(d.getTime())) return "2026-01-01";
+      if (isNaN(d.getTime())) return fallback;
       return d.toISOString().split('T')[0];
     } catch (e) {
-      return "2026-01-01";
+      return fallback;
     }
   }
 
@@ -27,14 +28,64 @@ export default async function handler(req, res) {
     });
   }
 
+  function buildSlug(rawTitle, id) {
+    let slugPart = "";
+    if (rawTitle) {
+      slugPart = rawTitle
+        .toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+    }
+    return slugPart ? `${id}-${slugPart}` : id;
+  }
+
+  function articleToXml(article, urlCategory) {
+    const rawDate = article.created;
+    const articleDate = formatDate(rawDate);
+    const rawTitle = article.titre || article.title || article.slug || article.nom || article.subject || "";
+    const fullSlug = buildSlug(rawTitle, article.id);
+    const articlePath = `/article/${urlCategory}/${fullSlug}`;
+    const collectionName = urlCategory === "hero" ? "hero" : "actus";
+
+    let imageXmlBlock = "";
+    const imageFileName = article.image || article.img || article.poster || article.illustration;
+    if (imageFileName) {
+      const imageUrl = `${POCKETBASE_URL}/api/files/${collectionName}/${article.id}/${imageFileName}`;
+      const imageTitle = escapeXml(rawTitle || "VAFM Actu");
+
+      imageXmlBlock = `
+    <image:image>
+      <image:loc>${escapeXml(imageUrl)}</image:loc>
+      <image:title>${imageTitle}</image:title>
+    </image:image>`;
+    }
+
+    return `
+  <url>
+    <loc>${escapeXml(`${SITE_URL}${articlePath}`)}</loc>
+    <lastmod>${articleDate}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>${imageXmlBlock}
+  </url>`;
+  }
+
   try {
-    let articles = [];
+    let actusArticles = [];
+    let heroArticles = [];
     try {
       // Ajout de perPage=500 pour récupérer tous les articles sans blocage à 30
-      const response = await fetch(`${POCKETBASE_URL}/api/collections/actus/records?sort=-created&perPage=500`);
-      if (response.ok) {
-        const data = await response.json();
-        articles = data.items || [];
+      const [actusRes, heroRes] = await Promise.all([
+        fetch(`${POCKETBASE_URL}/api/collections/actus/records?filter=(is_published=true)&sort=-created&perPage=500`),
+        fetch(`${POCKETBASE_URL}/api/collections/hero/records?filter=(is_published=true)&sort=-created&perPage=500`),
+      ]);
+      if (actusRes.ok) {
+        const data = await actusRes.json();
+        actusArticles = data.items || [];
+      }
+      if (heroRes.ok) {
+        const data = await heroRes.json();
+        heroArticles = data.items || [];
       }
     } catch (e) {
       console.error("Erreur de connexion PocketBase:", e);
@@ -52,44 +103,8 @@ export default async function handler(req, res) {
     <priority>1.0</priority>
   </url>`).join("");
 
-    articles.forEach(article => {
-      const rawDate = article.created;
-      const articleDate = formatDate(rawDate);
-      const rawTitle = article.titre || article.title || article.slug || article.nom || article.subject || "";
-
-      let slugPart = "";
-      if (rawTitle) {
-        slugPart = rawTitle
-          .toLowerCase()
-          .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-|-$/g, "");
-      }
-
-      const fullSlug = slugPart ? `${article.id}-${slugPart}` : article.id;
-      const articlePath = `/article/news/${fullSlug}`;
-
-      let imageXmlBlock = "";
-      const imageFileName = article.image || article.img || article.poster || article.illustration;
-      if (imageFileName) {
-        const imageUrl = `${POCKETBASE_URL}/api/files/actus/${article.id}/${imageFileName}`;
-        const imageTitle = escapeXml(rawTitle || "VAFM Actu");
-        
-        imageXmlBlock = `
-    <image:image>
-      <image:loc>${escapeXml(imageUrl)}</image:loc>
-      <image:title>${imageTitle}</image:title>
-    </image:image>`;
-      }
-
-      urlsXml += `
-  <url>
-    <loc>${escapeXml(`${SITE_URL}${articlePath}`)}</loc>
-    <lastmod>${articleDate}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>${imageXmlBlock}
-  </url>`;
-    });
+    actusArticles.forEach(article => { urlsXml += articleToXml(article, "news"); });
+    heroArticles.forEach(article => { urlsXml += articleToXml(article, "hero"); });
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
@@ -97,8 +112,8 @@ export default async function handler(req, res) {
 ${urlsXml}
 </urlset>`;
 
-    res.setHeader("Content-Type", "text/xml");
-    res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate");
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=7200");
     return res.status(200).send(xml);
 
   } catch (err) {

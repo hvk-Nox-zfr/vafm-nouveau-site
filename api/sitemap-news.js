@@ -16,6 +16,23 @@ export default async function handler(req, res) {
       .replace(/'/g, "&apos;");
   }
 
+  function buildSlug(article) {
+    const rawTitle = article.titre || article.title || article.slug || article.nom || "";
+    const cleanTitle = rawTitle.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim();
+
+    let slugPart = "";
+    if (cleanTitle) {
+      slugPart = cleanTitle
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+    }
+
+    return { cleanTitle, fullSlug: slugPart ? `${article.id}-${slugPart}` : article.id };
+  }
+
   try {
     // 1. Calculer la date limite (48h en arrière) au format PocketBase UTC "YYYY-MM-DD HH:mm:ss"
     const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
@@ -24,17 +41,23 @@ export default async function handler(req, res) {
       .replace("T", " ")
       .replace(/\.\d{3}Z$/, "");
 
-    // 2. Récupérer les articles publiés créés dans les dernières 48h
     const filterQuery = encodeURIComponent(`is_published = true && created >= "${pbFormattedDate}"`);
-    
-    const response = await fetch(
-      `${POCKETBASE_URL}/api/collections/actus/records?filter=(${filterQuery})&sort=-created`
-    );
+
+    // 2. Récupérer les articles publiés créés dans les dernières 48h, dans les deux
+    // collections qui contiennent de vrais articles (actus + hero mis en avant).
+    const [actusRes, heroRes] = await Promise.all([
+      fetch(`${POCKETBASE_URL}/api/collections/actus/records?filter=(${filterQuery})&sort=-created`),
+      fetch(`${POCKETBASE_URL}/api/collections/hero/records?filter=(${filterQuery})&sort=-created`),
+    ]);
 
     let articles = [];
-    if (response.ok) {
-      const data = await response.json();
-      articles = data.items || [];
+    if (actusRes.ok) {
+      const data = await actusRes.json();
+      articles = articles.concat((data.items || []).map(a => ({ ...a, __urlCategory: "news" })));
+    }
+    if (heroRes.ok) {
+      const data = await heroRes.json();
+      articles = articles.concat((data.items || []).map(a => ({ ...a, __urlCategory: "hero" })));
     }
 
     // 3. Filtrage de sécurité côté JS
@@ -42,22 +65,9 @@ export default async function handler(req, res) {
 
     // 4. Génération des blocs <url>
     const urlsXml = validArticles.map(article => {
-      const rawTitle = article.titre || article.title || article.slug || article.nom || "";
-      const cleanTitle = rawTitle.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim();
-      
-      let slugPart = "";
-      if (cleanTitle) {
-        slugPart = cleanTitle
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-+|-+$/g, "");
-      }
+      const { cleanTitle, fullSlug } = buildSlug(article);
+      const articleUrl = `${SITE_URL}/article/${article.__urlCategory}/${fullSlug}`.trim();
 
-      const fullSlug = slugPart ? `${article.id}-${slugPart}` : article.id;
-      const articleUrl = `${SITE_URL}/article/news/${fullSlug}`.trim();
-      
       // Date W3C ISO 8601 sans millisecondes pour Google News
       const pubDate = new Date(article.created).toISOString().replace(/\.\d{3}Z$/, "Z");
 
