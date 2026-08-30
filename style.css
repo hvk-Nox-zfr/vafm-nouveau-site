@@ -1796,6 +1796,29 @@ footer#main-footer {
     box-sizing: border-box !important;
 }
 
+/* Adaptation responsive pour mobiles (écrans < 768px) */
+@media (max-width: 768px) {
+    footer#main-footer {
+        /* Moins de piques, plus larges et moins hauts */
+        clip-path: polygon(
+            0% 15px, 
+            12% 45px, 
+            25% 25px, 
+            38% 55px, 
+            50% 35px, 
+            63% 60px, 
+            75% 20px, 
+            88% 45px, 
+            100% 25px, 
+            100% 100%, 
+            0% 100%
+        ) !important;
+
+        margin-top: -40px !important;
+        padding: 70px 15px 80px 15px !important;
+    }
+}
+
 .footer-container {
     max-width: 1000px !important;
     margin: 0 auto !important;
