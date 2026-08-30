@@ -38,7 +38,7 @@ export default async function handler(req, res) {
       const firstSlide = items.find(h => h.is_published === undefined || h.is_published === true || h.is_published === 1);
 
       if (firstSlide && firstSlide.image) {
-        const imageUrl = `${POCKETBASE_URL}/api/files/hero/${firstSlide.id}/${firstSlide.image}?thumb=1600x800`;
+        const imageUrl = `${POCKETBASE_URL}/api/files/hero/${firstSlide.id}/${firstSlide.image}?thumb=1920x960`;
         const preloadTag = `<link rel="preload" as="image" fetchpriority="high" href="${imageUrl}">\n</head>`;
         html = html.replace(/<\/head>/i, preloadTag);
       }

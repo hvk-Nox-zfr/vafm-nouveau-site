@@ -381,7 +381,7 @@ async function fetchAllFromPocketBase() {
       id: h.id,
       title: h.titre || h.title || '',
       text: h.description || h.texte || '',
-      img: getPocketBaseImageUrl('hero', h.id, h.image, '1600x800') || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=1200',
+      img: getPocketBaseImageUrl('hero', h.id, h.image, '1920x960') || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=1200',
       is_published: h.is_published !== undefined ? Boolean(h.is_published) : true,
       position: h.position || 0
     }));
