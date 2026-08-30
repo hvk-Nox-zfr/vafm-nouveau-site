@@ -205,7 +205,7 @@ function scrollToNewsCategory(catName) {
 }
 
 function renderNewsSpa(articles) {
-    const categories = ['culture', 'tech', 'sport', 'societe', 'faits-divers'];
+    const categories = ['culture', 'tech', 'sport', 'cinema', 'societe', 'faits-divers'];
     const newsList = articles || (window.appState ? window.appState.news : []) || [];
     const isMobile = window.innerWidth <= 768;
 
