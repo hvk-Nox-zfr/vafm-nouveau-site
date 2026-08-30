@@ -250,17 +250,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 async function checkUrlForArticle() {
   const path = window.location.pathname;
-  let articleId = null;
 
-  if (path.startsWith('/article/news/')) {
-    const slugWithId = path.replace('/article/news/', '');
-    articleId = slugWithId.substring(0, 15);
-  } else {
+  // L'ouverture automatique d'un article via l'URL est maintenant gérée par
+  // /api/article.js (indice window.AUTO_OPEN_ARTICLE, voir plus haut dans ce
+  // fichier). L'ancienne détection ici faisait doublon : sur toute URL
+  // /article/news/... elle appelait ENCORE openArticleView() en plus de
+  // l'appel déjà déclenché par AUTO_OPEN_ARTICLE, provoquant un double
+  // chargement de l'article (double appel réseau à PocketBase, double
+  // history.pushState). On ne garde ici que la gestion du paramètre ?video=,
+  // qui n'a rien à voir avec les articles.
+  if (!path.startsWith('/article/')) {
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('id')) {
-      articleId = urlParams.get('id');
-    }
-
     const videoParam = urlParams.get('video');
     if (videoParam) {
       const videoId = videoParam.split('-')[0];
@@ -274,22 +274,7 @@ async function checkUrlForArticle() {
       const targetVideo = appState.videos.find(v => String(v.id).trim() === String(videoId).trim());
       if (targetVideo && targetVideo.videoUrl) {
         openVideoPlayerModal(targetVideo.videoUrl, targetVideo.title, targetVideo.id);
-        return;
       }
-    }
-  }
-
-  if (articleId && articleId.length === 15) {
-    let retries = 20;
-    while (typeof openArticleView !== 'function' && retries > 0) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      retries--;
-    }
-
-    if (typeof openArticleView === 'function') {
-      openArticleView('news', articleId);
-    } else {
-      console.error("article.js n'a pas pu être chargé à temps pour ouvrir l'article.");
     }
   }
 }
