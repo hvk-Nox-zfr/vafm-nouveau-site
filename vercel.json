@@ -1,26 +1,10 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
   "functions": {
     "api/*.js": {
       "memory": 1024,
       "maxDuration": 10
     }
   },
-  "headers": [
-    {
-      "source": "/(.*)\\.[a-f0-9]{8}\\.(css|js)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    },
-    {
-      "source": "/index.html",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
-      ]
-    }
-  ],
   "rewrites": [
     {
       "source": "/sitemap.xml",
@@ -36,7 +20,7 @@
     },
     {
       "source": "/article/news/:id*",
-      "destination": "/api/article?category=actus&id=:id"
+      "destination": "/api/article?category=news&id=:id"
     },
     {
       "source": "/article/:category/:id*",

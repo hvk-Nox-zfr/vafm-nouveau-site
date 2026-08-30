@@ -54,23 +54,27 @@ export default async function handler(req, res) {
             ? `${POCKETBASE_URL}/api/files/${collectionName}/${article.id}/${article.image}`
             : "https://vafmlaradio.fr/LOGO-VAFM.png";
 
-          // 1. Suppression des balises de titre/description/OG par défaut de index.html
+          // 1. Suppression des balises de titre/description/OG/canonical par défaut de index.html
           html = html
             .replace(/<title>.*?<\/title>/gi, '')
             .replace(/<meta\s+name=["']description["'].*?>/gi, '')
             .replace(/<meta\s+property=["']og:.*?["'].*?>/gi, '')
-            .replace(/<meta\s+name=["']twitter:.*?["'].*?>/gi, '');
+            .replace(/<meta\s+name=["']twitter:.*?["'].*?>/gi, '')
+            .replace(/<link\s+rel=["']canonical["'].*?>/gi, '');
+
+          const canonicalUrl = escapeHtml(`https://vafmlaradio.fr/article/${category || 'actus'}/${rawId}`);
 
           // 2. Preparation des nouvelles balises d'en-tête
           const headerTags = `
           <title>${title}</title>
           <meta name="description" content="${description}">
+          <link rel="canonical" href="${canonicalUrl}">
           <meta property="og:type" content="article">
           <meta property="og:site_name" content="VAFM">
           <meta property="og:title" content="${title}">
           <meta property="og:description" content="${description}">
           <meta property="og:image" content="${escapeHtml(imageUrl)}">
-          <meta property="og:url" content="${escapeHtml(`https://vafmlaradio.fr/article/${category || 'actus'}/${rawId}`)}">
+          <meta property="og:url" content="${canonicalUrl}">
           <meta name="twitter:card" content="summary_large_image">
           <meta name="twitter:title" content="${title}">
           <meta name="twitter:description" content="${description}">
