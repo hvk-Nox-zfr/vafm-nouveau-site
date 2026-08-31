@@ -1834,7 +1834,7 @@ footer#main-footer {
     height: 180px !important;
     width: auto !important;
     object-fit: contain !important;
-    filter: grayscale(100%) opacity(0.95) !important;
+    filter: grayscale(100%) opacity(0.9) !important;
     transition: filter 0.3s ease !important;
 }
 
@@ -1863,7 +1863,7 @@ footer#main-footer {
 
 .footer-copy {
     font-size: 0.75rem !important;
-    color: #c9c9c9 !important;
+    color: #a0a0a0 !important;
 }
 
 /* ==========================================================================
@@ -3971,7 +3971,7 @@ body.drawer-open {
 .about-text {
   font-size: 0.88rem;
   line-height: 1.5;
-  color: #cdcdcd;
+  color: #cbcbcb;
   margin: 0;
 }
 
@@ -4000,7 +4000,7 @@ body.drawer-open {
 }
 
 .footer-list a {
-  color: #bdbdbd;
+  color: #c2c2c2;
   text-decoration: none;
   font-size: 0.9rem;
   transition: color 0.2s ease;
@@ -4027,7 +4027,7 @@ body.drawer-open {
 
 .footer-copy {
   font-size: 0.8rem;
-  color: #a0a0a0;
+  color: #bdbdbd;
   margin: 0;
 }
 
@@ -4347,4 +4347,24 @@ header,
 #content, 
 #news-page-spa {
     padding-top: 80px; /* Ajuste si besoin selon la hauteur exacte de ta navbar */
+}
+/* ==========================================================================
+   PAGINATION DU CARROUSEL HERO — indicateurs visuels uniquement
+   (non cliquables/tactiles, cf. audit accessibilité "zones cibles tactiles")
+   ========================================================================== */
+.mainSwiper .swiper-pagination-bullet {
+    width: 8px !important;
+    height: 8px !important;
+    border-radius: 999px !important;
+    background: rgba(255, 255, 255, 0.5) !important;
+    opacity: 1 !important;
+    margin: 0 4px !important;
+    transition: width 0.3s ease, background 0.3s ease !important;
+    cursor: default !important;
+    pointer-events: none !important;
+}
+
+.mainSwiper .swiper-pagination-bullet-active {
+    width: 24px !important;
+    background: #ffffff !important;
 }

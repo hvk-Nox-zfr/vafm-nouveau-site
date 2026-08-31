@@ -746,7 +746,7 @@ function renderAll() {
       loop: appState.hero.length > 1, 
       speed: 700,
       autoplay: isEdit ? false : { delay: 6000, disableOnInteraction: false },
-      pagination: { el: ".swiper-pagination", clickable: true },
+      pagination: { el: ".swiper-pagination", clickable: false },
       observer: true,
       observeParents: true
     });
