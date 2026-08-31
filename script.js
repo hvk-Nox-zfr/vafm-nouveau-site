@@ -94,7 +94,7 @@ async function cleanOldSongsFromPocketBase() {
 }
 
 // Compression universelle d'image optimisée (Canvas / WebP avec libération mémoire)
-async function compressImage(file, maxWidth = 1200, quality = 0.8) {
+async function compressImage(file, maxWidth = 1200, quality = 0.7) {
   if (!file || !file.type || !file.type.startsWith('image/')) return file;
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -523,7 +523,16 @@ function createNewsCardHTML(item, category = 'news', collectionName = 'actus') {
     </div>
     ` : ''}
 
-    <img src="${item.img}" class="card-img" alt="${(item.title || '').replace(/"/g, '&quot;')}" loading="lazy" decoding="async" onerror="this.src='https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600'">
+    <img
+    src="${item.img}"
+    class="card-img"
+    alt="${(item.title || '').replace(/"/g, '&quot;')}"
+    loading="lazy"
+    decoding="async"
+    width="400"
+    height="280"
+    onerror="this.src='https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600'"
+>
 
     <div class="card-body">
       ${formattedDate ? `<span class="date">${formattedDate}</span>` : ''}
@@ -830,7 +839,16 @@ return `
         </div>
         ` : ''}
 
-        <img src="${member.img}" class="card-img" alt="${safeName}" loading="lazy" decoding="async" onerror="this.src='https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400'">
+        <img
+    src="${member.img}"
+    class="card-img"
+    alt="${safeName}"
+    loading="lazy"
+    decoding="async"
+    width="400"
+    height="400"
+    onerror="this.src='https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400'"
+>
 
         <div class="card-body">
           <h3>${member.title}</h3>
@@ -956,7 +974,14 @@ function renderVideosContainer() {
 
     return `
       <div class="vafm-video-card ${!video.is_published ? 'draft-card' : ''}" data-id="${video.id}">
-        <img src="${video.img}" alt="${video.title}" loading="lazy" decoding="async">
+        <img
+    src="${video.img}"
+    alt="${video.title}"
+    loading="lazy"
+    decoding="async"
+    width="640"
+    height="360"
+>
         <div class="vafm-video-click-zone" onclick="if('${video.videoUrl}') openVideoPlayerModal('${video.videoUrl}', '${safeTitle}', '${video.id}')"></div>
         <div class="vafm-video-overlay">
             <div class="vafm-video-header-info">
@@ -1443,7 +1468,7 @@ if (category === 'news') {
   let rawImage = selectedFile || (fileInput && fileInput.files && fileInput.files[0]);
 
   if (rawImage) {
-    const compressedImage = await compressImage(rawImage, 1200, 0.8);
+    const compressedImage = await compressImage(rawImage, 1000, 0.7);
     formData.append('image', compressedImage);
   }
 

@@ -321,7 +321,7 @@ function renderNewsSpa(articles) {
                 ` : '';
 
                 return `
-                    <article class="news-card-bento ${bentoClass} ${!item.is_published ? 'draft-card' : ''}" data-id="${item.id}" onclick="handleArticleClick('${item.id}')" style="background-image: url('${imageUrl}');">
+                    <article class="news-card-bento ${bentoClass} ${!item.is_published ? 'draft-card' : ''}" data-id="${item.id}" data-bg="${imageUrl}" onclick="handleArticleClick('${item.id}')">
                         ${adminHtml}
                         <div class="bento-overlay"></div>
                         <div class="bento-content">
@@ -348,6 +348,7 @@ function renderNewsSpa(articles) {
                 ${showBtns ? `<button class="carousel-btn next" onclick="scrollBentoCarousel('${cat}', 1)">❯</button>` : ''}
             </div>
         `;
+        lazyLoadBentoImages();
     });
 }
 
@@ -574,3 +575,35 @@ window.addEventListener('resize', () => {
         }
     }, 250);
 });
+
+function lazyLoadBentoImages() {
+    const cards = document.querySelectorAll('.news-card-bento[data-bg]');
+
+    if (!('IntersectionObserver' in window)) {
+        cards.forEach(card => {
+            card.style.backgroundImage = `url("${card.dataset.bg}")`;
+            card.removeAttribute('data-bg');
+        });
+        return;
+    }
+
+    const observer = new IntersectionObserver((entries, obs) => {
+        entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+
+            const card = entry.target;
+            const url = card.dataset.bg;
+
+            if (url) {
+                card.style.backgroundImage = `url("${url}")`;
+                card.removeAttribute('data-bg');
+            }
+
+            obs.unobserve(card);
+        });
+    }, {
+        rootMargin: '300px 0px'
+    });
+
+    cards.forEach(card => observer.observe(card));
+}
