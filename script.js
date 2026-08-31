@@ -743,6 +743,20 @@ const responsiveImage = slide.imgMobile
        sizes="100vw"`
     : `src="${slide.img}"`;
 
+// Précharge uniquement la première image du Hero (LCP)
+if (slideIndex === 0 && slide.img) {
+    const preloadUrl = slide.imgMobile || slide.img;
+
+    if (!document.querySelector(`link[rel="preload"][as="image"][href="${preloadUrl}"]`)) {
+        const preload = document.createElement('link');
+        preload.rel = 'preload';
+        preload.as = 'image';
+        preload.href = preloadUrl;
+        preload.fetchPriority = 'high';
+        document.head.appendChild(preload);
+    }
+}
+
 return `
 <div class="swiper-slide hero-slide ${!slide.is_published ? 'draft-card' : ''}">
     <img
