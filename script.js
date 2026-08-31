@@ -507,7 +507,7 @@ function createNewsCardHTML(item, category = 'news', collectionName = 'actus') {
     </div>
     ` : ''}
 
-    <img src="${item.img}" class="card-img" loading="lazy" decoding="async" onerror="this.src='https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600'">
+    <img src="${item.img}" class="card-img" alt="${(item.title || '').replace(/"/g, '&quot;')}" loading="lazy" decoding="async" onerror="this.src='https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600'">
 
     <div class="card-body">
       ${formattedDate ? `<span class="date">${formattedDate}</span>` : ''}
@@ -2095,8 +2095,12 @@ function updateMiniPlayState() {
 
   if (audio.paused) {
     playBtn.classList.remove('playing');
+    playBtn.setAttribute('aria-label', 'Lecture');
+    playBtn.setAttribute('aria-pressed', 'false');
   } else {
     playBtn.classList.add('playing');
+    playBtn.setAttribute('aria-label', 'Pause');
+    playBtn.setAttribute('aria-pressed', 'true');
   }
 
   const miniPlayBtn = document.querySelector('.vafm-mini-play-btn');
