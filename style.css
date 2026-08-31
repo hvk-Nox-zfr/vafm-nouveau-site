@@ -1834,12 +1834,8 @@ footer#main-footer {
     height: 180px !important;
     width: auto !important;
     object-fit: contain !important;
-    filter: grayscale(100%) opacity(0.4) !important;
+    filter: grayscale(100%) opacity(0.95) !important;
     transition: filter 0.3s ease !important;
-}
-
-.footer-logo-img:hover {
-    filter: grayscale(100%) opacity(0.85) !important;
 }
 
 /* LIENS DU FOOTER */
@@ -1867,7 +1863,7 @@ footer#main-footer {
 
 .footer-copy {
     font-size: 0.75rem !important;
-    color: #a0a0a0 !important;
+    color: #c9c9c9 !important;
 }
 
 /* ==========================================================================
@@ -3975,7 +3971,7 @@ body.drawer-open {
 .about-text {
   font-size: 0.88rem;
   line-height: 1.5;
-  color: #888888;
+  color: #cdcdcd;
   margin: 0;
 }
 
@@ -4004,7 +4000,7 @@ body.drawer-open {
 }
 
 .footer-list a {
-  color: #a0a0a0;
+  color: #bdbdbd;
   text-decoration: none;
   font-size: 0.9rem;
   transition: color 0.2s ease;
