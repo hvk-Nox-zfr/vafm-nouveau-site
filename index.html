@@ -2,14 +2,14 @@
 <html lang="fr">
 <head>
     <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-E9V5XJYL0E"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-E9V5XJYL0E"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
 
-  gtag('config', 'G-E9V5XJYL0E');
-</script>
+      gtag('config', 'G-E9V5XJYL0E');
+    </script>
     <meta charset="UTF-8">
     <base href="/">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -37,7 +37,8 @@
     <meta property="og:description" id="og-desc" content="Écoutez VAFM, la radio qu'il vous faut à Valenciennes. Retrouvez vos hits préférés et les actualités locales.">
     <meta property="og:image" id="og-image" content="https://vafmlaradio.fr/LOGO-VAFM.png">
     <meta property="og:url" id="og-url" content="https://vafmlaradio.fr">
-    <!-- Font Awesome chargé en asynchrone (utilisé seulement pour 4 icônes réseaux sociaux dans le footer, non prioritaire) -->
+    
+    <!-- Font Awesome -->
     <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" as="style">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"></noscript>
@@ -50,7 +51,6 @@
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
     <link rel="stylesheet" href="/style.css">
-    <!-- FICHIER CSS DÉDIÉ SPA ACTUALITÉS -->
     <link rel="stylesheet" href="/news.css">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -83,15 +83,6 @@
           appId: "0d3922a5-cccc-44c2-b3e3-81027e516568",
         });
       });
-    </script>
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-E9V5XJYL0E"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-
-      gtag('config', 'G-E9V5XJYL0E');
     </script>
 </head>
 <body>
@@ -351,7 +342,6 @@
                 <input type="hidden" id="editor-category">
                 <input type="hidden" id="editor-item-id">
 
-                <!-- MENU DÉROULANT POUR DÉFINIR LA SECTION / CATÉGORIE D'ACTU (ORDRE CORRIGÉ) -->
                 <div class="input-group" id="editor-category-select-group" style="display: none;">
                     <label for="editor-news-category">Section / Catégorie *</label>
                     <select id="editor-news-category" required>
@@ -401,55 +391,52 @@
             </a>
         </div>
 
-<div class="nav-center-zone">
-    <nav class="nav-links" id="main-nav-links">
-        <a href="#actus">Actualités</a>
-        <a href="#emissions">Émissions</a>
-        <a href="#animateurs">Animateurs</a>
-    </nav>
-    <nav class="nav-links" id="news-nav-links" style="display: none;">
-        <a href="#" onclick="scrollToNewsCategory('culture'); return false;">Culture & Musique</a>
-        <a href="#" onclick="scrollToNewsCategory('tech'); return false;">Tech</a>
-        <a href="#" onclick="scrollToNewsCategory('sport'); return false;">Sport</a>
-        <a href="#" onclick="scrollToNewsCategory('cinema'); return false;">Cinéma</a>
-        <a href="#" onclick="scrollToNewsCategory('societe'); return false;">Société</a>
-        <a href="#" onclick="scrollToNewsCategory('faits-divers'); return false;">Faits Divers</a>
-    </nav>
-</div>
+        <div class="nav-center-zone">
+            <nav class="nav-links" id="main-nav-links">
+                <a href="#actus">Actualités</a>
+                <a href="#emissions">Émissions</a>
+                <a href="#animateurs">Animateurs</a>
+            </nav>
+            <nav class="nav-links" id="news-nav-links" style="display: none;">
+                <a href="#" onclick="scrollToNewsCategory('culture'); return false;">Culture & Musique</a>
+                <a href="#" onclick="scrollToNewsCategory('tech'); return false;">Tech</a>
+                <a href="#" onclick="scrollToNewsCategory('sport'); return false;">Sport</a>
+                <a href="#" onclick="scrollToNewsCategory('cinema'); return false;">Cinéma</a>
+                <a href="#" onclick="scrollToNewsCategory('societe'); return false;">Société</a>
+                <a href="#" onclick="scrollToNewsCategory('faits-divers'); return false;">Faits Divers</a>
+            </nav>
+        </div>
 
-    <!-- BARRE DE RECHERCHE DÉPLIANTE -->
-    <div class="search-bar-container" id="search-bar-container">
-        <input type="text" id="global-search-input" placeholder="Rechercher un article, émission, animateur..." oninput="handleGlobalSearch(event)">
-        <button class="btn-close-search" onclick="closeSearchBar()" title="Fermer la recherche">✕</button>
-        <div id="search-results-dropdown" class="search-results-dropdown"></div>
-    </div>
-</div>
+        <!-- BARRE DE RECHERCHE DÉPLIANTE -->
+        <div class="search-bar-container" id="search-bar-container">
+            <input type="text" id="global-search-input" placeholder="Rechercher un article, émission, animateur..." oninput="handleGlobalSearch(event)">
+            <button class="btn-close-search" onclick="closeSearchBar()" title="Fermer la recherche">✕</button>
+            <div id="search-results-dropdown" class="search-results-dropdown"></div>
+        </div>
 
-<!-- ACTIONS : LOUPE + PROFIL -->
-<div class="nav-actions">
-    <button class="btn-search-trigger" id="search-trigger-btn" onclick="openSearchBar()" title="Rechercher">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-        </svg>
-    </button>
+        <!-- ACTIONS : LOUPE + PROFIL -->
+        <div class="nav-actions">
+            <button class="btn-search-trigger" id="search-trigger-btn" onclick="openSearchBar()" title="Rechercher">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+            </button>
 
-    <div id="user-profile-zone">
-        <button class="btn-user-avatar" id="user-menu-btn" onclick="toggleAuthModal()" title="Mon compte">
-            <img id="user-avatar-img" src="" alt="Avatar" style="display: none; width: 32px; height: 32px; border-radius: 50%; object-fit: cover;" />
-            <svg id="default-user-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-            </svg>
-        </button>
-    </div>
-</div>
+            <div id="user-profile-zone">
+                <button class="btn-user-avatar" id="user-menu-btn" onclick="toggleAuthModal()" title="Mon compte">
+                    <img id="user-avatar-img" src="" alt="Avatar" style="display: none; width: 32px; height: 32px; border-radius: 50%; object-fit: cover;" />
+                    <svg id="default-user-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </button>
+            </div>
+        </div>
     </header>
 
     <!-- PAGE SPA DÉDIÉE ACTUALITÉS -->
     <div id="news-page-spa" class="news-page-spa-container" style="display: none;">
-
-        <!-- CONTENU DE LA PAGE PAR SECTIONS (ORDRE CORRIGÉ) -->
         <div class="news-spa-content">
             <section id="news-cat-sec-culture" class="news-category-section">
                 <h2 class="category-title">Culture & Musique</h2>
@@ -466,7 +453,6 @@
                 <div class="grid" id="grid-news-sport"></div>
             </section>
 
-            <!-- CORRECTION DE L'ID DE SECTION ET DE GRID ICI -->
             <section id="news-cat-sec-cinema" class="news-category-section">
                 <h2 class="category-title">Cinéma</h2>
                 <div class="grid" id="grid-news-cinema"></div>
@@ -505,7 +491,6 @@
                 <div class="grid" id="recent-news-grid"></div>
             </div>
 
-            <!-- Sous-section 2 : Actualités plus anciennes -->
             <div class="news-subsection" id="old-news-subsection" style="display: none; margin-bottom: 35px;">
                 <h3 class="subsection-title" style="color: #000000; font-size: 1.15rem; font-weight: 700; margin-bottom: 14px;">Plus anciennes</h3>
                 <div class="grid" id="old-news-grid"></div>
@@ -517,9 +502,7 @@
                 <h2>Vidéos</h2>
                 <button class="admin-editable-ui add-btn" onclick="openEditorModal('videos')">+ Ajouter une vidéo</button>
             </div>
-            <div class="vafm-videos-container" id="vafm-dynamic-videos-container">
-                <!-- Les vidéos s'afficheront ici automatiquement -->
-            </div>
+            <div class="vafm-videos-container" id="vafm-dynamic-videos-container"></div>
         </section>
 
         <section class="section alt-bg" id="emissions">
@@ -536,19 +519,16 @@
                 <button class="admin-editable-ui add-btn" onclick="openEditorModal('team')">+ Ajouter un membre</button>
             </div>
 
-            <!-- Sous-section : Directeurs -->
             <div class="team-sub-section">
                 <h3 class="team-sub-title">Directeurs</h3>
                 <div class="grid team-grid" id="vafm-team-directeur"></div>
             </div>
 
-            <!-- Sous-section : DJ -->
             <div class="team-sub-section">
                 <h3 class="team-sub-title">DJ</h3>
                 <div class="grid team-grid" id="vafm-team-dj"></div>
             </div>
 
-            <!-- Sous-section : Animateurs & Bénévoles -->
             <div class="team-sub-section">
                 <h3 class="team-sub-title">Animateurs</h3>
                 <div class="grid team-grid" id="vafm-team-animateur"></div>
@@ -592,7 +572,6 @@
     <footer id="main-footer">
       <div class="footer-container">
         
-        <!-- Colonne 1 : Logo + Présentation -->
         <div class="footer-col footer-brand">
           <img src="VAFM logo rouge.png" alt="VAFM Logo" class="footer-logo-img">
           <p class="about-text">
@@ -600,7 +579,6 @@
           </p>
         </div>
 
-        <!-- Colonne 2 : Contact -->
         <div class="footer-col">
           <h3>Contact</h3>
           <ul class="footer-list">
@@ -608,7 +586,6 @@
           </ul>
         </div>
 
-        <!-- Colonne 3 : Informations légales -->
         <div class="footer-col">
           <h3>Informations</h3>
           <ul class="footer-list">
@@ -647,7 +624,6 @@
     <script defer src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script defer src="/article.js"></script>
     <script defer src="/script.js"></script>
-    <!-- SCRIPT DÉDIÉ SPA ACTUALITÉS -->
     <script defer src="/news.js"></script>
 
     <!-- MODALE AJOUT DE VIDÉO -->

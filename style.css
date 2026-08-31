@@ -3826,22 +3826,138 @@ body.drawer-open {
   opacity: 0.8;
 }
 
-/* Barre de recherche animée */
+/* =========================================================
+   HEADER + BARRE DE RECHERCHE CENTRÉE
+   ========================================================= */
+
+header.navbar {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 100%;
+    
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+
+    box-sizing: border-box;
+}
+
+/* Logo à gauche */
+header.navbar .logo-container {
+    flex: 0 0 auto;
+}
+
+/* Menu au centre */
+header.navbar .nav-center-zone {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Actions à droite */
+header.navbar .nav-actions {
+    flex: 0 0 auto;
+}
+
+/* =========================================================
+   BARRE DE RECHERCHE
+   ========================================================= */
+
+header.navbar .search-bar-container {
+    position: absolute !important;
+
+    left: 50% !important;
+    top: 50% !important;
+
+    transform: translate(-50%, -50%) !important;
+
+    width: 520px !important;
+    max-width: 55vw !important;
+
+    margin: 0 !important;
+    padding: 0 12px !important;
+
+    box-sizing: border-box;
+
+    display: none;
+    align-items: center;
+
+    background: #ebebeb;
+    border-radius: 24px;
+
+    opacity: 0;
+    visibility: hidden;
+
+    z-index: 1001;
+}
+
+/* Quand la recherche est ouverte */
+header.navbar .search-bar-container.active {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* Input */
+header.navbar .search-bar-container input {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 10px 42px 10px 12px !important;
+
+    border: none !important;
+    outline: none !important;
+    background: transparent !important;
+}
+
+/* Croix */
+header.navbar .btn-close-search {
+    position: absolute !important;
+    right: 12px !important;
+    top: 50% !important;
+
+    transform: translateY(-50%) !important;
+
+    padding: 4px !important;
+}
+
 .search-bar-container {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
+
   width: 0%;
   max-width: 520px;
+
   opacity: 0;
   visibility: hidden;
+
   display: flex;
   align-items: center;
-  background: #f4f4f6;
+
+  /* Contour */
+  border: 1px solid #a8a8a8;
   border-radius: 24px;
+  background: #fff;
+
   padding: 0 12px;
-  transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease, visibility 0.25s;
+
+  box-sizing: border-box;
+
+  transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.25s ease,
+              visibility 0.25s;
+
   overflow: visible;
+}
+
+/* Contour de la barre de recherche */
+.navbar .search-bar-container {
+    border: 1px solid #cfcfcf !important;
+    border-radius: 24px !important;
+    background: #fff !important;
+    box-sizing: border-box !important;
 }
 
 .search-bar-container.active {
