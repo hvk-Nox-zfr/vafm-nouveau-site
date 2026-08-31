@@ -1867,7 +1867,7 @@ footer#main-footer {
 
 .footer-copy {
     font-size: 0.75rem !important;
-    color: #636366 !important;
+    color: #a0a0a0 !important;
 }
 
 /* ==========================================================================
@@ -4031,7 +4031,7 @@ body.drawer-open {
 
 .footer-copy {
   font-size: 0.8rem;
-  color: #666666;
+  color: #a0a0a0;
   margin: 0;
 }
 

@@ -1155,7 +1155,7 @@ function openEditorModal(category, id = null) {
       }
 
       if (item.img && preview) {
-        preview.innerHTML = `<img src="${item.img}">`;
+        preview.innerHTML = `<img src="${item.img}" alt="">`;
       }
     }
 // À la fin de la fonction openEditorModal, dans le bloc "else" (Ajout d'un élément) :
@@ -1271,7 +1271,7 @@ function previewFile(file) {
   const reader = new FileReader();
   reader.onload = (e) => {
     const preview = document.getElementById('file-preview');
-    if (preview) preview.innerHTML = `<img src="${e.target.result}">`;
+    if (preview) preview.innerHTML = `<img src="${e.target.result}" alt="">`;
   };
   reader.readAsDataURL(file);
 }
