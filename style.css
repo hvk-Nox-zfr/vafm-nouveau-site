@@ -683,7 +683,7 @@ body.admin-logged-in .hero-section {
     left: 0 !important;
     width: 100% !important;
     height: 100% !important;
-    object-fit: cover !important;
+    object-fit: contain !important; /* <--- Affiche l'image complète sans déformation */
     object-position: center !important;
     z-index: 1 !important;
     opacity: 1 !important;
@@ -888,7 +888,7 @@ body.admin-logged-in .hero-section {
     left: 0 !important;
     width: 100% !important;
     height: 100% !important;
-    object-fit: cover !important;
+    object-fit: contain !important; /* <--- Passage de cover à contain */
     object-position: center !important;
     z-index: 1 !important;
     transition: transform 0.4s ease !important;
