@@ -378,13 +378,29 @@ async function fetchAllFromPocketBase() {
     };
 
     appState.hero = filterPublished(heroItems).map(h => ({
-      id: h.id,
-      title: h.titre || h.title || '',
-      text: h.description || h.texte || '',
-      img: getPocketBaseImageUrl('hero', h.id, h.image, '1920x960') || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=1200',
-      is_published: h.is_published !== undefined ? Boolean(h.is_published) : true,
-      position: h.position || 0
-    }));
+    id: h.id,
+    title: h.titre || h.title || '',
+    text: h.description || h.texte || '',
+
+    // Image optimisée pour le chargement initial
+    img: getPocketBaseImageUrl(
+        'hero',
+        h.id,
+        h.image,
+        '1280x640'
+    ) || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=1280',
+
+    // Version mobile beaucoup plus légère
+    imgMobile: getPocketBaseImageUrl(
+        'hero',
+        h.id,
+        h.image,
+        '768x384'
+    ) || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=768',
+
+    is_published: h.is_published !== undefined ? Boolean(h.is_published) : true,
+    position: h.position || 0
+}));
 
     appState.news = filterPublished(actusItems).map(a => {
       const likesForThisActu = actuLikesItems.filter(l => l.actu === a.id);
@@ -395,7 +411,7 @@ async function fetchAllFromPocketBase() {
         text: a.texte || a.description || '',
         // CORRECTION 2 : Récupération du champ category
         category: a.category || 'sport',
-        img: getPocketBaseImageUrl('actus', a.id, a.image, '500x350') || 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600',
+        img: getPocketBaseImageUrl('actus', a.id, a.image, '400x280') || 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600',
         is_published: a.is_published !== undefined ? Boolean(a.is_published) : true,
         position: a.position || 0,
         likesList: likesForThisActu,
@@ -407,7 +423,7 @@ async function fetchAllFromPocketBase() {
       id: e.id,
       title: e.titre || e.title || '',
       text: e.description || e.texte || '',
-      img: getPocketBaseImageUrl('emissions', e.id, e.image, '500x350') || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&q=80',
+      img: getPocketBaseImageUrl('emissions', e.id, e.image, '400x280') || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&q=80',
       is_published: e.is_published !== undefined ? Boolean(e.is_published) : true,
       position: e.position || 0
     }));
@@ -426,7 +442,7 @@ async function fetchAllFromPocketBase() {
       id: v.id,
       title: v.titre || v.title || '',
       text: v.description || v.texte || '',
-      img: getPocketBaseImageUrl('videos', v.id, v.poster || v.image, '500x350') || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=600',
+      img: getPocketBaseImageUrl('videos', v.id, v.poster || v.image, '400x280') || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=600',
       videoUrl: getPocketBaseImageUrl('videos', v.id, v.video_file || v.file) || '',
       is_published: v.is_published !== undefined ? Boolean(v.is_published) : true,
       position: v.position || 0,
@@ -709,12 +725,24 @@ function renderAll() {
         const cleanText = stripHTML(slide.text);
         const truncatedText = cleanText.length > 70 ? cleanText.substring(0, 70) + '...' : cleanText;
         const loadingAttrs = slideIndex === 0
-          ? 'loading="eager" fetchpriority="high"'
-          : 'loading="lazy" decoding="async"';
+    ? 'loading="eager" fetchpriority="high"'
+    : 'loading="lazy" decoding="async"';
 
-        return `
-      <div class="swiper-slide hero-slide ${!slide.is_published ? 'draft-card' : ''}">
-        <img src="${slide.img}" class="slide-bg" alt="${slide.title}" ${loadingAttrs}>
+const responsiveImage = slide.imgMobile
+    ? `src="${slide.imgMobile}"
+       srcset="${slide.imgMobile} 768w, ${slide.img} 1280w"
+       sizes="100vw"`
+    : `src="${slide.img}"`;
+
+return `
+<div class="swiper-slide hero-slide ${!slide.is_published ? 'draft-card' : ''}">
+    <img
+        ${responsiveImage}
+        class="slide-bg"
+        alt="${slide.title}"
+        ${loadingAttrs}
+        decoding="async"
+    >
         <div class="slide-overlay"></div>
         <div class="slide-content">
           <h1>${slide.title} ${!slide.is_published ? '<small class="draft-badge">(Brouillon)</small>' : ''}</h1>
