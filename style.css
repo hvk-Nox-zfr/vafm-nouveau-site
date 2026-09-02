@@ -592,6 +592,7 @@ body.admin-logged-in .hero-section {
     justify-content: space-between; 
     align-items: center; 
     margin-bottom: 40px; 
+    margin-top: 55px;
 }
 
 .section-header h2 { 

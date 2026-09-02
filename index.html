@@ -52,6 +52,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
     <link rel="stylesheet" href="/style.css?v=2">
     <link rel="stylesheet" href="/news.css?v=2">
+    <link rel="stylesheet" href="/team.css?v=1">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -386,7 +387,7 @@
     <!-- NAVBAR -->
     <header class="navbar" id="main-navbar">
         <div class="logo-container">
-            <a href="#" id="home-logo-btn" onclick="closeNewsPage(); window.scrollTo({ top: 0, behavior: 'smooth' }); return false;">
+            <a href="#" id="home-logo-btn" onclick="goHome(); return false;">
                 <img src="VAFM logo rouge.png" alt="VAFM" class="nav-logo">
             </a>
         </div>
@@ -470,6 +471,36 @@
         </div>
     </div>
 
+    <!-- PAGE DÉDIÉE ANIMATEURS (SPA) — données et images chargées uniquement au clic sur "Animateurs" -->
+    <div id="team-page-spa" class="team-page-spa-container" style="display: none;">
+        <div class="team-spa-content">
+            <div class="section-header">
+                <h2>L'Équipe VAFM</h2>
+                <button class="admin-editable-ui add-btn" onclick="openEditorModal('team')">+ Ajouter un membre</button>
+            </div>
+
+            <div id="team-page-loading" class="team-page-loading">
+                <div class="team-page-spinner"></div>
+                <p>Chargement de l'équipe…</p>
+            </div>
+
+            <div class="team-sub-section">
+                <h3 class="team-sub-title">Directeurs</h3>
+                <div class="grid team-grid" id="vafm-team-directeur"></div>
+            </div>
+
+            <div class="team-sub-section">
+                <h3 class="team-sub-title">DJ</h3>
+                <div class="grid team-grid" id="vafm-team-dj"></div>
+            </div>
+
+            <div class="team-sub-section">
+                <h3 class="team-sub-title">Animateurs</h3>
+                <div class="grid team-grid" id="vafm-team-animateur"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- CONTENU PRINCIPAL -->
     <main id="content">
         <section class="hero-section" id="home">
@@ -511,28 +542,6 @@
                 <button class="admin-editable-ui add-btn" onclick="openEditorModal('shows')">+ Ajouter une émission</button>
             </div>
             <div class="grid" id="shows-grid"></div>
-        </section>
-
-        <section class="section" id="animateurs">
-            <div class="section-header">
-                <h2>L'Équipe VAFM</h2>
-                <button class="admin-editable-ui add-btn" onclick="openEditorModal('team')">+ Ajouter un membre</button>
-            </div>
-
-            <div class="team-sub-section">
-                <h3 class="team-sub-title">Directeurs</h3>
-                <div class="grid team-grid" id="vafm-team-directeur"></div>
-            </div>
-
-            <div class="team-sub-section">
-                <h3 class="team-sub-title">DJ</h3>
-                <div class="grid team-grid" id="vafm-team-dj"></div>
-            </div>
-
-            <div class="team-sub-section">
-                <h3 class="team-sub-title">Animateurs</h3>
-                <div class="grid team-grid" id="vafm-team-animateur"></div>
-            </div>
         </section>
     </main>
 
@@ -625,6 +634,7 @@
     <script defer src="/article.js?v=2"></script>
     <script defer src="/script.js?v=2"></script>
     <script defer src="/news.js?v=2"></script>
+    <script defer src="/team.js?v=1"></script>
 
     <!-- MODALE AJOUT DE VIDÉO -->
     <div id="vafm-upload-modal" class="modal" style="display: none;">

@@ -61,6 +61,13 @@ function showHomePage(targetSectionId = null) {
         newsPage.classList.remove('active');
     }
 
+    // 1bis. Masque la SPA Animateurs (si présente/chargée)
+    const teamPage = document.getElementById('team-page-spa');
+    if (teamPage) {
+        teamPage.style.display = 'none';
+        teamPage.classList.remove('active');
+    }
+
     // 2. Affiche le contenu principal de l'accueil
     const mainContent = document.getElementById('content');
     if (mainContent) {
@@ -93,6 +100,13 @@ function openNewsPage() {
         mainContent.style.display = 'none';
     }
 
+    // Masque la SPA Animateurs si on y était (évite d'avoir 2 pages superposées)
+    const teamPage = document.getElementById('team-page-spa');
+    if (teamPage) {
+        teamPage.classList.remove('active');
+        teamPage.style.display = 'none';
+    }
+
     const newsPage = document.getElementById('news-page-spa');
     if (newsPage) {
         newsPage.style.display = 'block';
@@ -116,10 +130,26 @@ function handleNavigation() {
 
     if (hash === '#actus' || hash === '#actualites') {
         openNewsPage();
+    } else if (hash === '#animateurs') {
+        if (typeof openTeamPage === 'function') {
+            openTeamPage();
+        }
     } else {
         const targetSection = (hash && hash !== '#') ? hash.replace('#', '') : null;
         showHomePage(targetSection);
     }
+}
+
+// Ferme n'importe quelle page SPA active (Actus ou Animateurs) et revient à
+// l'accueil. Utilisée notamment par le clic sur le logo VAFM, qui doit
+// fonctionner peu importe la page sur laquelle on se trouve.
+function goHome() {
+    if (typeof closeArticleView === 'function') {
+        closeArticleView();
+    }
+    history.pushState({ page: 'home' }, '', '/');
+    showHomePage();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function closeNewsPage(targetId = 'top') {
@@ -321,7 +351,7 @@ function renderNewsSpa(articles) {
                 ` : '';
 
                 return `
-                    <article class="news-card-bento ${bentoClass} ${!item.is_published ? 'draft-card' : ''}" data-id="${item.id}" data-bg="${imageUrl}" onclick="handleArticleClick('${item.id}')">
+                    <article class="news-card-bento ${bentoClass} ${!item.is_published ? 'draft-card' : ''}" data-id="${item.id}" onclick="handleArticleClick('${item.id}')" style="background-image: url('${imageUrl}');">
                         ${adminHtml}
                         <div class="bento-overlay"></div>
                         <div class="bento-content">
@@ -348,7 +378,6 @@ function renderNewsSpa(articles) {
                 ${showBtns ? `<button class="carousel-btn next" onclick="scrollBentoCarousel('${cat}', 1)">❯</button>` : ''}
             </div>
         `;
-        lazyLoadBentoImages();
     });
 }
 
@@ -575,35 +604,3 @@ window.addEventListener('resize', () => {
         }
     }, 250);
 });
-
-function lazyLoadBentoImages() {
-    const cards = document.querySelectorAll('.news-card-bento[data-bg]');
-
-    if (!('IntersectionObserver' in window)) {
-        cards.forEach(card => {
-            card.style.backgroundImage = `url("${card.dataset.bg}")`;
-            card.removeAttribute('data-bg');
-        });
-        return;
-    }
-
-    const observer = new IntersectionObserver((entries, obs) => {
-        entries.forEach(entry => {
-            if (!entry.isIntersecting) return;
-
-            const card = entry.target;
-            const url = card.dataset.bg;
-
-            if (url) {
-                card.style.backgroundImage = `url("${url}")`;
-                card.removeAttribute('data-bg');
-            }
-
-            obs.unobserve(card);
-        });
-    }, {
-        rootMargin: '300px 0px'
-    });
-
-    cards.forEach(card => observer.observe(card));
-}

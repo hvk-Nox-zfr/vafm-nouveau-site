@@ -353,12 +353,14 @@ async function fetchAllFromPocketBase() {
       }
     };
 
-    const [heroItems, actusItems, emissionsItems, animateursItems, videosItems, actuLikesItems] = await Promise.all([
+    const [heroItems, actusItems, emissionsItems, videosItems, actuLikesItems] = await Promise.all([
       getCollectionData('hero'),
       // CORRECTION 1 : Ajout de "category" dans le paramètre fields
       getCollectionData('actus', 'id,titre,title,texte,contenu,description,image,category,is_published,position,created'),
       getCollectionData('emissions'),
-      getCollectionData('animateurs'),
+      // La collection "animateurs" n'est plus chargée ici : elle l'est
+      // uniquement à la demande par team.js, quand la page Animateurs
+      // est réellement ouverte (voir team.js).
       getCollectionData('videos'),
       getCollectionData('actu_likes')
     ]);
@@ -428,15 +430,8 @@ async function fetchAllFromPocketBase() {
       position: e.position || 0
     }));
 
-    appState.team = filterPublished(animateursItems).map(anim => ({
-      id: anim.id,
-      title: anim.nom || anim.name || anim.titre || anim.title || '',
-      text: anim.description || anim.role || anim.texte || '',
-      role: anim.role || anim.category || 'animateur',
-      img: getPocketBaseImageUrl('animateurs', anim.id, anim.image, '400x400') || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400',
-      is_published: anim.is_published !== undefined ? Boolean(anim.is_published) : true,
-      position: anim.position || 0
-    }));
+    // appState.team n'est plus alimenté ici : team.js s'en charge dès que
+    // la page Animateurs est ouverte pour la première fois (fetch à la demande).
 
     appState.videos = filterPublished(videosItems).map(v => ({
       id: v.id,
@@ -710,9 +705,6 @@ function renderHomeNewsGrids() {
 function renderAll() {
   const heroWrapper = document.getElementById('hero-wrapper');
   const showsGrid = document.getElementById('shows-grid');
-  const teamDirecteurGrid = document.getElementById('vafm-team-directeur');
-  const teamDjGrid = document.getElementById('vafm-team-dj');
-  const teamAnimateurGrid = document.getElementById('vafm-team-animateur');
 
   const isEdit = Boolean(appState.editMode && appState.currentUser);
   const adminTopBar = document.getElementById('admin-top-bar');
@@ -807,73 +799,8 @@ return `
 
   renderGrid(showsGrid, appState.shows, 'shows', 'emissions');
 
-  const teamContainers = {
-    directeur: teamDirecteurGrid,
-    dj: teamDjGrid,
-    animateur: teamAnimateurGrid
-  };
-
-  Object.values(teamContainers).forEach(c => {
-    if (c) c.innerHTML = '';
-  });
-
-  if (!appState.team || appState.team.length === 0) {
-    Object.values(teamContainers).forEach(c => {
-      if (c) c.innerHTML = `<p class="empty-msg" style="color: #a1a1aa; padding: 20px;">Aucun membre pour le moment.</p>`;
-    });
-  } else {
-    const canEditTeam = canEditCategory('team');
-
-    appState.team.forEach(member => {
-      const rawRole = (member.text || member.role || '').toLowerCase();
-      let targetKey = 'animateur';
-      if (rawRole.includes('directeur') || rawRole.includes('dir')) targetKey = 'directeur';
-      else if (rawRole.includes('dj') || rawRole.includes('mix')) targetKey = 'dj';
-
-      const targetContainer = teamContainers[targetKey] || teamContainers['animateur'];
-      if (!targetContainer) return;
-
-      const safeName = (member.title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-      const cleanText = stripHTML(member.text);
-
-      const cardHTML = `
-      <div class="card team-card ${!member.is_published ? 'draft-card' : ''} ${canEditTeam ? 'draggable-card' : ''}" 
-           data-id="${member.id}">
-        ${canEditTeam ? `
-        <div class="drag-handle" title="Glisser pour réordonner">☰</div>
-        <span class="card-status-tag ${member.is_published ? 'tag-published' : 'tag-draft'}">
-          ${member.is_published ? 'Publié' : 'Brouillon'}
-        </span>
-        <div class="card-admin-actions" onclick="event.stopPropagation();">
-          <button class="btn-admin-action ${member.is_published ? 'btn-unpublish' : 'btn-publish'}" onclick="togglePublish('animateurs', '${member.id}', ${member.is_published}); event.stopPropagation();">
-            ${member.is_published ? 'Dépublier' : 'Publier'}
-          </button>
-          <button class="btn-admin-action" onclick="openEditorModal('team', '${member.id}'); event.stopPropagation();">✏️</button>
-          <button class="btn-admin-action" onclick="deleteItem('animateurs', '${member.id}'); event.stopPropagation();">✕</button>
-        </div>
-        ` : ''}
-
-        <img
-    src="${member.img}"
-    class="card-img"
-    alt="${safeName}"
-    loading="lazy"
-    decoding="async"
-    width="400"
-    height="400"
-    onerror="this.src='https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400'"
->
-
-        <div class="card-body">
-          <h3>${member.title}</h3>
-          <p>${cleanText}</p>
-        </div>
-      </div>
-      `;
-
-      targetContainer.innerHTML += cardHTML;
-    });
-  }
+  // Le rendu des grilles Animateurs (Directeurs / DJ / Animateurs) est
+  // maintenant géré par team.js, uniquement quand la page dédiée est ouverte.
 
   renderVideosContainer();
 
@@ -1058,9 +985,8 @@ function initGridsDragAndDrop() {
 
   setupSortable('news-grid', 'actus', 'news');
   setupSortable('shows-grid', 'emissions', 'shows');
-  setupSortable('vafm-team-directeur', 'animateurs', 'team');
-  setupSortable('vafm-team-dj', 'animateurs', 'team');
-  setupSortable('vafm-team-animateur', 'animateurs', 'team');
+  // Le tri des grilles Animateurs est initialisé par team.js, uniquement
+  // quand la page dédiée est ouverte (les grilles n'existent plus ici).
 }
 
 async function saveNewOrderInDB(collectionName, items) {
@@ -1148,6 +1074,11 @@ async function togglePublish(collectionName, id, currentStatus) {
     }
     
     await fetchAllFromPocketBase();
+
+    // Idem : rafraîchit la page Animateurs dédiée si c'est elle qui est concernée.
+    if (targetCollection === 'animateurs' && typeof fetchAndRenderTeam === 'function') {
+      await fetchAndRenderTeam();
+    }
   } catch (error) {
     console.error("Erreur critique togglePublish :", error);
     alert("Erreur PocketBase : " + error.message);
@@ -1517,6 +1448,12 @@ if (category === 'news') {
 
     closeEditorModal();
     await fetchAllFromPocketBase();
+
+    // La collection "animateurs" n'est plus incluse dans fetchAllFromPocketBase :
+    // si on vient de créer/modifier un animateur, on rafraîchit sa page dédiée.
+    if (category === 'team' && typeof fetchAndRenderTeam === 'function') {
+      await fetchAndRenderTeam();
+    }
   } catch (err) {
     console.error("Erreur PocketBase :", err);
     alert("Impossible d'enregistrer : " + err.message);
@@ -1544,6 +1481,11 @@ async function deleteItem(collectionName, id) {
 
       if (!res.ok) throw new Error("Erreur de suppression");
       await fetchAllFromPocketBase();
+
+      // Idem : rafraîchit la page Animateurs dédiée si c'est elle qui est concernée.
+      if (collectionName === 'animateurs' && typeof fetchAndRenderTeam === 'function') {
+        await fetchAndRenderTeam();
+      }
     } catch (err) {
       alert("Erreur : " + err.message);
     }
