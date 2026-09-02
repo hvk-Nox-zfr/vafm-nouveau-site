@@ -354,16 +354,31 @@ async function fetchAllFromPocketBase() {
     };
 
     const [heroItems, actusItems, emissionsItems, videosItems, actuLikesItems] = await Promise.all([
-      getCollectionData('hero'),
-      // CORRECTION 1 : Ajout de "category" dans le paramètre fields
-      getCollectionData('actus', 'id,titre,title,texte,contenu,description,image,category,is_published,position,created'),
-      getCollectionData('emissions'),
-      // La collection "animateurs" n'est plus chargée ici : elle l'est
-      // uniquement à la demande par team.js, quand la page Animateurs
-      // est réellement ouverte (voir team.js).
-      getCollectionData('videos'),
-      getCollectionData('actu_likes')
-    ]);
+    getCollectionData(
+        'hero',
+        'id,titre,title,description,texte,image,is_published,position'
+    ),
+
+    getCollectionData(
+        'actus',
+        'id,titre,title,texte,contenu,description,image,category,is_published,position,created'
+    ),
+
+    getCollectionData(
+        'emissions',
+        'id,titre,title,description,texte,image,is_published,position'
+    ),
+
+    getCollectionData(
+        'videos',
+        'id,titre,title,description,texte,poster,image,is_published,position,created'
+    ),
+
+    getCollectionData(
+        'actu_likes',
+        'id,actu,user'
+    )
+]);
 
     if (isServerDown) {
       showMaintenanceScreen();
@@ -799,10 +814,9 @@ return `
 
   renderGrid(showsGrid, appState.shows, 'shows', 'emissions');
 
-  // Le rendu des grilles Animateurs (Directeurs / DJ / Animateurs) est
-  // maintenant géré par team.js, uniquement quand la page dédiée est ouverte.
-
-  renderVideosContainer();
+  requestAnimationFrame(() => {
+      renderVideosContainer();
+  });
 
   if (isEdit) {
     initGridsDragAndDrop();
