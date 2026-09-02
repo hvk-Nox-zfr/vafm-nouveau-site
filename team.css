@@ -15,6 +15,14 @@
     z-index: 100;
 }
 
+/* Le header passe en position fixed + top:50px quand la barre noire admin
+   est active (voir .navbar dans style.css) : il faut alors laisser 50px de
+   plus en haut de la page, sinon le titre "L'Équipe VAFM" et le bouton
+   "+ Ajouter un membre" se retrouvent cachés derrière le header. */
+body.admin-logged-in .team-page-spa-container {
+    padding-top: 120px !important;
+}
+
 .team-page-spa-container.active {
     display: block !important;
 }
@@ -73,5 +81,21 @@
 
     .team-spa-content .section-header h2 {
         font-size: 1.4rem;
+    }
+}
+
+/* ==========================================================================
+   MENU HAMBURGER — UNIQUEMENT SUR MOBILE
+   Sur desktop, le menu Actualités/Émissions/Animateurs est déjà visible en
+   permanence dans le header : le hamburger n'y a pas sa place, il ne sert
+   qu'à donner un accès rapide sur téléphone.
+   ========================================================================== */
+#nav-hamburger-btn {
+    display: none;
+}
+
+@media screen and (max-width: 768px) {
+    #nav-hamburger-btn {
+        display: flex;
     }
 }

@@ -354,31 +354,16 @@ async function fetchAllFromPocketBase() {
     };
 
     const [heroItems, actusItems, emissionsItems, videosItems, actuLikesItems] = await Promise.all([
-    getCollectionData(
-        'hero',
-        'id,titre,title,description,texte,image,is_published,position'
-    ),
-
-    getCollectionData(
-        'actus',
-        'id,titre,title,texte,contenu,description,image,category,is_published,position,created'
-    ),
-
-    getCollectionData(
-        'emissions',
-        'id,titre,title,description,texte,image,is_published,position'
-    ),
-
-    getCollectionData(
-        'videos',
-        'id,titre,title,description,texte,poster,image,is_published,position,created'
-    ),
-
-    getCollectionData(
-        'actu_likes',
-        'id,actu,user'
-    )
-]);
+      getCollectionData('hero'),
+      // CORRECTION 1 : Ajout de "category" dans le paramètre fields
+      getCollectionData('actus', 'id,titre,title,texte,contenu,description,image,category,is_published,position,created'),
+      getCollectionData('emissions'),
+      // La collection "animateurs" n'est plus chargée ici : elle l'est
+      // uniquement à la demande par team.js, quand la page Animateurs
+      // est réellement ouverte (voir team.js).
+      getCollectionData('videos'),
+      getCollectionData('actu_likes')
+    ]);
 
     if (isServerDown) {
       showMaintenanceScreen();
@@ -428,7 +413,7 @@ async function fetchAllFromPocketBase() {
         text: a.texte || a.description || '',
         // CORRECTION 2 : Récupération du champ category
         category: a.category || 'sport',
-        img: getPocketBaseImageUrl('actus', a.id, a.image, '320x220') || 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600',
+        img: getPocketBaseImageUrl('actus', a.id, a.image, '400x280') || 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600',
         is_published: a.is_published !== undefined ? Boolean(a.is_published) : true,
         position: a.position || 0,
         likesList: likesForThisActu,
@@ -440,7 +425,7 @@ async function fetchAllFromPocketBase() {
       id: e.id,
       title: e.titre || e.title || '',
       text: e.description || e.texte || '',
-      img: getPocketBaseImageUrl('emissions', e.id, e.image, '320x220') || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&q=80',
+      img: getPocketBaseImageUrl('emissions', e.id, e.image, '400x280') || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&q=80',
       is_published: e.is_published !== undefined ? Boolean(e.is_published) : true,
       position: e.position || 0
     }));
@@ -452,7 +437,7 @@ async function fetchAllFromPocketBase() {
       id: v.id,
       title: v.titre || v.title || '',
       text: v.description || v.texte || '',
-      img: getPocketBaseImageUrl('videos', v.id, v.poster || v.image, '320x220') || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=600',
+      img: getPocketBaseImageUrl('videos', v.id, v.poster || v.image, '400x280') || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=600',
       videoUrl: getPocketBaseImageUrl('videos', v.id, v.video_file || v.file) || '',
       is_published: v.is_published !== undefined ? Boolean(v.is_published) : true,
       position: v.position || 0,
@@ -534,13 +519,13 @@ function createNewsCardHTML(item, category = 'news', collectionName = 'actus') {
     ` : ''}
 
     <img
-    data-src="${item.img}"
-    class="card-img lazy-card-img"
+    src="${item.img}"
+    class="card-img"
     alt="${(item.title || '').replace(/"/g, '&quot;')}"
     loading="lazy"
     decoding="async"
-    width="320"
-    height="220"
+    width="400"
+    height="280"
     onerror="this.src='https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=600'"
 >
 
@@ -583,7 +568,6 @@ const renderGrid = (gridElement, dataArray, category, collectionName) => {
   }
 
   gridElement.innerHTML = dataArray.map((item) => createNewsCardHTML(item, category, collectionName)).join('');
-  initLazyCardImages();
 };
 
 const renderCarouselGrid = (gridElement, dataArray, category, collectionName) => {
@@ -621,7 +605,6 @@ const renderCarouselGrid = (gridElement, dataArray, category, collectionName) =>
       </button>
     </div>
   `;
-  initLazyCardImages();
 };
 
 window.scrollNewsCarousel = function(buttonEl, direction) {
@@ -636,34 +619,6 @@ window.scrollNewsCarousel = function(buttonEl, direction) {
     behavior: 'smooth'
   });
 };
-
-function initLazyCardImages() {
-    const images = document.querySelectorAll('.lazy-card-img[data-src]');
-
-    if (!('IntersectionObserver' in window)) {
-        images.forEach(img => {
-            img.src = img.dataset.src;
-            img.removeAttribute('data-src');
-        });
-        return;
-    }
-
-    const observer = new IntersectionObserver((entries, obs) => {
-        entries.forEach(entry => {
-            if (!entry.isIntersecting) return;
-
-            const img = entry.target;
-            img.src = img.dataset.src;
-            img.removeAttribute('data-src');
-
-            obs.unobserve(img);
-        });
-    }, {
-        rootMargin: '100px 0px'
-    });
-
-    images.forEach(img => observer.observe(img));
-}
 
 function removeCarouselBoxBackground() {
   const carouselGrids = document.querySelectorAll('#recent-news-grid.vafm-news-carousel-mode, #old-news-grid.vafm-news-carousel-mode');
@@ -780,6 +735,20 @@ const responsiveImage = slide.imgMobile
        sizes="100vw"`
     : `src="${slide.img}"`;
 
+// Précharge uniquement la première image du Hero (LCP)
+if (slideIndex === 0 && slide.img) {
+    const preloadUrl = slide.imgMobile || slide.img;
+
+    if (!document.querySelector(`link[rel="preload"][as="image"][href="${preloadUrl}"]`)) {
+        const preload = document.createElement('link');
+        preload.rel = 'preload';
+        preload.as = 'image';
+        preload.href = preloadUrl;
+        preload.fetchPriority = 'high';
+        document.head.appendChild(preload);
+    }
+}
+
 return `
 <div class="swiper-slide hero-slide ${!slide.is_published ? 'draft-card' : ''}">
     <img
@@ -830,9 +799,10 @@ return `
 
   renderGrid(showsGrid, appState.shows, 'shows', 'emissions');
 
-  requestAnimationFrame(() => {
-      renderVideosContainer();
-  });
+  // Le rendu des grilles Animateurs (Directeurs / DJ / Animateurs) est
+  // maintenant géré par team.js, uniquement quand la page dédiée est ouverte.
+
+  renderVideosContainer();
 
   if (isEdit) {
     initGridsDragAndDrop();
@@ -1792,6 +1762,37 @@ function openSubPanel() {
 function closeSubPanel() {
   const drawer = document.getElementById('vafm-user-drawer');
   if (drawer) drawer.classList.remove('sub-open');
+}
+
+// Tiroir de navigation rapide (icône hamburger) — même mécanique que le
+// tiroir profil, sur un élément séparé pour ne rien mélanger.
+function openNavDrawer() {
+  const drawer = document.getElementById('vafm-nav-drawer');
+  const overlay = document.getElementById('vafm-nav-drawer-overlay');
+  if (drawer && overlay) {
+    drawer.classList.add('active');
+    overlay.classList.add('active');
+  }
+}
+
+function closeNavDrawer() {
+  const drawer = document.getElementById('vafm-nav-drawer');
+  const overlay = document.getElementById('vafm-nav-drawer-overlay');
+  if (drawer && overlay) {
+    drawer.classList.remove('active');
+    overlay.classList.remove('active');
+  }
+}
+
+// Ferme le tiroir puis navigue vers la page demandée, en passant par le
+// routage central (handleNavigation) pour rester cohérent avec le menu du
+// haut et fermer proprement un article éventuellement ouvert.
+function goToNavLink(hash) {
+  closeNavDrawer();
+  history.pushState(null, '', hash);
+  if (typeof handleNavigation === 'function') {
+    handleNavigation();
+  }
 }
 
 async function handleDeleteAccount() {

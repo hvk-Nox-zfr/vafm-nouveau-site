@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-E9V5XJYL0E"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-E9V5XJYL0E');
+    </script>
     <meta charset="UTF-8">
     <base href="/">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -323,6 +332,58 @@
 
     </div>
 
+    <!-- MENU DE NAVIGATION RAPIDE (icône hamburger) — même style que le tiroir profil -->
+    <div class="vafm-user-drawer-overlay" id="vafm-nav-drawer-overlay" onclick="closeNavDrawer()"></div>
+
+    <div class="vafm-user-drawer" id="vafm-nav-drawer">
+        <div class="drawer-panel drawer-panel-main">
+            <div class="drawer-header">
+                <span class="sub-panel-title">Navigation</span>
+                <button class="drawer-close-btn" onclick="closeNavDrawer()">✕</button>
+            </div>
+
+            <div class="drawer-body">
+                <div class="drawer-section-title">Pages</div>
+
+                <div class="drawer-menu-item" onclick="goToNavLink('#actus')">
+                    <div class="drawer-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+                            <line x1="8" y1="9" x2="16" y2="9"></line>
+                            <line x1="8" y1="13" x2="16" y2="13"></line>
+                            <line x1="8" y1="17" x2="12" y2="17"></line>
+                        </svg>
+                    </div>
+                    <div class="drawer-text" style="flex: 1;">
+                        <span class="title">Actualités</span>
+                        <span class="sub">Toute l'actu VAFM</span>
+                    </div>
+                    <div class="drawer-arrow">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    </div>
+                </div>
+
+                <div class="drawer-menu-item" onclick="goToNavLink('#animateurs')">
+                    <div class="drawer-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                    </div>
+                    <div class="drawer-text" style="flex: 1;">
+                        <span class="title">Animateurs</span>
+                        <span class="sub">Toute l'équipe VAFM</span>
+                    </div>
+                    <div class="drawer-arrow">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- MODALE ÉDITION & DRAG & DROP -->
     <div id="card-editor-modal" class="modal" style="display: none;">
         <div class="modal-content editor-modal-content">
@@ -406,8 +467,16 @@
             <div id="search-results-dropdown" class="search-results-dropdown"></div>
         </div>
 
-        <!-- ACTIONS : LOUPE + PROFIL -->
+        <!-- ACTIONS : MENU + LOUPE + PROFIL -->
         <div class="nav-actions">
+            <button class="btn-search-trigger" id="nav-hamburger-btn" onclick="openNavDrawer()" title="Menu">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+            </button>
+
             <button class="btn-search-trigger" id="search-trigger-btn" onclick="openSearchBar()" title="Rechercher">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="11" cy="11" r="8"></circle>
@@ -657,21 +726,5 @@
             </form>
         </div>
     </div>
-    <script>
-window.addEventListener('load', () => {
-    setTimeout(() => {
-        const script = document.createElement('script');
-        script.src = 'https://www.googletagmanager.com/gtag/js?id=G-E9V5XJYL0E';
-        script.async = true;
-        document.head.appendChild(script);
-
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){ dataLayer.push(arguments); }
-
-        gtag('js', new Date());
-        gtag('config', 'G-E9V5XJYL0E');
-    }, 1500);
-});
-</script>
 </body>
 </html>

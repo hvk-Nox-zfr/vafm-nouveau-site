@@ -978,11 +978,13 @@ async function handleTogglePublishInStudio(collectionName, id, currentStatus, ca
     }
 }
 
-function closeArticleView() {
+function closeArticleView(options = {}) {
     document.removeEventListener('keydown', handleStudioKeydown);
     delete window._currentStudioContext;
 
     const articleContainer = document.getElementById('article-modal');
+    const wasOpen = Boolean(articleContainer && articleContainer.style.display === 'block');
+
     if (articleContainer) {
         articleContainer.style.display = 'none';
         articleContainer.innerHTML = '';
@@ -990,6 +992,16 @@ function closeArticleView() {
     
     // Supprime le balisage Schema de l'article fermé
     document.getElementById('news-schema')?.remove();
+
+    // Si l'appelant (ex: handleNavigation) va de toute façon rediriger vers
+    // sa propre destination, on ne fait qu'éteindre l'article et on le
+    // laisse gérer la suite — sinon on se marchait dessus : l'article
+    // restait affiché "en bas" de la page vers laquelle on venait de
+    // naviguer (ex: Animateurs), car rien ne le refermait jamais.
+    if (options.skipRestore) {
+        delete window._articleReturnTo;
+        return wasOpen;
+    }
 
     // Rétablir la vue précédente (page Actus ou Accueil), en se basant sur l'origine
     // mémorisée à l'ouverture plutôt que sur un test de contenu HTML (toujours vrai
@@ -1016,6 +1028,8 @@ function closeArticleView() {
         }
         history.pushState({ page: returnTo }, '', returnTo === 'news' ? '#actus' : '/');
     }
+
+    return wasOpen;
 }
 
 window.addEventListener('popstate', (e) => {

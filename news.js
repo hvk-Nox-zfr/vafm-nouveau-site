@@ -126,6 +126,16 @@ function openNewsPage() {
 
 // Fonction universelle pour gérer le routage propre selon l'URL
 function handleNavigation() {
+    // Ferme un article éventuellement ouvert AVANT d'appliquer la nouvelle
+    // destination, sans laisser closeArticleView() rediriger de son côté —
+    // c'est ce bloc-ci, juste après, qui décide où on va réellement.
+    // Sans ça : ouvrir un article puis cliquer "Animateurs" (ou "Actualités",
+    // ou le logo) laissait l'article affiché "en bas" de la nouvelle page,
+    // puisque rien ne le fermait jamais dans ce cas précis.
+    if (typeof closeArticleView === 'function') {
+        closeArticleView({ skipRestore: true });
+    }
+
     const hash = window.location.hash;
 
     if (hash === '#actus' || hash === '#actualites') {
@@ -145,7 +155,7 @@ function handleNavigation() {
 // fonctionner peu importe la page sur laquelle on se trouve.
 function goHome() {
     if (typeof closeArticleView === 'function') {
-        closeArticleView();
+        closeArticleView({ skipRestore: true });
     }
     history.pushState({ page: 'home' }, '', '/');
     showHomePage();
