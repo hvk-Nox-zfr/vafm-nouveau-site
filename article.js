@@ -641,11 +641,14 @@ async function openArticleView(category, id) {
         if (typeof initCanvaInteractions === 'function') initCanvaInteractions();
         initDynamicTooltips();
         initStudioShortcuts(collectionName, id);
-    } else {
-    setTimeout(() => {
-    try {
+} else {
+
+    function initArticleAds(attempt = 0) {
+
         if (typeof window.adsbygoogle === 'undefined') {
-            console.warn("AdSense n'est pas encore chargé.");
+            if (attempt < 10) {
+                setTimeout(() => initArticleAds(attempt + 1), 300);
+            }
             return;
         }
 
@@ -655,35 +658,59 @@ async function openArticleView(category, id) {
 
         ads.forEach(ad => {
 
-    // AdSense a déjà traité cette publicité
-    if (ad.getAttribute('data-adsbygoogle-status')) {
-        return;
+            // Déjà traité par Google
+            if (ad.getAttribute('data-adsbygoogle-status')) {
+                return;
+            }
+
+            // Déjà initialisé par notre script
+            if (ad.dataset.adsInitialized === 'true') {
+                return;
+            }
+
+            const width = ad.getBoundingClientRect().width;
+
+            // Le bloc n'a pas encore de largeur.
+            // On attend que l'article soit réellement affiché.
+            if (width === 0) {
+                if (attempt < 10) {
+                    setTimeout(() => initArticleAds(attempt + 1), 300);
+                }
+                return;
+            }
+
+            // AdSense fluid nécessite au minimum 250px.
+            if (width < 250) {
+                console.warn(
+                    `AdSense ignoré : largeur insuffisante (${Math.round(width)}px)`
+                );
+                return;
+            }
+
+            try {
+
+                ad.dataset.adsInitialized = 'true';
+
+                (window.adsbygoogle = window.adsbygoogle || []).push({});
+
+            } catch (error) {
+
+                delete ad.dataset.adsInitialized;
+
+                console.error(
+                    "Erreur d'initialisation AdSense :",
+                    error
+                );
+
+            }
+
+        });
+
     }
 
-    // Notre script l'a déjà initialisée
-    if (ad.dataset.adsInitialized === 'true') {
-        return;
-    }
-
-    const width = ad.getBoundingClientRect().width;
-
-    if (width < 250) {
-    console.warn(`AdSense ignoré : largeur insuffisante (${width}px)`);
-    return;
-}
-
-    try {
-        ad.dataset.adsInitialized = 'true';
-        (window.adsbygoogle = window.adsbygoogle || []).push({});
-    } catch (error) {
-        console.error("Erreur d'initialisation AdSense :", error);
-    }
-});
-
-    } catch (e) {
-        console.error("Erreur AdSense:", e);
-    }
-}, 500);
+    setTimeout(() => {
+        initArticleAds();
+    }, 500);
 }
 
     history.pushState({ page: 'article', category, id }, title, cleanUrlPath);
@@ -776,8 +803,26 @@ function formatContentToCanvaBlocks(htmlContent, isAdmin = false) {
         if (isAdmin) return;
 
         // PUBLIC : remplacement par un vrai bloc AdSense
-        const adContainer = document.createElement('div');
-        adContainer.className = 'adsense-rendered-block';
+        const parentBlock = adNode.closest('.canva-block');
+
+if (parentBlock) {
+    parentBlock.classList.remove(
+        'size-sm',
+        'size-md',
+        'size-lg',
+        'img-left',
+        'img-right',
+        'img-center'
+    );
+
+    parentBlock.classList.add(
+        'size-full',
+        'img-full'
+    );
+}
+
+const adContainer = document.createElement('div');
+adContainer.className = 'adsense-rendered-block';
 
         adContainer.innerHTML = `
             <ins class="adsbygoogle"
