@@ -654,52 +654,30 @@ async function openArticleView(category, id) {
         );
 
         ads.forEach(ad => {
-            // Déjà initialisée
-            if (ad.dataset.adsInitialized === 'true') {
-                return;
-            }
 
-            // Vérifie que la pub possède une vraie largeur
-            const width = ad.getBoundingClientRect().width;
+    // AdSense a déjà traité cette publicité
+    if (ad.getAttribute('data-adsbygoogle-status')) {
+        return;
+    }
 
-            if (width <= 0) {
-                console.warn(
-                    "AdSense : largeur du bloc = 0, nouvelle tentative..."
-                );
+    // Notre script l'a déjà initialisée
+    if (ad.dataset.adsInitialized === 'true') {
+        return;
+    }
 
-                setTimeout(() => {
-                    const retryWidth = ad.getBoundingClientRect().width;
+    const width = ad.getBoundingClientRect().width;
 
-                    if (
-                        retryWidth > 0 &&
-                        ad.dataset.adsInitialized !== 'true'
-                    ) {
-                        try {
-                            (window.adsbygoogle = window.adsbygoogle || []).push({});
-                            ad.dataset.adsInitialized = 'true';
-                        } catch (error) {
-                            console.error(
-                                "Erreur AdSense lors de la nouvelle tentative :",
-                                error
-                            );
-                        }
-                    }
-                }, 1000);
+    if (width <= 0) {
+        return;
+    }
 
-                return;
-            }
-
-            // Initialisation normale
-            try {
-                (window.adsbygoogle = window.adsbygoogle || []).push({});
-                ad.dataset.adsInitialized = 'true';
-            } catch (error) {
-                console.error(
-                    "Erreur d'initialisation AdSense :",
-                    error
-                );
-            }
-        });
+    try {
+        ad.dataset.adsInitialized = 'true';
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+    } catch (error) {
+        console.error("Erreur d'initialisation AdSense :", error);
+    }
+});
 
     } catch (e) {
         console.error("Erreur AdSense:", e);
