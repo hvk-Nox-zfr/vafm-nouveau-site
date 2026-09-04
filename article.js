@@ -642,14 +642,70 @@ async function openArticleView(category, id) {
         initDynamicTooltips();
         initStudioShortcuts(collectionName, id);
     } else {
-        setTimeout(() => {
-            try {
-                (adsbygoogle = window.adsbygoogle || []).push({});
-            } catch (e) {
-                console.error("Erreur d'initialisation AdSense:", e);
+    setTimeout(() => {
+    try {
+        if (typeof window.adsbygoogle === 'undefined') {
+            console.warn("AdSense n'est pas encore chargé.");
+            return;
+        }
+
+        const ads = document.querySelectorAll(
+            '#canva-doc-content ins.adsbygoogle'
+        );
+
+        ads.forEach(ad => {
+            // Déjà initialisée
+            if (ad.dataset.adsInitialized === 'true') {
+                return;
             }
-        }, 300);
+
+            // Vérifie que la pub possède une vraie largeur
+            const width = ad.getBoundingClientRect().width;
+
+            if (width <= 0) {
+                console.warn(
+                    "AdSense : largeur du bloc = 0, nouvelle tentative..."
+                );
+
+                setTimeout(() => {
+                    const retryWidth = ad.getBoundingClientRect().width;
+
+                    if (
+                        retryWidth > 0 &&
+                        ad.dataset.adsInitialized !== 'true'
+                    ) {
+                        try {
+                            (window.adsbygoogle = window.adsbygoogle || []).push({});
+                            ad.dataset.adsInitialized = 'true';
+                        } catch (error) {
+                            console.error(
+                                "Erreur AdSense lors de la nouvelle tentative :",
+                                error
+                            );
+                        }
+                    }
+                }, 1000);
+
+                return;
+            }
+
+            // Initialisation normale
+            try {
+                (window.adsbygoogle = window.adsbygoogle || []).push({});
+                ad.dataset.adsInitialized = 'true';
+            } catch (error) {
+                console.error(
+                    "Erreur d'initialisation AdSense :",
+                    error
+                );
+            }
+        });
+
+    } catch (e) {
+        console.error("Erreur AdSense:", e);
     }
+}, 500);
+}
 
     history.pushState({ page: 'article', category, id }, title, cleanUrlPath);
 }
@@ -728,48 +784,74 @@ function formatContentToCanvaBlocks(htmlContent, isAdmin = false) {
     if (!htmlContent || htmlContent.trim() === '') {
         return '<div class="canva-block"><p>Écrivez votre texte ici...</p></div>';
     }
-    
+
     const temp = document.createElement('div');
     temp.innerHTML = htmlContent;
 
-    // Gestion AdSense
+    // ============================================================
+    // ADSENSE
+    // ============================================================
     temp.querySelectorAll('.vafm-ad-placeholder').forEach(adNode => {
-        if (!isAdmin) {
-            const adContainer = document.createElement('div');
-            adContainer.className = 'adsense-rendered-block';
-            adContainer.innerHTML = `
-                <ins class="adsbygoogle"
-                     style="display:block; text-align:center;"
-                     data-ad-layout="in-article"
-                     data-ad-format="fluid"
-                     data-ad-client="${ADSENSE_CONFIG.client}"
-                     data-ad-slot="${ADSENSE_CONFIG.slot}"></ins>
-            `;
-            adNode.parentNode.replaceChild(adContainer, adNode);
-        }
+
+        // ADMIN : on garde le placeholder
+        if (isAdmin) return;
+
+        // PUBLIC : remplacement par un vrai bloc AdSense
+        const adContainer = document.createElement('div');
+        adContainer.className = 'adsense-rendered-block';
+
+        adContainer.innerHTML = `
+            <ins class="adsbygoogle"
+                style="display:block; text-align:center;"
+                data-ad-layout="in-article"
+                data-ad-format="fluid"
+                data-ad-client="${ADSENSE_CONFIG.client}"
+                data-ad-slot="${ADSENSE_CONFIG.slot}"></ins>
+        `;
+
+        adNode.replaceWith(adContainer);
     });
-    
+
     let result = '';
+
     temp.childNodes.forEach(node => {
-        if (node.nodeType === 1) { // Élément HTML (div, img, p, h2, etc.)
-            // Si le nœud est déjà un canva-block, on le conserve
+
+        if (node.nodeType === 1) {
+
             if (node.classList.contains('canva-block')) {
                 result += node.outerHTML;
-            } 
-            // Si c'est une image directe sans canva-block autour
-            else if (node.tagName.toLowerCase() === 'img') {
-                result += `<div class="canva-block img-full size-md">${node.outerHTML}</div>`;
-            } 
-            // Pour tout autre élément HTML
-            else {
-                result += `<div class="canva-block">${node.outerHTML}</div>`;
             }
-        } else if (node.nodeType === 3 && node.textContent.trim() !== '') {
-            result += `<div class="canva-block"><p>${node.textContent.trim()}</p></div>`;
+
+            else if (node.tagName.toLowerCase() === 'img') {
+                result += `
+                    <div class="canva-block img-full size-md">
+                        ${node.outerHTML}
+                    </div>
+                `;
+            }
+
+            else {
+                result += `
+                    <div class="canva-block">
+                        ${node.outerHTML}
+                    </div>
+                `;
+            }
+
+        } else if (
+            node.nodeType === 3 &&
+            node.textContent.trim() !== ''
+        ) {
+            result += `
+                <div class="canva-block">
+                    <p>${node.textContent.trim()}</p>
+                </div>
+            `;
         }
     });
 
-    return result || `<div class="canva-block"><p>Écrivez votre texte ici...</p></div>`;
+    return result ||
+        '<div class="canva-block"><p>Écrivez votre texte ici...</p></div>';
 }
 
 function initCanvaInteractions() {

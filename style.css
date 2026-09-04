@@ -13,6 +13,20 @@
     --transition-smooth: cubic-bezier(0.25, 1, 0.5, 1);
 }
 
+.adsense-rendered-block {
+    width: 100%;
+    min-width: 0;
+    display: block;
+    margin: 25px 0;
+    overflow: hidden;
+}
+
+.adsense-rendered-block .adsbygoogle {
+    display: block !important;
+    width: 100%;
+    min-width: 0;
+}
+
 /* Surlignement exact à la couleur du logo VAFM */
 ::selection {
     background-color: #dd0000f7; /* Le rouge bordeaux de la vague */
