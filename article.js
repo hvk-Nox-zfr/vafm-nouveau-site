@@ -667,9 +667,10 @@ async function openArticleView(category, id) {
 
     const width = ad.getBoundingClientRect().width;
 
-    if (width <= 0) {
-        return;
-    }
+    if (width < 250) {
+    console.warn(`AdSense ignoré : largeur insuffisante (${width}px)`);
+    return;
+}
 
     try {
         ad.dataset.adsInitialized = 'true';
