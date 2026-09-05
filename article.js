@@ -25,56 +25,6 @@ function calculateReadTime(text) {
 }
 
 /* --------------------------------------------------------------------------
-   INITIALISATION DES PUBS ADSENSE
-   -------------------------------------------------------------------------- */
-function initArticleAds(attempt = 0) {
-    if (typeof window.adsbygoogle === 'undefined') {
-        if (attempt < 10) {
-            setTimeout(() => initArticleAds(attempt + 1), 300);
-        }
-        return;
-    }
-
-    const ads = document.querySelectorAll('#canva-doc-content ins.adsbygoogle');
-
-    ads.forEach(ad => {
-        // Déjà traité par Google
-        if (ad.getAttribute('data-adsbygoogle-status')) {
-            return;
-        }
-
-        // Déjà initialisé par notre script
-        if (ad.dataset.adsInitialized === 'true') {
-            return;
-        }
-
-        const width = ad.offsetWidth || ad.getBoundingClientRect().width;
-
-        // Le bloc n'a pas encore de largeur (en cours de rendu DOM)
-        if (width === 0) {
-            if (attempt < 10) {
-                setTimeout(() => initArticleAds(attempt + 1), 300);
-            }
-            return;
-        }
-
-        // AdSense nécessite au minimum 250px
-        if (width < 250) {
-            console.warn(`AdSense ignoré : largeur insuffisante (${Math.round(width)}px)`);
-            return;
-        }
-
-        try {
-            ad.dataset.adsInitialized = 'true';
-            (window.adsbygoogle = window.adsbygoogle || []).push({});
-        } catch (error) {
-            delete ad.dataset.adsInitialized;
-            console.error("Erreur d'initialisation AdSense :", error);
-        }
-    });
-}
-
-/* --------------------------------------------------------------------------
    ASSISTANT IA GROQ (VIA VERCEL SERVERLESS FUNCTION)
    -------------------------------------------------------------------------- */
 async function runAICorrection() {
@@ -117,7 +67,7 @@ async function runAICorrection() {
         let correctedContent = data.choices?.[0]?.message?.content;
 
         if (correctedContent) {
-            // Nettoyage rigoureux des balises Markdown de code
+            // Nettoyage rigoureux des balises Markdown de code (au début et à la fin)
             correctedContent = correctedContent
                 .replace(/^```(?:html)?\s*/i, '')
                 .replace(/\s*```$/i, '')
@@ -334,7 +284,7 @@ async function openArticleView(category, id) {
     ::selection { background-color: #E50914 !important; color: #ffffff !important; }
     ::-moz-selection { background-color: #E50914 !important; color: #ffffff !important; }
 
-    /* Conteneur de la modale dans le flux principal */
+    /* Conteneur de la modale dans le flux principal sous le bandeau d'origine */
     #article-modal {
         display: block !important;
         visibility: visible !important;
@@ -476,13 +426,6 @@ async function openArticleView(category, id) {
         display: block !important;
         overflow-wrap: break-word !important;
         word-break: break-word !important;
-    }
-
-    @media (max-width: 600px) {
-        .canva-document {
-            padding: 20px 15px !important;
-            margin-top: 40px !important;
-        }
     }
 
     .canva-document a { color: #E50914 !important; text-decoration: underline !important; font-weight: 600; cursor: pointer; }
@@ -671,19 +614,25 @@ async function openArticleView(category, id) {
         </div>
     `;
 
-    // 1. Masquer les vues d'accueil ET la grille des actualités SPA
+    // 1. Masquer les vues d'accueil ET la grille des actualités SPA pour laisser toute la place
     const mainContent = document.getElementById('content');
     const newsSpa = document.getElementById('news-page-spa');
 
+    // On mémorise d'où vient l'utilisateur (Accueil ou page Actus) pour pouvoir
+    // y revenir correctement à la fermeture de l'article.
     window._articleReturnTo = (newsSpa && newsSpa.classList.contains('active')) ? 'news' : 'home';
 
     if (mainContent) mainContent.style.display = 'none';
     if (newsSpa) {
+        // Important : la classe "active" pilote un `display: block !important` dans
+        // news.css. Un simple style.display = 'none' ne suffit donc pas à la masquer,
+        // il faut aussi retirer la classe, sinon la page Actus reste visible derrière
+        // et pousse la fiche article tout en bas de la page.
         newsSpa.classList.remove('active');
         newsSpa.style.display = 'none';
     }
     
-    // 2. Afficher la vue article et scroller en haut
+    // 2. Afficher la vue article et scroller en haut de la page
     articleContainer.style.display = 'block';
     window.scrollTo({ top: 0, behavior: 'instant' });
 
@@ -692,11 +641,77 @@ async function openArticleView(category, id) {
         if (typeof initCanvaInteractions === 'function') initCanvaInteractions();
         initDynamicTooltips();
         initStudioShortcuts(collectionName, id);
-    } else {
-        setTimeout(() => {
-            initArticleAds();
-        }, 400);
+} else {
+
+    function initArticleAds(attempt = 0) {
+
+        if (typeof window.adsbygoogle === 'undefined') {
+            if (attempt < 10) {
+                setTimeout(() => initArticleAds(attempt + 1), 300);
+            }
+            return;
+        }
+
+        const ads = document.querySelectorAll(
+            '#canva-doc-content ins.adsbygoogle'
+        );
+
+        ads.forEach(ad => {
+
+            // Déjà traité par Google
+            if (ad.getAttribute('data-adsbygoogle-status')) {
+                return;
+            }
+
+            // Déjà initialisé par notre script
+            if (ad.dataset.adsInitialized === 'true') {
+                return;
+            }
+
+            const width = ad.getBoundingClientRect().width;
+
+            // Le bloc n'a pas encore de largeur.
+            // On attend que l'article soit réellement affiché.
+            if (width === 0) {
+                if (attempt < 10) {
+                    setTimeout(() => initArticleAds(attempt + 1), 300);
+                }
+                return;
+            }
+
+            // AdSense fluid nécessite au minimum 250px.
+            if (width < 250) {
+                console.warn(
+                    `AdSense ignoré : largeur insuffisante (${Math.round(width)}px)`
+                );
+                return;
+            }
+
+            try {
+
+                ad.dataset.adsInitialized = 'true';
+
+                (window.adsbygoogle = window.adsbygoogle || []).push({});
+
+            } catch (error) {
+
+                delete ad.dataset.adsInitialized;
+
+                console.error(
+                    "Erreur d'initialisation AdSense :",
+                    error
+                );
+
+            }
+
+        });
+
     }
+
+    setTimeout(() => {
+        initArticleAds();
+    }, 500);
+}
 
     history.pushState({ page: 'article', category, id }, title, cleanUrlPath);
 }
@@ -787,32 +802,17 @@ function formatContentToCanvaBlocks(htmlContent, isAdmin = false) {
         // ADMIN : on garde le placeholder
         if (isAdmin) return;
 
-        // PUBLIC : remplacement par un bloc AdSense responsive automatique
-        const parentBlock = adNode.closest('.canva-block');
-
-        if (parentBlock) {
-            parentBlock.classList.remove(
-                'size-sm',
-                'size-md',
-                'size-lg',
-                'img-left',
-                'img-right',
-                'img-center'
-            );
-
-            parentBlock.classList.add('size-full', 'img-full');
-        }
-
+        // PUBLIC : remplacement par un vrai bloc AdSense
         const adContainer = document.createElement('div');
         adContainer.className = 'adsense-rendered-block';
 
         adContainer.innerHTML = `
             <ins class="adsbygoogle"
                 style="display:block; text-align:center;"
+                data-ad-layout="in-article"
+                data-ad-format="fluid"
                 data-ad-client="${ADSENSE_CONFIG.client}"
-                data-ad-slot="${ADSENSE_CONFIG.slot}"
-                data-ad-format="auto"
-                data-full-width-responsive="true"></ins>
+                data-ad-slot="${ADSENSE_CONFIG.slot}"></ins>
         `;
 
         adNode.replaceWith(adContainer);
@@ -821,23 +821,33 @@ function formatContentToCanvaBlocks(htmlContent, isAdmin = false) {
     let result = '';
 
     temp.childNodes.forEach(node => {
+
         if (node.nodeType === 1) {
+
             if (node.classList.contains('canva-block')) {
                 result += node.outerHTML;
-            } else if (node.tagName.toLowerCase() === 'img') {
+            }
+
+            else if (node.tagName.toLowerCase() === 'img') {
                 result += `
                     <div class="canva-block img-full size-md">
                         ${node.outerHTML}
                     </div>
                 `;
-            } else {
+            }
+
+            else {
                 result += `
                     <div class="canva-block">
                         ${node.outerHTML}
                     </div>
                 `;
             }
-        } else if (node.nodeType === 3 && node.textContent.trim() !== '') {
+
+        } else if (
+            node.nodeType === 3 &&
+            node.textContent.trim() !== ''
+        ) {
             result += `
                 <div class="canva-block">
                     <p>${node.textContent.trim()}</p>
@@ -846,7 +856,8 @@ function formatContentToCanvaBlocks(htmlContent, isAdmin = false) {
         }
     });
 
-    return result || '<div class="canva-block"><p>Écrivez votre texte ici...</p></div>';
+    return result ||
+        '<div class="canva-block"><p>Écrivez votre texte ici...</p></div>';
 }
 
 function initCanvaInteractions() {
@@ -1070,11 +1081,20 @@ function closeArticleView(options = {}) {
     // Supprime le balisage Schema de l'article fermé
     document.getElementById('news-schema')?.remove();
 
+    // Si l'appelant (ex: handleNavigation) va de toute façon rediriger vers
+    // sa propre destination, on ne fait qu'éteindre l'article et on le
+    // laisse gérer la suite — sinon on se marchait dessus : l'article
+    // restait affiché "en bas" de la page vers laquelle on venait de
+    // naviguer (ex: Animateurs), car rien ne le refermait jamais.
     if (options.skipRestore) {
         delete window._articleReturnTo;
         return wasOpen;
     }
 
+    // Rétablir la vue précédente (page Actus ou Accueil), en se basant sur l'origine
+    // mémorisée à l'ouverture plutôt que sur un test de contenu HTML (toujours vrai
+    // pour la grille Actus, qui est statique). On réutilise les fonctions de news.js
+    // qui gèrent déjà correctement les classes "active" et les menus de navigation.
     const returnTo = window._articleReturnTo || 'home';
     delete window._articleReturnTo;
 
@@ -1085,6 +1105,7 @@ function closeArticleView(options = {}) {
         showHomePage();
         history.pushState({ page: 'home' }, '', '/');
     } else {
+        // Repli si news.js n'est pas chargé (ne devrait pas arriver)
         const newsSpa = document.getElementById('news-page-spa');
         const mainContent = document.getElementById('content');
         if (returnTo === 'news' && newsSpa) {
@@ -1149,10 +1170,13 @@ async function handleCanvaImageUpload(event) {
     const contentBox = document.getElementById('canva-doc-content');
     if (!contentBox) return;
 
+    // 1. Compression immédiate (WebP, ~80-90% plus léger) pour fluidifier
+    //    l'éditeur, que l'upload distant fonctionne ou non.
     const compressed = (typeof compressImage === 'function')
         ? await compressImage(file, 1400, 0.82)
         : file;
 
+    // 2. On détermine la cible : image déjà sélectionnée ou nouveau bloc
     let targetImg;
     if (activeBlock && activeBlock.querySelector('img')) {
         targetImg = activeBlock.querySelector('img');
@@ -1173,11 +1197,13 @@ async function handleCanvaImageUpload(event) {
         }
     }
 
+    // 3. Aperçu instantané et léger pendant l'upload (pas de base64 ici)
     const previewUrl = URL.createObjectURL(compressed);
     targetImg.src = previewUrl;
     targetImg.dataset.uploading = "1";
     initCanvaInteractions();
 
+    // 4. Upload réel du fichier vers PocketBase
     try {
         const articleId = (typeof currentArticleData !== 'undefined' && currentArticleData) ? currentArticleData.id : null;
         const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
@@ -1222,6 +1248,7 @@ async function handleCanvaImageUpload(event) {
 
 async function saveCanvaArticle(collectionName, id) {
     try {
+        // 1. Récupération des éléments DOM
         const titleElement = document.getElementById('canva-doc-title');
         const title = titleElement ? titleElement.innerText.trim() : '';
 
@@ -1234,11 +1261,14 @@ async function saveCanvaArticle(collectionName, id) {
         const fileInput = document.getElementById('canva-file-input');
         const hasNewFile = fileInput && fileInput.files && fileInput.files[0];
 
+        // 2. Nettoyage propre des éléments d'édition Canva
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = contentBox.innerHTML;
 
+        // Suppression de TOUS les indicateurs de drop
         tempDiv.querySelectorAll('.canva-drop-indicator').forEach(el => el.remove());
 
+        // Nettoyage des classes et attributs d'édition sur tous les blocs et éléments enfants
         tempDiv.querySelectorAll('.canva-block').forEach(b => {
             b.classList.remove('selected', 'editing', 'dragging');
             b.removeAttribute('data-interactive');
@@ -1250,18 +1280,23 @@ async function saveCanvaArticle(collectionName, id) {
         });
 
         const content = tempDiv.innerHTML.trim();
+
+        // Extrait texte brut pour la vignette de la page d'accueil (200 caractères)
         const plainExcerpt = (tempDiv.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 200);
 
+        // 3. Détermination de la collection PocketBase
         let realCollection = collectionName;
         if (collectionName === 'news' || collectionName === 'article') {
             realCollection = 'actus';
         }
 
+        // Récupération de l'auteur connecté
         let authorDisplayName = "Équipe VAFM";
         if (window.appState && window.appState.currentUser) {
             authorDisplayName = window.appState.currentUser.name || window.appState.currentUser.username || "Équipe VAFM";
         }
 
+        // 4. Token & Headers d'authentification
         const token = typeof getAuthToken === 'function' 
             ? getAuthToken() 
             : (window.appState?.pbToken || (localStorage.getItem('pocketbase_auth') ? JSON.parse(localStorage.getItem('pocketbase_auth')).token : null));
@@ -1273,6 +1308,7 @@ async function saveCanvaArticle(collectionName, id) {
 
         let bodyPayload;
 
+        // 5. Préparation du payload (Multipart FormData ou JSON)
         if (hasNewFile) {
             const formData = new FormData();
             formData.append('titre', title);
@@ -1289,6 +1325,7 @@ async function saveCanvaArticle(collectionName, id) {
                 formData.append('user_id', userId);
             }
             
+            // Compression sécurisée de l'image de couverture
             let coverFile = fileInput.files[0];
             if (typeof compressImage === 'function') {
                 try {
@@ -1320,6 +1357,7 @@ async function saveCanvaArticle(collectionName, id) {
             bodyPayload = JSON.stringify(jsonBody);
         }
 
+        // 6. Envoi de la requête PATCH à PocketBase
         const baseUrl = typeof POCKETBASE_URL !== 'undefined' ? POCKETBASE_URL : (window.POCKETBASE_URL || '');
         const response = await fetch(`${baseUrl}/api/collections/${realCollection}/records/${id}`, {
             method: 'PATCH',
@@ -1351,6 +1389,7 @@ async function saveCanvaArticle(collectionName, id) {
         
         if (fileInput) fileInput.value = '';
         
+        // Rafraîchissement des données globales
         if (typeof fetchAllFromPocketBase === 'function') {
             await fetchAllFromPocketBase();
         }

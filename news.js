@@ -1,3 +1,29 @@
+// Génère un slug propre à partir d'un titre, pour des URLs d'article lisibles
+// et cohérentes avec celles déjà utilisées ailleurs (og:url, sitemaps...).
+function slugifyTitle(title) {
+    return (title || '')
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+}
+
+// Gère le clic sur une carte d'article devenue un vrai <a href="...">.
+// Un clic normal ouvre l'article en SPA (instantané, sans rechargement) comme
+// avant. Un Ctrl/Cmd/molette-clic laisse le navigateur suivre le vrai lien
+// nativement (nouvel onglet) — et c'est ce même lien que Googlebot peut
+// maintenant explorer pour découvrir l'article, ce qu'un onclick seul sur un
+// élément sans href ne permettait pas.
+function handleArticleLinkClick(event, category, id) {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button === 1) {
+        return;
+    }
+    event.preventDefault();
+    if (typeof openArticleView === 'function') {
+        openArticleView(category, id);
+    }
+}
+
 // Dictionnaire de layouts mobiles (0 trou sur grille 2x2 = 4 blocs)
 const mobileBentoLayouts = {
     1: [
@@ -330,17 +356,17 @@ function renderNewsSpa(articles) {
                     <span class="card-status-tag ${item.is_published ? 'tag-published' : 'tag-draft'}">
                         ${item.is_published ? 'Publié' : 'Brouillon'}
                     </span>
-                    <div class="card-admin-actions" onclick="event.stopPropagation();">
-                        <button class="btn-admin-action ${item.is_published ? 'btn-unpublish' : 'btn-publish'}" onclick="togglePublish('actus', '${item.id}', ${item.is_published}); event.stopPropagation();">
+                    <div class="card-admin-actions" onclick="event.preventDefault(); event.stopPropagation();">
+                        <button class="btn-admin-action ${item.is_published ? 'btn-unpublish' : 'btn-publish'}" onclick="togglePublish('actus', '${item.id}', ${item.is_published}); event.preventDefault(); event.stopPropagation();">
                             ${item.is_published ? 'Dépublier' : 'Publier'}
                         </button>
-                        <button class="btn-admin-action" onclick="openEditorModal('news', '${item.id}'); event.stopPropagation();">✏️</button>
-                        <button class="btn-admin-action" onclick="deleteItem('actus', '${item.id}'); event.stopPropagation();">✕</button>
+                        <button class="btn-admin-action" onclick="openEditorModal('news', '${item.id}'); event.preventDefault(); event.stopPropagation();">✏️</button>
+                        <button class="btn-admin-action" onclick="deleteItem('actus', '${item.id}'); event.preventDefault(); event.stopPropagation();">✕</button>
                     </div>
                 ` : '';
 
                 const actionsHtml = typeof handleLikeActu === 'function' ? `
-                    <div class="bento-actions" onclick="event.stopPropagation();">
+                    <div class="bento-actions" onclick="event.preventDefault(); event.stopPropagation();">
                         <button class="vafm-card-btn ${hasLiked ? 'liked' : ''}" onclick="handleLikeActu('${item.id}')" title="Aimer">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="${hasLiked ? '#ff334b' : 'none'}" stroke="${hasLiked ? '#ff334b' : '#ffffff'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
@@ -361,7 +387,7 @@ function renderNewsSpa(articles) {
                 ` : '';
 
                 return `
-                    <article class="news-card-bento ${bentoClass} ${!item.is_published ? 'draft-card' : ''}" data-id="${item.id}" onclick="handleArticleClick('${item.id}')" style="background-image: url('${imageUrl}');">
+                    <a class="news-card-bento ${bentoClass} ${!item.is_published ? 'draft-card' : ''}" data-id="${item.id}" href="/article/news/${item.id}-${slugifyTitle(title)}" onclick="handleArticleLinkClick(event, 'news', '${item.id}')" style="background-image: url('${imageUrl}');">
                         ${adminHtml}
                         <div class="bento-overlay"></div>
                         <div class="bento-content">
@@ -370,7 +396,7 @@ function renderNewsSpa(articles) {
                             <p class="bento-excerpt">${excerpt}</p>
                         </div>
                         ${actionsHtml}
-                    </article>
+                    </a>
                 `;
             }).join('');
 
@@ -506,12 +532,12 @@ function renderHomeNewsBento(gridElement, dataArray, seedPrefix) {
 
             if (item.__seeMore) {
                 return `
-                    <article class="news-card-bento bento-see-more ${bentoClass}" onclick="goToDedicatedNewsPage()">
+                    <a class="news-card-bento bento-see-more ${bentoClass}" href="#actus" onclick="goToDedicatedNewsPage(); event.preventDefault();">
                         <div class="bento-see-more-inner">
                             <span class="bento-see-more-label">Voir plus</span>
                             <span class="bento-see-more-arrow">→</span>
                         </div>
-                    </article>
+                    </a>
                 `;
             }
 
@@ -534,17 +560,17 @@ function renderHomeNewsBento(gridElement, dataArray, seedPrefix) {
                 <span class="card-status-tag ${item.is_published ? 'tag-published' : 'tag-draft'}">
                     ${item.is_published ? 'Publié' : 'Brouillon'}
                 </span>
-                <div class="card-admin-actions" onclick="event.stopPropagation();">
-                    <button class="btn-admin-action ${item.is_published ? 'btn-unpublish' : 'btn-publish'}" onclick="togglePublish('actus', '${item.id}', ${item.is_published}); event.stopPropagation();">
+                <div class="card-admin-actions" onclick="event.preventDefault(); event.stopPropagation();">
+                    <button class="btn-admin-action ${item.is_published ? 'btn-unpublish' : 'btn-publish'}" onclick="togglePublish('actus', '${item.id}', ${item.is_published}); event.preventDefault(); event.stopPropagation();">
                         ${item.is_published ? 'Dépublier' : 'Publier'}
                     </button>
-                    <button class="btn-admin-action" onclick="openEditorModal('news', '${item.id}'); event.stopPropagation();">✏️</button>
-                    <button class="btn-admin-action" onclick="deleteItem('actus', '${item.id}'); event.stopPropagation();">✕</button>
+                    <button class="btn-admin-action" onclick="openEditorModal('news', '${item.id}'); event.preventDefault(); event.stopPropagation();">✏️</button>
+                    <button class="btn-admin-action" onclick="deleteItem('actus', '${item.id}'); event.preventDefault(); event.stopPropagation();">✕</button>
                 </div>
             ` : '';
 
             const actionsHtml = `
-                <div class="bento-actions" onclick="event.stopPropagation();">
+                <div class="bento-actions" onclick="event.preventDefault(); event.stopPropagation();">
                     <button class="vafm-card-btn ${hasLiked ? 'liked' : ''}" onclick="handleLikeActu('${item.id}')" title="Aimer">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="${hasLiked ? '#ff334b' : 'none'}" stroke="${hasLiked ? '#ff334b' : '#ffffff'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
@@ -565,7 +591,7 @@ function renderHomeNewsBento(gridElement, dataArray, seedPrefix) {
             `;
 
             return `
-                <article class="news-card-bento ${bentoClass} ${!item.is_published ? 'draft-card' : ''}" data-id="${item.id}" onclick="openArticleView('news', '${item.id}')" style="background-image: url('${imageUrl}');">
+                <a class="news-card-bento ${bentoClass} ${!item.is_published ? 'draft-card' : ''}" data-id="${item.id}" href="/article/news/${item.id}-${slugifyTitle(title)}" onclick="handleArticleLinkClick(event, 'news', '${item.id}')" style="background-image: url('${imageUrl}');">
                     ${adminHtml}
                     <div class="bento-overlay"></div>
                     <div class="bento-content">
@@ -574,7 +600,7 @@ function renderHomeNewsBento(gridElement, dataArray, seedPrefix) {
                         <p class="bento-excerpt">${excerpt}</p>
                     </div>
                     ${actionsHtml}
-                </article>
+                </a>
             `;
         }).join('');
 

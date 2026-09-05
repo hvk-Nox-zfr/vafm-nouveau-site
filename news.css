@@ -179,6 +179,11 @@
     width: 100% !important;
     height: 100% !important;
     transition: transform 0.25s ease !important;
+    /* Les cartes sont maintenant de vrais <a href> (voir news.js) pour rester
+       crawlables par Google — on annule le style de lien par défaut du
+       navigateur pour que rien ne change visuellement. */
+    text-decoration: none !important;
+    color: inherit !important;
 }
 
 .news-card-bento:hover {
