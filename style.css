@@ -13,20 +13,6 @@
     --transition-smooth: cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-.adsense-rendered-block {
-    width: 100%;
-    min-width: 0;
-    display: block;
-    margin: 25px 0;
-    overflow: hidden;
-}
-
-.adsense-rendered-block .adsbygoogle {
-    display: block !important;
-    width: 100%;
-    min-width: 0;
-}
-
 /* Surlignement exact à la couleur du logo VAFM */
 ::selection {
     background-color: #dd0000f7; /* Le rouge bordeaux de la vague */
@@ -606,7 +592,6 @@ body.admin-logged-in .hero-section {
     justify-content: space-between; 
     align-items: center; 
     margin-bottom: 40px; 
-    margin-top: 55px;
 }
 
 .section-header h2 { 
@@ -4045,11 +4030,22 @@ header.navbar .btn-close-search {
   color: #fff;
   padding: 2px 6px;
   border-radius: 4px;
+  flex-shrink: 0;
 }
 
 .search-result-title {
   font-size: 0.9rem;
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-no-result {
+  padding: 16px;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #888;
 }
 
 #home-logo-btn {
