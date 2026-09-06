@@ -40,7 +40,15 @@ function openTeamPage() {
         window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     }, 0);
 
-    if (!teamPageLoaded && !teamPageLoading) {
+    // Si les données sont déjà chargées, on ré-affiche systématiquement les
+    // cartes (sans refaire d'appel réseau) pour refléter l'état de connexion
+    // ACTUEL. Sans ça : ouvrir la page une première fois avant que la session
+    // admin ne soit restaurée (ou en étant déconnecté) figeait l'affichage
+    // sans les boutons admin pour toute la suite de la session, même après
+    // s'être reconnecté.
+    if (teamPageLoaded) {
+        renderTeamGrids();
+    } else if (!teamPageLoading) {
         fetchAndRenderTeam();
     }
 }

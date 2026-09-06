@@ -499,8 +499,75 @@ async function openArticleView(category, id) {
     .canva-block.size-lg { width: 75% !important; }
     .canva-block.size-full { width: 100% !important; }
 
-    .canva-block img { width: 100%; border-radius: 8px; display: block; }
+    .canva-block img { width: 100%; border-radius: 8px; display: block; cursor: zoom-in; }
     blockquote.canva-quote { border-left: 4px solid #E50914; padding-left: 16px; margin: 20px 0; font-style: italic; color: #555; }
+
+    /* Sur mobile, les pourcentages fixes (30%/50%/75%) donnent des images
+       minuscules puisque la colonne de texte est déjà étroite — la
+       différence entre les tailles devient même invisible. On agrandit tout
+       et on désactive le flottement (le texte autour d'une petite image
+       flottante est illisible sur un écran étroit). */
+    @media screen and (max-width: 768px) {
+        .canva-block.img-left,
+        .canva-block.img-right {
+            float: none !important;
+            margin: 20px auto !important;
+        }
+        .canva-block.size-sm { width: 75% !important; }
+        .canva-block.size-md { width: 90% !important; }
+        .canva-block.size-lg,
+        .canva-block.size-full { width: 100% !important; }
+    }
+
+    .vafm-image-lightbox-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.92);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100000;
+        padding: 24px;
+        box-sizing: border-box;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.25s ease;
+    }
+
+    .vafm-image-lightbox-overlay.active {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .vafm-image-lightbox-overlay img {
+        max-width: 100%;
+        max-height: 100%;
+        border-radius: 8px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        cursor: zoom-out;
+    }
+
+    .vafm-image-lightbox-close {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.15);
+        color: #fff;
+        border: none;
+        font-size: 18px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s ease;
+    }
+
+    .vafm-image-lightbox-close:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
 
     .vafm-ad-placeholder {
         background: #f8f9fa; border: 2px dashed #E50914; border-radius: 8px;
@@ -642,6 +709,12 @@ async function openArticleView(category, id) {
         initDynamicTooltips();
         initStudioShortcuts(collectionName, id);
 } else {
+
+    // Aperçu plein écran au clic sur une image d'article (lecture publique
+    // uniquement — en mode admin, cliquer une image sert à sélectionner le
+    // bloc pour le redimensionner/déplacer, donc on ne touche pas à ce
+    // comportement-là).
+    initArticleImageLightbox();
 
     function initArticleAds(attempt = 0) {
 
@@ -1064,6 +1137,60 @@ async function handleTogglePublishInStudio(collectionName, id, currentStatus, ca
         console.error("Erreur lors du changement de statut de publication:", error);
         alert("Impossible de modifier le statut de publication : " + error.message);
     }
+}
+
+// Aperçu plein écran (lightbox) pour les images d'un article, en lecture
+// publique seulement. Délégation d'événement sur le conteneur du contenu :
+// fonctionne pour toutes les images, y compris celles déjà écrites avant
+// l'ajout de cette fonctionnalité, sans avoir à retoucher le contenu stocké.
+function initArticleImageLightbox() {
+    const content = document.getElementById('canva-doc-content');
+    if (!content) return;
+
+    content.addEventListener('click', (e) => {
+        const img = e.target.closest('.canva-block img');
+        if (!img) return;
+        // On ignore une éventuelle image à l'intérieur d'un emplacement pub
+        if (img.closest('.vafm-ad-placeholder') || img.closest('ins.adsbygoogle')) return;
+        openImageLightbox(img.src, img.alt || '');
+    });
+}
+
+function openImageLightbox(src, alt) {
+    let overlay = document.getElementById('vafm-image-lightbox');
+
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'vafm-image-lightbox';
+        overlay.className = 'vafm-image-lightbox-overlay';
+        overlay.innerHTML = `
+            <button class="vafm-image-lightbox-close" aria-label="Fermer">✕</button>
+            <img src="" alt="">
+        `;
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay || e.target.closest('.vafm-image-lightbox-close')) {
+                closeImageLightbox();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeImageLightbox();
+        });
+    }
+
+    const imgEl = overlay.querySelector('img');
+    imgEl.src = src;
+    imgEl.alt = alt;
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeImageLightbox() {
+    const overlay = document.getElementById('vafm-image-lightbox');
+    if (overlay) overlay.classList.remove('active');
+    document.body.style.overflow = '';
 }
 
 function closeArticleView(options = {}) {
