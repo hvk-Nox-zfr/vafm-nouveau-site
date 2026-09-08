@@ -717,69 +717,34 @@ async function openArticleView(category, id) {
     initArticleImageLightbox();
 
     function initArticleAds(attempt = 0) {
+    if (typeof window.adsbygoogle === 'undefined') {
+        if (attempt < 10) setTimeout(() => initArticleAds(attempt + 1), 300);
+        return;
+    }
 
-        if (typeof window.adsbygoogle === 'undefined') {
-            if (attempt < 10) {
-                setTimeout(() => initArticleAds(attempt + 1), 300);
-            }
+    // Ciblage direct de toutes les balises AdSense non encore initialisées
+    const ads = document.querySelectorAll('ins.adsbygoogle:not([data-adsbygoogle-status])');
+
+    ads.forEach(ad => {
+        if (ad.dataset.adsInitialized === 'true') return;
+
+        const width = ad.getBoundingClientRect().width;
+
+        // Si la vue n'est pas encore rendue, on réessaie
+        if (width === 0) {
+            if (attempt < 10) setTimeout(() => initArticleAds(attempt + 1), 300);
             return;
         }
 
-        const ads = document.querySelectorAll(
-            '#canva-doc-content ins.adsbygoogle'
-        );
-
-        ads.forEach(ad => {
-
-            // Déjà traité par Google
-            if (ad.getAttribute('data-adsbygoogle-status')) {
-                return;
-            }
-
-            // Déjà initialisé par notre script
-            if (ad.dataset.adsInitialized === 'true') {
-                return;
-            }
-
-            const width = ad.getBoundingClientRect().width;
-
-            // Le bloc n'a pas encore de largeur.
-            // On attend que l'article soit réellement affiché.
-            if (width === 0) {
-                if (attempt < 10) {
-                    setTimeout(() => initArticleAds(attempt + 1), 300);
-                }
-                return;
-            }
-
-            // AdSense fluid nécessite au minimum 250px.
-            if (width < 250) {
-                console.warn(
-                    `AdSense ignoré : largeur insuffisante (${Math.round(width)}px)`
-                );
-                return;
-            }
-
-            try {
-
-                ad.dataset.adsInitialized = 'true';
-
-                (window.adsbygoogle = window.adsbygoogle || []).push({});
-
-            } catch (error) {
-
-                delete ad.dataset.adsInitialized;
-
-                console.error(
-                    "Erreur d'initialisation AdSense :",
-                    error
-                );
-
-            }
-
-        });
-
-    }
+        try {
+            ad.dataset.adsInitialized = 'true';
+            (window.adsbygoogle = window.adsbygoogle || []).push({});
+        } catch (error) {
+            delete ad.dataset.adsInitialized;
+            console.error("Erreur d'initialisation AdSense :", error);
+        }
+    });
+}
 
     setTimeout(() => {
         initArticleAds();
@@ -868,16 +833,16 @@ function formatContentToCanvaBlocks(htmlContent, isAdmin = false) {
     temp.innerHTML = htmlContent;
 
     // ============================================================
-    // ADSENSE
+    // ADSENSE INTEGRATION
     // ============================================================
     temp.querySelectorAll('.vafm-ad-placeholder').forEach(adNode => {
 
-        // ADMIN : on garde le placeholder
+        // En mode ADMIN : on conserve l'encadré d'édition
         if (isAdmin) return;
 
-        // PUBLIC : remplacement par un vrai bloc AdSense
+        // En mode PUBLIC : remplacement par l'unité de pub AdSense complète
         const adContainer = document.createElement('div');
-        adContainer.className = 'adsense-rendered-block';
+        adContainer.className = 'canva-block img-full size-full adsense-rendered-block';
 
         adContainer.innerHTML = `
             <ins class="adsbygoogle"
@@ -894,43 +859,20 @@ function formatContentToCanvaBlocks(htmlContent, isAdmin = false) {
     let result = '';
 
     temp.childNodes.forEach(node => {
-
         if (node.nodeType === 1) {
-
             if (node.classList.contains('canva-block')) {
                 result += node.outerHTML;
+            } else if (node.tagName.toLowerCase() === 'img') {
+                result += `<div class="canva-block img-full size-md">${node.outerHTML}</div>`;
+            } else {
+                result += `<div class="canva-block">${node.outerHTML}</div>`;
             }
-
-            else if (node.tagName.toLowerCase() === 'img') {
-                result += `
-                    <div class="canva-block img-full size-md">
-                        ${node.outerHTML}
-                    </div>
-                `;
-            }
-
-            else {
-                result += `
-                    <div class="canva-block">
-                        ${node.outerHTML}
-                    </div>
-                `;
-            }
-
-        } else if (
-            node.nodeType === 3 &&
-            node.textContent.trim() !== ''
-        ) {
-            result += `
-                <div class="canva-block">
-                    <p>${node.textContent.trim()}</p>
-                </div>
-            `;
+        } else if (node.nodeType === 3 && node.textContent.trim() !== '') {
+            result += `<div class="canva-block"><p>${node.textContent.trim()}</p></div>`;
         }
     });
 
-    return result ||
-        '<div class="canva-block"><p>Écrivez votre texte ici...</p></div>';
+    return result || '<div class="canva-block"><p>Écrivez votre texte ici...</p></div>';
 }
 
 function initCanvaInteractions() {
