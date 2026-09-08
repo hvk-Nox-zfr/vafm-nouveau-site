@@ -494,8 +494,16 @@ async function openArticleView(category, id) {
     .canva-block.img-center { float: none !important; margin-left: auto !important; margin-right: auto !important; margin-top: 20px !important; margin-bottom: 20px !important; clear: both; }
     .canva-block.img-full { float: none !important; width: 100% !important; margin: 20px 0 !important; clear: both; }
 
-    .canva-block.size-sm { width: 30% !important; }
-    .canva-block.size-md { width: 50% !important; }
+    /* Assure un minimum de 250px pour la taille S afin d'éviter d'être bloqué */
+.canva-block.size-sm { 
+    width: 35% !important; 
+    min-width: 250px !important; 
+}
+
+.canva-block.size-md { 
+    width: 50% !important; 
+    min-width: 300px !important; 
+}
     .canva-block.size-lg { width: 75% !important; }
     .canva-block.size-full { width: 100% !important; }
 
@@ -716,23 +724,29 @@ async function openArticleView(category, id) {
     // comportement-là).
     initArticleImageLightbox();
 
-    function initArticleAds(attempt = 0) {
+function initArticleAds(attempt = 0) {
     if (typeof window.adsbygoogle === 'undefined') {
         if (attempt < 10) setTimeout(() => initArticleAds(attempt + 1), 300);
         return;
     }
 
-    // Ciblage direct de toutes les balises AdSense non encore initialisées
-    const ads = document.querySelectorAll('ins.adsbygoogle:not([data-adsbygoogle-status])');
+    const ads = document.querySelectorAll('#canva-doc-content ins.adsbygoogle');
 
     ads.forEach(ad => {
+        if (ad.getAttribute('data-adsbygoogle-status')) return;
         if (ad.dataset.adsInitialized === 'true') return;
 
         const width = ad.getBoundingClientRect().width;
 
-        // Si la vue n'est pas encore rendue, on réessaie
+        // Si le composant n'est pas encore rendu dans le DOM
         if (width === 0) {
             if (attempt < 10) setTimeout(() => initArticleAds(attempt + 1), 300);
+            return;
+        }
+
+        // Seuil réduit à 120px pour autoriser le format 'S'
+        if (width < 120) {
+            console.warn(`AdSense ignoré : largeur insuffisante (${Math.round(width)}px)`);
             return;
         }
 
