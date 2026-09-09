@@ -10,7 +10,7 @@ let activeBlock = null;
 // Config Google AdSense
 const ADSENSE_CONFIG = {
     client: 'ca-pub-8497430727637938',
-    slot: '4676661462'
+    slot: '5575140703'
 };
 
 /* --------------------------------------------------------------------------
@@ -730,23 +730,14 @@ function initArticleAds(attempt = 0) {
         return;
     }
 
-    const ads = document.querySelectorAll('#canva-doc-content ins.adsbygoogle');
+    const ads = document.querySelectorAll('ins.adsbygoogle:not([data-adsbygoogle-status])');
 
     ads.forEach(ad => {
-        if (ad.getAttribute('data-adsbygoogle-status')) return;
         if (ad.dataset.adsInitialized === 'true') return;
 
         const width = ad.getBoundingClientRect().width;
-
-        // Si le composant n'est pas encore rendu dans le DOM
         if (width === 0) {
             if (attempt < 10) setTimeout(() => initArticleAds(attempt + 1), 300);
-            return;
-        }
-
-        // Seuil réduit à 120px pour autoriser le format 'S'
-        if (width < 120) {
-            console.warn(`AdSense ignoré : largeur insuffisante (${Math.round(width)}px)`);
             return;
         }
 
@@ -755,7 +746,7 @@ function initArticleAds(attempt = 0) {
             (window.adsbygoogle = window.adsbygoogle || []).push({});
         } catch (error) {
             delete ad.dataset.adsInitialized;
-            console.error("Erreur d'initialisation AdSense :", error);
+            console.error("Erreur AdSense :", error);
         }
     });
 }
@@ -850,25 +841,22 @@ function formatContentToCanvaBlocks(htmlContent, isAdmin = false) {
     // ADSENSE INTEGRATION
     // ============================================================
     temp.querySelectorAll('.vafm-ad-placeholder').forEach(adNode => {
+    if (isAdmin) return;
 
-        // En mode ADMIN : on conserve l'encadré d'édition
-        if (isAdmin) return;
+    const adContainer = document.createElement('div');
+    adContainer.className = 'canva-block img-full size-full adsense-rendered-block';
 
-        // En mode PUBLIC : remplacement par l'unité de pub AdSense complète
-        const adContainer = document.createElement('div');
-        adContainer.className = 'canva-block img-full size-full adsense-rendered-block';
+    adContainer.innerHTML = `
+        <ins class="adsbygoogle"
+            style="display:block; text-align:center;"
+            data-ad-layout="in-article"
+            data-ad-format="fluid"
+            data-ad-client="${ADSENSE_CONFIG.client}"
+            data-ad-slot="${ADSENSE_CONFIG.slot}"></ins>
+    `;
 
-        adContainer.innerHTML = `
-            <ins class="adsbygoogle"
-                style="display:block; text-align:center;"
-                data-ad-layout="in-article"
-                data-ad-format="fluid"
-                data-ad-client="${ADSENSE_CONFIG.client}"
-                data-ad-slot="${ADSENSE_CONFIG.slot}"></ins>
-        `;
-
-        adNode.replaceWith(adContainer);
-    });
+    adNode.replaceWith(adContainer);
+});
 
     let result = '';
 
