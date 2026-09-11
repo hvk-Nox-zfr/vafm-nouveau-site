@@ -1,0 +1,194 @@
+/* ==========================================================================
+   BANDE DÉDICACES — bandeau noir défilant, fixe juste sous le header
+   ========================================================================== */
+
+.dedicaces-ticker {
+    position: fixed;
+    top: 80px; /* juste sous le header (hauteur 80px, voir .navbar) */
+    left: 0;
+    width: 100%;
+    height: 36px;
+    background: #0a0a0a;
+    z-index: 998; /* sous le header (999), au-dessus du contenu */
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    transition: top 0.3s var(--transition-smooth);
+}
+
+/* Le header descend de 50px quand la barre noire admin est active */
+body.admin-logged-in .dedicaces-ticker {
+    top: 130px;
+}
+
+#dedicaces-ticker-track,
+.dedicaces-ticker-track {
+    display: inline-flex !important;
+    align-items: center;
+    white-space: nowrap !important;
+    will-change: transform;
+}
+
+/* Unité répétée par le script JS pour la boucle infinie */
+.ticker-unit {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.dedicaces-ticker-item {
+    color: #ffffff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0 22px;
+    flex-shrink: 0;
+}
+
+.dedicaces-ticker-sep {
+    color: #E50914;
+    font-weight: 800;
+    flex-shrink: 0;
+}
+
+@media screen and (max-width: 768px) {
+    .dedicaces-ticker-item {
+        font-size: 0.78rem;
+        padding: 0 14px;
+    }
+}
+
+/* ==========================================================================
+   FORMULAIRE D'ENVOI DE DÉDICACE
+   ========================================================================== */
+
+.dedicace-form-card {
+    max-width: 600px;
+    margin: 0 auto;
+    background: #f8f8fa;
+    border-radius: 20px;
+    padding: 28px;
+    box-sizing: border-box;
+}
+
+.dedicace-logged-out {
+    text-align: center;
+    color: #555;
+}
+
+.dedicace-logged-out p {
+    margin: 0 0 14px 0;
+}
+
+.btn-dedicace-login {
+    background: #E50914;
+    color: #ffffff;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 24px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.btn-dedicace-login:hover {
+    background: #b8060f;
+}
+
+#dedicace-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.dedicace-input-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.dedicace-input-row input {
+    flex: 1;
+    width: 100%;
+    padding: 14px 60px 14px 16px;
+    border-radius: 12px;
+    border: 1px solid #ddd;
+    font-size: 0.95rem;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.dedicace-input-row input:focus {
+    outline: none;
+    border-color: #E50914;
+}
+
+.dedicace-counter {
+    position: absolute;
+    right: 14px;
+    font-size: 0.78rem;
+    color: #999;
+    font-weight: 600;
+    pointer-events: none;
+}
+
+.dedicace-consent {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: #555;
+    cursor: pointer;
+}
+
+.dedicace-consent input[type="checkbox"] {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    accent-color: #E50914;
+    cursor: pointer;
+}
+
+.dedicace-consent a {
+    color: #E50914;
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.btn-dedicace-submit {
+    background: #111111;
+    color: #ffffff;
+    border: none;
+    padding: 14px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.btn-dedicace-submit:hover:not(:disabled) {
+    background: #E50914;
+}
+
+.btn-dedicace-submit:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.dedicace-feedback {
+    font-size: 0.85rem;
+    color: #E50914;
+    min-height: 1.2em;
+    margin: 0;
+}
+
+.dedicace-feedback.success {
+    color: #1a9c4b;
+}
+
+@media screen and (max-width: 768px) {
+    .dedicace-form-card {
+        padding: 20px;
+    }
+}

@@ -7,7 +7,7 @@
 
 .team-page-spa-container {
     display: none; /* Masqué par défaut */
-    padding-top: 70px;
+    padding-top: 106px; /* Hauteur du header fixe (80px) + bandeau dédicaces (36px) */
     min-height: 100vh;
     width: 100%;
     background-color: #ffffff !important;
@@ -16,11 +16,12 @@
 }
 
 /* Le header passe en position fixed + top:50px quand la barre noire admin
-   est active (voir .navbar dans style.css) : il faut alors laisser 50px de
-   plus en haut de la page, sinon le titre "L'Équipe VAFM" et le bouton
-   "+ Ajouter un membre" se retrouvent cachés derrière le header. */
+   est active (voir .navbar dans style.css), et le bandeau dédicaces suit
+   le même décalage (voir .dedicaces-ticker) : il faut alors laisser
+   d'autant plus de place en haut, sinon le titre "L'Équipe VAFM" et le
+   bouton "+ Ajouter un membre" se retrouvent cachés derrière. */
 body.admin-logged-in .team-page-spa-container {
-    padding-top: 120px !important;
+    padding-top: 156px !important;
 }
 
 .team-page-spa-container.active {
@@ -72,7 +73,7 @@ body.admin-logged-in .team-page-spa-container {
 
 @media screen and (max-width: 768px) {
     .team-page-spa-container {
-        padding-top: 70px !important;
+        padding-top: 106px !important;
     }
 
     .team-spa-content {

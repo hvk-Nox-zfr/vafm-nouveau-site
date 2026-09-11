@@ -17,7 +17,7 @@
 /* BANDEAU DE FIXATION DES CATÉGORIES */
 .news-categories-bar {
     position: sticky;
-    top: 70px;
+    top: 106px; /* Header fixe (80px) + bandeau dédicaces (36px) */
     background: #ffffff;
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
     z-index: 100;
@@ -475,7 +475,7 @@
     }
 
     .news-page-spa-container {
-        padding-top: 70px !important; /* Hauteur de ton header fixe */
+        padding-top: 106px !important; /* Hauteur du header fixe + bandeau dédicaces */
     }
 
     .news-spa-content {

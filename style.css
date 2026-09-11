@@ -1014,7 +1014,7 @@ body.admin-logged-in .hero-section {
     display: none;
     width: 100%;
     min-height: 100vh;
-    padding-top: 110px;
+    padding-top: 146px; /* Header fixe (80px) + bandeau dédicaces (36px) */
     padding-bottom: 140px;
     background: #f8f9fa;
     position: relative;
@@ -1022,7 +1022,7 @@ body.admin-logged-in .hero-section {
 }
 
 body.admin-logged-in #article-modal {
-    padding-top: 160px;
+    padding-top: 196px;
 }
 
 .article-page-container {
@@ -2872,6 +2872,70 @@ footer#main-footer {
     transform: scale(1) !important;
 }
 
+/* ==========================================================================
+   REELS — DÉFILEMENT VERTICAL ENTRE VIDÉOS (au lieu de fermer/rouvrir)
+   ========================================================================== */
+
+.vafm-reels-scroll {
+    width: 100% !important;
+    height: 100% !important;
+    overflow-y: auto !important;
+    scroll-snap-type: y mandatory !important;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+}
+
+.vafm-reels-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+.vafm-reels-scroll.no-smooth {
+    scroll-behavior: auto !important; /* pour le saut initial, sans animation parasite */
+}
+
+.vafm-reels-slide {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    background: #000;
+    overflow: hidden;
+}
+
+/* Petite indication de défilement, affichée brièvement à l'ouverture */
+.vafm-reels-hint {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 15;
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(10px);
+    padding: 6px 14px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    opacity: 0;
+    animation: vafm-reels-hint-pulse 3.2s ease forwards;
+    pointer-events: none;
+}
+
+@keyframes vafm-reels-hint-pulse {
+    0% { opacity: 0; transform: translate(-50%, -6px); }
+    15% { opacity: 1; transform: translate(-50%, 0); }
+    80% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+.vafm-tiktok-close-btn {
+    z-index: 30 !important; /* toujours au-dessus des slides qui défilent */
+}
+
 .vafm-comments-drawer {
     position: absolute !important;
     bottom: -100% !important;
@@ -4470,10 +4534,19 @@ header,
     position: static !important; /* Annule le fixed sur les boutons */
 }
 
-/* Décale le contenu principal sous la barre fixe sans la cacher */
+/* Décale le contenu principal sous la barre fixe + le bandeau dédicaces
+   sans les cacher (80px header + 36px bandeau dédicaces) */
 #content, 
 #news-page-spa {
-    padding-top: 80px; /* Ajuste si besoin selon la hauteur exacte de ta navbar */
+    padding-top: 116px;
+}
+
+/* Le header + le bandeau dédicaces descendent tous les deux de 50px quand la
+   barre noire admin est active (voir body.admin-logged-in .navbar et
+   .dedicaces-ticker) : il faut alors laisser d'autant plus de place en haut. */
+body.admin-logged-in #content,
+body.admin-logged-in #news-page-spa {
+    padding-top: 166px;
 }
 /* ==========================================================================
    PAGINATION DU CARROUSEL HERO — indicateurs visuels uniquement

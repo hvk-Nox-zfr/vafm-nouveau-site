@@ -13,8 +13,8 @@
     <meta charset="UTF-8">
     <base href="/">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VAFM – La radio qu'il vous faut | Radio du Nord & Valenciennes</title>
-    <meta name="description" content="Écoutez VAFM, la radio qu'il vous faut ! Hits en direct, musique et toute l'actualité locale dans le Nord et le Valenciennois. Écoutez le direct dès maintenant.">
+    <title>VAFM – La Radio qu'il vous faut à Valenciennes</title>
+    <meta name="description" content="Écoutez VAFM, la radio qu'il vous faut à Valenciennes ! Musique en direct, hits préférés et actualités locales du Valenciennois. Écoutez le direct dès maintenant.">
     <meta name="keywords" content="radio valenciennes, vafm, radio en direct, webradio valenciennes, musique valenciennes, radio">
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     
@@ -49,21 +49,30 @@
     <meta name="twitter:description" id="twitter-desc" content="Écoutez VAFM, la radio qu'il vous faut à Valenciennes. Retrouvez vos hits préférés et les actualités locales.">
     <meta name="twitter:image" id="twitter-image" content="https://vafmlaradio.fr/LOGO-VAFM.png">
 
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <!-- Swiper (chargement non-bloquant, même technique que Font Awesome) -->
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" as="style">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"></noscript>
+
     <link rel="stylesheet" href="/style.css?v=2">
     <link rel="stylesheet" href="/news.css?v=2">
     <link rel="stylesheet" href="/team.css?v=1">
+    <link rel="stylesheet" href="/dedicaces.css?v=1">
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <!-- Seuls les 2 domaines vraiment critiques au premier rendu (police +
+         API PocketBase, d'où vient l'image de bannière préchargée). Plus de
+         4 preconnect ralentit le navigateur au lieu de l'aider — chacun a un
+         vrai coût (résolution DNS + TLS), donc on ne garde que l'essentiel. -->
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://api.vafmlaradio.fr">
     <link rel="dns-prefetch" href="https://api.vafmlaradio.fr">
-    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
     <link rel="manifest" href="/manifest.json">
-    
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <script defer src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+    <!-- Police Google Fonts en chargement non-bloquant -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" as="style">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
+
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8497430727637938" crossorigin="anonymous"></script>
     <script async type="application/javascript" src="https://news.google.com/swg/js/v1/swg-basic.js"></script>
     <script>
@@ -206,6 +215,35 @@
             <button class="close-btn" onclick="closeModal('auth-modal')">✕</button>
         </div>
     </div>
+    <!-- MODALE VERIFICATION CODE OTP (6 DIGITS) -->
+<div id="otp-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <h2>Vérification du compte</h2>
+        <p>Veuillez renseigner le code à 6 chiffres reçu par e-mail.</p>
+        
+        <form id="otp-form" onsubmit="handleOtpSubmit(event)">
+            <div class="input-group">
+                <label for="otp-code">Code de vérification</label>
+                <input 
+                    type="text" 
+                    id="otp-code" 
+                    placeholder="123456" 
+                    maxlength="6" 
+                    pattern="[0-9]{6}" 
+                    style="text-align: center; font-size: 24px; letter-spacing: 6px; font-weight: 700;"
+                    required
+                >
+            </div>
+
+            <button type="submit" class="btn-submit" id="btn-otp-submit">Valider le code</button>
+        </form>
+
+        <div class="auth-switch" style="margin-top: 15px;">
+            <a href="#" onclick="resendOtpCode(); return false;">Renvoyer un nouveau code</a>
+        </div>
+        <button class="close-btn" onclick="closeModal('otp-modal')">✕</button>
+    </div>
+</div>
 
     <!-- MODALE PARAMÈTRES DU COMPTE -->
     <div id="account-settings-modal" class="modal" style="display: none;">
@@ -496,6 +534,13 @@
         </div>
     </header>
 
+    <!-- BANDE DÉDICACES — bandeau défilant, visible sur tout le site, juste sous le header -->
+    <div id="dedicaces-ticker" class="dedicaces-ticker">
+        <div class="dedicaces-ticker-track" id="dedicaces-ticker-track">
+            <span class="dedicaces-ticker-item">Chargement des dédicaces…</span>
+        </div>
+    </div>
+
     <!-- PAGE SPA DÉDIÉE ACTUALITÉS -->
     <div id="news-page-spa" class="news-page-spa-container" style="display: none;">
         <div class="news-spa-content">
@@ -588,6 +633,42 @@
             </div>
         </section>
 
+        <!-- SECTION DÉDICACES — envoi (connexion requise) -->
+        <section class="section" id="dedicace-form-section">
+            <div class="section-header">
+                <h2>Dédicaces</h2>
+            </div>
+
+            <div class="dedicace-form-card">
+                <div id="dedicace-logged-out-msg" class="dedicace-logged-out" style="display: none;">
+                    <p>Connectez-vous pour envoyer une dédicace qui défilera en haut du site !</p>
+                    <button class="btn-dedicace-login" onclick="toggleAuthModal()">Se connecter</button>
+                </div>
+
+                <form id="dedicace-form" onsubmit="submitDedicace(event)" style="display: none;">
+                    <div class="dedicace-input-row">
+                        <input
+                            type="text"
+                            id="dedicace-message-input"
+                            maxlength="30"
+                            placeholder="Votre message (30 caractères max)"
+                            oninput="updateDedicaceCounter()"
+                            required
+                        >
+                        <span class="dedicace-counter" id="dedicace-counter">0/30</span>
+                    </div>
+
+                    <label class="dedicace-consent">
+                        <input type="checkbox" id="dedicace-consent-checkbox" onchange="updateDedicaceSubmitState()" required>
+                        J'accepte les <a href="https://vafmlaradio.fr/legal.html#privacy" target="_blank" rel="noopener">conditions de confidentialité</a>
+                    </label>
+
+                    <button type="submit" class="btn-dedicace-submit" id="dedicace-submit-btn" disabled>Envoyer ma dédicace</button>
+                    <p class="dedicace-feedback" id="dedicace-feedback"></p>
+                </form>
+            </div>
+        </section>
+
         <section class="section" id="videos">
             <div class="section-header">
                 <h2>Vidéos</h2>
@@ -637,19 +718,6 @@
             </button>
         </div>
     </footer>
-
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8497430727637938"
-     crossorigin="anonymous"></script>
-<!-- page d'accueil test -->
-<ins class="adsbygoogle"
-     style="display:block"
-     data-ad-client="ca-pub-8497430727637938"
-     data-ad-slot="1945815058"
-     data-ad-format="auto"
-     data-full-width-responsive="true"></ins>
-<script>
-     (adsbygoogle = window.adsbygoogle || []).push({});
-</script>
 
     <footer id="main-footer">
       <div class="footer-container">
@@ -701,6 +769,28 @@
     </footer>
 
     <!-- SCRIPTS DE FIN DE PAGE -->
+    <script>
+        // Charge Sortable.js (glisser-déposer pour réordonner) uniquement si
+        // une session admin/journaliste est déjà en localStorage — inutile
+        // de faire télécharger et exécuter cette librairie aux 99% de
+        // visiteurs qui ne l'utilisent jamais.
+        (function () {
+            try {
+                const stored = localStorage.getItem('pocketbase_auth');
+                if (!stored) return;
+                const parsed = JSON.parse(stored);
+                const role = (parsed.record || parsed.model || {}).role;
+                if (role === 'admin' || role === 'journaliste' || role === 'journalist') {
+                    const s = document.createElement('script');
+                    s.src = 'https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js';
+                    s.defer = true;
+                    document.head.appendChild(s);
+                }
+            } catch (e) {
+                // Session invalide : rien à charger, le reste du site gère déjà ce cas.
+            }
+        })();
+    </script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
@@ -708,6 +798,7 @@
     <script defer src="/script.js?v=2"></script>
     <script defer src="/news.js?v=2"></script>
     <script defer src="/team.js?v=1"></script>
+    <script defer src="/dedicaces.js?v=1"></script>
 
     <!-- MODALE AJOUT DE VIDÉO -->
     <div id="vafm-upload-modal" class="modal" style="display: none;">

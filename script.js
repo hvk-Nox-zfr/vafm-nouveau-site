@@ -1637,6 +1637,10 @@ function resetAuthUI() {
   if (form) form.reset();
 }
 
+// Variables globales pour stocker l'email et l'OTP ID pendant l'inscription
+let pendingUserEmail = '';
+let pendingOtpId = '';
+
 async function handleAuthSubmit(e) {
   e.preventDefault();
   const emailInput = document.getElementById('auth-email');
@@ -1682,6 +1686,7 @@ async function handleAuthSubmit(e) {
     try {
       const cleanUsername = identity.split('@')[0].replace(/[^a-zA-Z0-9]/g, '') + Math.floor(1000 + Math.random() * 9000);
       
+      // 1. Création de l'utilisateur
       const res = await fetch(`${POCKETBASE_URL}/api/collections/users/records`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1700,11 +1705,92 @@ async function handleAuthSubmit(e) {
         throw new Error(errJson.message || "Erreur lors de la création du compte.");
       }
 
-      alert("Inscription réussie ! Vous pouvez maintenant vous connecter.");
-      toggleAuthMode();
+      // 2. Demande d'envoi du code OTP par mail
+      const otpRes = await fetch(`${POCKETBASE_URL}/api/collections/users/request-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: identity })
+      });
+
+      if (!otpRes.ok) {
+        throw new Error("Compte créé, mais erreur lors de l'envoi du code par mail.");
+      }
+
+      const otpData = await otpRes.json();
+      pendingUserEmail = identity;
+      pendingOtpId = otpData.otpId;
+
+      // 3. Bascule vers la modale OTP
+      closeModal('auth-modal');
+      document.getElementById('otp-modal').style.display = 'flex';
+
     } catch (err) {
       alert("Erreur d'inscription : " + err.message);
     }
+  }
+}
+
+// Validation du code à 6 chiffres reçu par e-mail
+async function handleOtpSubmit(e) {
+  e.preventDefault();
+  const codeInput = document.getElementById('otp-code');
+  const password = codeInput ? codeInput.value.trim() : "";
+
+  if (!password || password.length !== 6) {
+    alert("Veuillez entrer un code valide à 6 chiffres.");
+    return;
+  }
+
+  try {
+    // Authentification via l'OTP auprès de PocketBase
+    const res = await fetch(`${POCKETBASE_URL}/api/collections/users/auth-with-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        otpId: pendingOtpId,
+        password: password
+      })
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.message || "Code incorrect ou expiré.");
+    }
+
+    const data = await res.json();
+    localStorage.setItem('pocketbase_auth', JSON.stringify(data));
+
+    const userRecord = data.record || data.model;
+    appState.currentUser = userRecord;
+
+    checkAdminRights(userRecord);
+    updateAuthUI();
+    closeModal('otp-modal');
+    alert("Compte vérifié et connecté avec succès !");
+    await fetchAllFromPocketBase();
+
+  } catch (err) {
+    alert("Erreur de validation : " + err.message);
+  }
+}
+
+// Fonction pour renvoyer un code si besoin
+async function resendOtpCode() {
+  if (!pendingUserEmail) return;
+  try {
+    const res = await fetch(`${POCKETBASE_URL}/api/collections/users/request-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: pendingUserEmail })
+    });
+
+    if (!res.ok) throw new Error("Erreur serveur.");
+
+    const otpData = await res.json();
+    pendingOtpId = otpData.otpId;
+    alert("Un nouveau code vient de vous être envoyé.");
+  } catch (err) {
+    alert("Impossible de renvoyer le code pour le moment.");
   }
 }
 
@@ -2966,172 +3052,257 @@ function updateOpenGraphTags(title, imageUrl, url) {
     if (url) setMeta('og:url', url);
 }
 
+// ============================================================================
+// Popup vidéos façon Reels — défilement vertical entre vidéos au lieu de
+// fermer/rouvrir la popup à chaque fois.
+// ============================================================================
+
+let reelsMuted = false;                 // état du son, partagé entre les slides
+const reelsMetaCache = {};              // cache des likes/commentaires par vidéo (évite de tout recharger au scroll)
+let reelsObserver = null;
+
+// Point d'entrée conservé pour compatibilité (grille vidéos, lien ?video=...) :
+// ouvre désormais le défilement complet, positionné sur la vidéo demandée.
 async function openVideoPlayerModal(url, title, videoId) {
+    await openVideoReelsModal(videoId);
+}
+
+async function openVideoReelsModal(startVideoId) {
+    const videos = (appState.videos || []).filter(v => v.is_published !== false && v.videoUrl);
+    if (videos.length === 0) return;
+
     let modal = document.getElementById('vafm-tiktok-player-modal');
-    
     if (!modal) {
         modal = document.createElement('div');
         modal.id = 'vafm-tiktok-player-modal';
-        modal.className = 'vafm-tiktok-overlay';
         document.body.appendChild(modal);
     }
-
-    let isLiked = false;
-    let likeRecordId = null;
-    let likeCount = 0;
-    let commentsList = [];
-
-    let directVideoShareUrl = window.location.origin + "/";
-    let videoPosterImg = "https://vafmlaradio.fr/LOGO-VAFM.png"; 
-
-    if (videoId) {
-        const currentVideoObj = appState.videos?.find(v => String(v.id).trim() === String(videoId).trim());
-        if (currentVideoObj) {
-            if (currentVideoObj.img) videoPosterImg = currentVideoObj.img;
-            if (currentVideoObj.title && (!title || title === 'video')) title = currentVideoObj.title;
-        }
-
-        const cleanSlug = (title || 'video')
-            .toLowerCase()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-+|-+$/g, '');
-        
-        directVideoShareUrl = `${window.location.origin}/?video=${videoId}-${cleanSlug}`;
-        window.history.replaceState({}, '', `/?video=${videoId}-${cleanSlug}`);
-
-        updateOpenGraphTags(title, videoPosterImg, directVideoShareUrl);
-
-        try {
-            const likesRes = await fetch(`${POCKETBASE_URL}/api/collections/video_likes/records?filter=(video='${videoId}')`);
-            if (likesRes.ok) {
-                const likesData = await likesRes.json();
-                likeCount = likesData.totalItems || 0;
-
-                if (appState && appState.currentUser) {
-                    const userLike = likesData.items.find(item => item.user === appState.currentUser.id);
-                    if (userLike) {
-                        isLiked = true;
-                        likeRecordId = userLike.id;
-                    }
-                }
-            }
-
-            const commentsRes = await fetch(`${POCKETBASE_URL}/api/collections/video_comments/records?filter=(video='${videoId}')&sort=-created`);
-            if (commentsRes.ok) {
-                const commentsData = await commentsRes.json();
-                commentsList = commentsData.items || [];
-            }
-        } catch (e) {
-            console.warn("Erreur chargement données PocketBase :", e);
-        }
-    }
+    modal.className = 'vafm-tiktok-overlay';
 
     modal.innerHTML = `
         <div class="vafm-tiktok-wrapper" style="width: 100%; height: 100%; max-width: 100vw; max-height: 100vh; border-radius: 0;">
             <button class="vafm-tiktok-close-btn" id="close-tiktok-player">✕</button>
-            
-            <video class="vafm-tiktok-video" id="vafm-reel-video" src="${url}" loop playsinline autoplay style="object-fit: cover; width: 100%; height: 100%;"></video>
-            <div class="vafm-tiktok-gradient-overlay"></div>
-
             <div class="vafm-share-toast" id="vafm-toast">Lien copié dans le presse-papier ! 🔗</div>
-
-            <div class="vafm-tiktok-play-center" id="vafm-play-center-icon">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-            </div>
-
-            <div class="vafm-tiktok-info">
-                <div class="vafm-tiktok-author">
-                    <span class="vafm-tiktok-badge">Reels VAFM</span>
-                </div>
-                <div class="vafm-tiktok-caption-text">${title}</div>
-            </div>
-
-            <div class="vafm-tiktok-side-actions">
-                <div class="vafm-tiktok-action-item">
-                    <button class="vafm-tiktok-action-btn ${isLiked ? 'liked' : ''}" id="vafm-like-btn" title="J'aime">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                        </svg>
-                    </button>
-                    <span class="vafm-tiktok-action-count" id="vafm-like-count">${likeCount}</span>
-                </div>
-
-                <div class="vafm-tiktok-action-item">
-                    <button class="vafm-tiktok-action-btn" id="vafm-comments-btn" title="Commentaires">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                        </svg>
-                    </button>
-                    <span class="vafm-tiktok-action-count" id="vafm-comments-count">${commentsList.length}</span>
-                </div>
-
-                <div class="vafm-tiktok-action-item">
-                    <button class="vafm-tiktok-action-btn" id="vafm-share-btn" title="Partager">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="18" cy="5" r="3"></circle>
-                            <circle cx="6" cy="12" r="3"></circle>
-                            <circle cx="18" cy="19" r="3"></circle>
-                            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-                        </svg>
-                    </button>
-                    <span class="vafm-tiktok-action-count">Partager</span>
-                </div>
-
-                <div class="vafm-tiktok-action-item">
-                    <button class="vafm-tiktok-action-btn" id="vafm-toggle-mute" title="Son">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                        </svg>
-                    </button>
-                </div>
+            <div class="vafm-reels-scroll no-smooth" id="vafm-reels-scroll">
+                ${videos.map(v => buildReelsSlideHTML(v)).join('')}
             </div>
         </div>
     `;
 
-    modal.style.display = 'flex';
+    modal.classList.add('active'); // ← c'était la ligne manquante : sans elle, la popup reste invisible (opacity:0) même si la vidéo, elle, se met déjà à jouer.
 
-    const videoEl = document.getElementById('vafm-reel-video');
+    const scrollEl = document.getElementById('vafm-tiktok-player-modal').querySelector('#vafm-reels-scroll');
     const closeBtn = document.getElementById('close-tiktok-player');
-    const shareBtn = document.getElementById('vafm-share-btn');
-    const muteBtn = document.getElementById('vafm-toggle-mute');
 
-    closeBtn?.addEventListener('click', () => {
-        modal.style.display = 'none';
-        if (videoEl) videoEl.pause();
-        window.history.replaceState({}, '', window.location.pathname);
-    });
+    // Positionne le défilement sur la vidéo cliquée, sans animation parasite
+    const startIndex = Math.max(0, videos.findIndex(v => String(v.id) === String(startVideoId)));
+    const slides = scrollEl.querySelectorAll('.vafm-reels-slide');
+    if (slides[startIndex]) {
+        slides[startIndex].scrollIntoView({ block: 'start' });
+    }
+    requestAnimationFrame(() => scrollEl.classList.remove('no-smooth'));
 
-    shareBtn?.addEventListener('click', async () => {
-        if (navigator.share) {
-            try {
-                await navigator.share({
-                    title: title,
-                    text: `${title} – À regarder sur VAFM`,
-                    url: directVideoShareUrl
-                });
-            } catch (err) {}
-        } else {
-            try {
-                await navigator.clipboard.writeText(directVideoShareUrl);
-                const toast = document.getElementById('vafm-toast');
-                if (toast) {
-                    toast.classList.add('show');
-                    setTimeout(() => toast.classList.remove('show'), 2500);
-                }
-            } catch (err) {
-                alert("Lien : " + directVideoShareUrl);
+    // Petite indication "défilez pour la suivante" à l'ouverture (seulement s'il y a plusieurs vidéos)
+    if (videos.length > 1 && slides[startIndex]) {
+        const hint = document.createElement('div');
+        hint.className = 'vafm-reels-hint';
+        hint.innerHTML = '↑ Défilez pour la vidéo suivante';
+        slides[startIndex].appendChild(hint);
+        setTimeout(() => hint.remove(), 3300);
+    }
+
+    setupReelsObserver(scrollEl, videos);
+    wireReelsSlideActions(scrollEl, videos[startIndex]);
+    activateReelsSlide(slides[startIndex], videos[startIndex]);
+
+    closeBtn?.addEventListener('click', closeVideoReelsModal);
+}
+
+function buildReelsSlideHTML(video) {
+    const safeTitle = String(video.title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    return `
+        <div class="vafm-reels-slide" data-video-id="${video.id}">
+            <video class="vafm-tiktok-video" data-src="${video.videoUrl}" loop playsinline muted style="object-fit: cover; width: 100%; height: 100%;"></video>
+            <div class="vafm-tiktok-gradient-overlay"></div>
+            <div class="vafm-tiktok-play-center"><svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></div>
+
+            <div class="vafm-tiktok-info">
+                <div class="vafm-tiktok-author"><span class="vafm-tiktok-badge">Reels VAFM</span></div>
+                <div class="vafm-tiktok-caption-text">${safeTitle}</div>
+            </div>
+
+            <div class="vafm-tiktok-side-actions">
+                <div class="vafm-tiktok-action-item">
+                    <button class="vafm-tiktok-action-btn vafm-reels-like-btn" title="J'aime">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                    </button>
+                    <span class="vafm-tiktok-action-count vafm-reels-like-count">–</span>
+                </div>
+                <div class="vafm-tiktok-action-item">
+                    <button class="vafm-tiktok-action-btn" title="Commentaires">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    </button>
+                    <span class="vafm-tiktok-action-count vafm-reels-comments-count">–</span>
+                </div>
+                <div class="vafm-tiktok-action-item">
+                    <button class="vafm-tiktok-action-btn vafm-reels-share-btn" title="Partager">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                    </button>
+                    <span class="vafm-tiktok-action-count">Partager</span>
+                </div>
+                <div class="vafm-tiktok-action-item">
+                    <button class="vafm-tiktok-action-btn vafm-reels-mute-btn" title="Son"></button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Détecte quelle slide est actuellement à l'écran (scroll-snap) et bascule
+// la lecture dessus — c'est ce qui permet le défilement TikTok-like.
+function setupReelsObserver(scrollEl, videos) {
+    if (reelsObserver) reelsObserver.disconnect();
+
+    reelsObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            const slide = entry.target;
+            const videoId = slide.dataset.videoId;
+            const video = videos.find(v => String(v.id) === String(videoId));
+
+            if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+                activateReelsSlide(slide, video);
+                wireReelsSlideActions(scrollEl, video);
+            } else {
+                const videoEl = slide.querySelector('video');
+                if (videoEl) videoEl.pause();
             }
-        }
-    });
+        });
+    }, { root: scrollEl, threshold: [0.6] });
 
-    muteBtn?.addEventListener('click', () => {
-        if (videoEl) {
-            videoEl.muted = !videoEl.muted;
-        }
-    });
+    scrollEl.querySelectorAll('.vafm-reels-slide').forEach(slide => reelsObserver.observe(slide));
+}
+
+// Charge (si besoin) et joue la vidéo d'une slide qui vient de devenir active.
+function activateReelsSlide(slide, video) {
+    if (!slide || !video) return;
+    const videoEl = slide.querySelector('video');
+    if (!videoEl) return;
+
+    if (!videoEl.src) {
+        videoEl.src = videoEl.dataset.src;
+    }
+    videoEl.muted = reelsMuted;
+    videoEl.play().catch(() => {});
+
+    updateOpenGraphTags(video.title, video.img || 'https://vafmlaradio.fr/LOGO-VAFM.png', buildVideoShareUrl(video));
+    window.history.replaceState({}, '', `/?video=${buildVideoSlug(video)}`);
+
+    loadReelsMeta(slide, video);
+}
+
+async function loadReelsMeta(slide, video) {
+    const likeCountEl = slide.querySelector('.vafm-reels-like-count');
+    const commentsCountEl = slide.querySelector('.vafm-reels-comments-count');
+    const likeBtn = slide.querySelector('.vafm-reels-like-btn');
+
+    if (reelsMetaCache[video.id]) {
+        const cached = reelsMetaCache[video.id];
+        if (likeCountEl) likeCountEl.textContent = cached.likeCount;
+        if (commentsCountEl) commentsCountEl.textContent = cached.commentsCount;
+        if (likeBtn) likeBtn.classList.toggle('liked', cached.isLiked);
+        return;
+    }
+
+    try {
+        const likesRes = await fetch(`${POCKETBASE_URL}/api/collections/video_likes/records?filter=(video='${video.id}')`);
+        const likesData = likesRes.ok ? await likesRes.json() : { totalItems: 0, items: [] };
+        const isLiked = Boolean(appState.currentUser && likesData.items?.some(l => l.user === appState.currentUser.id));
+
+        const commentsRes = await fetch(`${POCKETBASE_URL}/api/collections/video_comments/records?filter=(video='${video.id}')`);
+        const commentsData = commentsRes.ok ? await commentsRes.json() : { totalItems: 0 };
+
+        reelsMetaCache[video.id] = {
+            likeCount: likesData.totalItems || 0,
+            commentsCount: commentsData.totalItems || 0,
+            isLiked
+        };
+
+        if (likeCountEl) likeCountEl.textContent = reelsMetaCache[video.id].likeCount;
+        if (commentsCountEl) commentsCountEl.textContent = reelsMetaCache[video.id].commentsCount;
+        if (likeBtn) likeBtn.classList.toggle('liked', isLiked);
+    } catch (err) {
+        console.warn('Erreur chargement données vidéo :', err);
+    }
+}
+
+function buildVideoSlug(video) {
+    const cleanSlug = (video.title || 'video')
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    return `${video.id}-${cleanSlug}`;
+}
+
+function buildVideoShareUrl(video) {
+    return `${window.location.origin}/?video=${buildVideoSlug(video)}`;
+}
+
+// Rebranche les boutons Partager / Son de la slide active (le bouton J'aime
+// n'est pas encore raccordé à une action d'écriture — inchangé par rapport
+// à avant, ce n'était déjà pas le cas).
+function wireReelsSlideActions(scrollEl, video) {
+    if (!video) return;
+    const slide = scrollEl.querySelector(`.vafm-reels-slide[data-video-id="${video.id}"]`);
+    if (!slide) return;
+
+    const shareBtn = slide.querySelector('.vafm-reels-share-btn');
+    const muteBtn = slide.querySelector('.vafm-reels-mute-btn');
+    const videoEl = slide.querySelector('video');
+
+    if (muteBtn) {
+        muteBtn.innerHTML = reelsMuted
+            ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>`
+            : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`;
+
+        muteBtn.onclick = () => {
+            reelsMuted = !reelsMuted;
+            if (videoEl) videoEl.muted = reelsMuted;
+            wireReelsSlideActions(scrollEl, video);
+        };
+    }
+
+    if (shareBtn) {
+        shareBtn.onclick = async () => {
+            const shareUrl = buildVideoShareUrl(video);
+            if (navigator.share) {
+                try {
+                    await navigator.share({ title: video.title, text: `${video.title} – À regarder sur VAFM`, url: shareUrl });
+                } catch (err) {}
+            } else {
+                try {
+                    await navigator.clipboard.writeText(shareUrl);
+                    const toast = document.getElementById('vafm-toast');
+                    if (toast) {
+                        toast.classList.add('show');
+                        setTimeout(() => toast.classList.remove('show'), 2500);
+                    }
+                } catch (err) {
+                    alert('Lien : ' + shareUrl);
+                }
+            }
+        };
+    }
+}
+
+function closeVideoReelsModal() {
+    const modal = document.getElementById('vafm-tiktok-player-modal');
+    if (!modal) return;
+
+    modal.classList.remove('active');
+    modal.querySelectorAll('video').forEach(v => v.pause());
+    if (reelsObserver) reelsObserver.disconnect();
+    window.history.replaceState({}, '', window.location.pathname);
 }
 
 /* ==========================================================================
