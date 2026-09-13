@@ -158,6 +158,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof drawVafmWheel === 'function') drawVafmWheel();
+  updatePointsUI();
+});
+
 /* ==========================================================================
 3. UTILITIES & DROITS (TOKEN & ROLES)
 ========================================================================== */
@@ -3549,4 +3554,362 @@ function toggleMobileMenu() {
         menu.classList.toggle('active');
         btn.classList.toggle('open');
     }
+}
+
+// Configuration des gains et des probabilités
+const WHEEL_REWARDS = [
+  { label: "50 pts", points: 50, weight: 40, color: "#27272a" },
+  { label: "100 pts", points: 100, weight: 30, color: "#E50914" },
+  { label: "200 pts", points: 200, weight: 20, color: "#18181b" },
+  { label: "500 pts", points: 500, weight: 9, color: "#E50914" },
+  { label: "JACKPOT 1000", points: 1000, weight: 1, color: "#ffd700", textColor: "#000000" }
+];
+
+let wheelCurrentAngle = 0;
+let isWheelSpinning = false;
+
+function drawVafmWheel() {
+  const canvas = document.getElementById('vafmWheelCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  
+  // Ajustement Retina pour netteté sur écrans haute densité
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  
+  if (canvas.width !== Math.floor(rect.width * dpr)) {
+    canvas.width = Math.floor(rect.width * dpr);
+    canvas.height = Math.floor(rect.height * dpr);
+    ctx.scale(dpr, dpr);
+  }
+  
+  const numPrizes = WHEEL_REWARDS.length;
+  const sliceAngle = (2 * Math.PI) / numPrizes;
+  const center = rect.width / 2;
+  const radius = center - 5;
+
+  ctx.clearRect(0, 0, rect.width, rect.height);
+
+  WHEEL_REWARDS.forEach((prize, index) => {
+    const startAngle = wheelCurrentAngle + index * sliceAngle;
+    const endAngle = startAngle + sliceAngle;
+
+    ctx.beginPath();
+    ctx.moveTo(center, center);
+    ctx.arc(center, center, radius, startAngle, endAngle);
+    ctx.closePath();
+    ctx.fillStyle = prize.color;
+    ctx.fill();
+
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+    ctx.stroke();
+
+    ctx.save();
+    ctx.translate(center, center);
+    ctx.rotate(startAngle + sliceAngle / 2);
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle"; // Correction de l'alignement vertical
+    ctx.fillStyle = prize.textColor || "#ffffff";
+    ctx.font = "bold 14px 'Plus Jakarta Sans', sans-serif";
+    ctx.fillText(prize.label, radius - 20, 0); // Ajusté à 0 sur l'axe Y
+    ctx.restore();
+  });
+}
+
+function getRandomReward() {
+  const totalWeight = WHEEL_REWARDS.reduce((sum, item) => sum + item.weight, 0);
+  let random = Math.random() * totalWeight;
+
+  for (let i = 0; i < WHEEL_REWARDS.length; i++) {
+    if (random < WHEEL_REWARDS[i].weight) {
+      return { reward: WHEEL_REWARDS[i], index: i };
+    }
+    random -= WHEEL_REWARDS[i].weight;
+  }
+  return { reward: WHEEL_REWARDS[0], index: 0 };
+}
+
+function getPbAuth() {
+  if (typeof pb !== 'undefined' && pb.authStore && pb.authStore.isValid) {
+    return pb.authStore.record || pb.authStore.model; 
+  }
+  const storedAuth = localStorage.getItem('pocketbase_auth');
+  if (storedAuth) {
+    try {
+      const parsed = JSON.parse(storedAuth);
+      if (parsed && parsed.token && (parsed.record || parsed.model)) {
+        return parsed.record || parsed.model;
+      }
+    } catch (e) {}
+  }
+  return null;
+}
+
+function updatePointsUI() {
+  const user = getPbAuth();
+  if (user) {
+    const points = user.points || 0;
+    const headerPoints = document.getElementById('headerUserPoints');
+    if (headerPoints) headerPoints.textContent = points;
+    const wheelPoints = document.getElementById('vafmUserPoints');
+    if (wheelPoints) wheelPoints.textContent = points;
+  }
+}
+
+async function spinWheel() {
+  if (isWheelSpinning) return;
+
+  const user = getPbAuth();
+  if (!user) {
+    alert("Connecte-toi pour lancer la roue !");
+    return;
+  }
+
+  const lastSpin = user.last_spin ? new Date(user.last_spin) : null;
+  const now = new Date();
+
+  if (lastSpin && (now.getTime() - lastSpin.getTime()) < 24 * 60 * 60 * 1000) {
+    const remainingMs = (24 * 60 * 60 * 1000) - (now.getTime() - lastSpin.getTime());
+    const hoursLeft = Math.floor(remainingMs / (1000 * 60 * 60));
+    const minsLeft = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    alert(`Tu as déjà lancé la roue aujourd'hui ! Reviens dans ${hoursLeft}h et ${minsLeft}min.`);
+    return;
+  }
+
+  isWheelSpinning = true;
+  const spinBtn = document.getElementById('spinWheelBtn');
+  const resultDiv = document.getElementById('vafmWheelResult');
+  
+  if (spinBtn) spinBtn.disabled = true;
+  if (resultDiv) resultDiv.style.display = 'none';
+
+  const { reward, index: winningIndex } = getRandomReward();
+  const numPrizes = WHEEL_REWARDS.length;
+  const sliceAngle = (2 * Math.PI) / numPrizes;
+
+  const fullRounds = 5;
+  const sliceCenter = (winningIndex * sliceAngle) + (sliceAngle / 2);
+  const targetBaseAngle = (1.5 * Math.PI) - sliceCenter;
+  
+  // Normalisation mathématique stricte pour JS
+  const currentNormalized = ((wheelCurrentAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+  let distance = targetBaseAngle - currentNormalized;
+  
+  while (distance <= 0) {
+    distance += 2 * Math.PI;
+  }
+  
+  const totalRotation = distance + (fullRounds * 2 * Math.PI);
+  const startAngle = wheelCurrentAngle;
+  const duration = 4500;
+  const startTime = performance.now();
+
+  function animate(currentTime) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const easeOut = 1 - Math.pow(1 - progress, 3);
+
+    wheelCurrentAngle = startAngle + (totalRotation * easeOut);
+    drawVafmWheel();
+
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      finalizeSpin(reward, spinBtn, resultDiv, user.id);
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+
+// ============================================================================
+// Fonction partagée pour sauvegarder des champs sur l'utilisateur connecté
+// (points, last_spin, last_time_bonus_*...) — évite de dupliquer la logique
+// fetch + synchronisation localStorage/appState à chaque nouvelle récompense.
+// ============================================================================
+async function updateUserPocketBase(userId, fields) {
+  const res = await fetch(`${POCKETBASE_URL}/api/collections/users/records/${userId}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(true),
+    body: JSON.stringify(fields)
+  });
+
+  if (!res.ok) {
+    const errJson = await res.json().catch(() => ({}));
+    throw new Error(errJson.message || `Erreur HTTP ${res.status}`);
+  }
+
+  const updatedUser = await res.json();
+
+  const storedAuth = localStorage.getItem('pocketbase_auth');
+  if (storedAuth) {
+    try {
+      const parsed = JSON.parse(storedAuth);
+      parsed.record = updatedUser;
+      localStorage.setItem('pocketbase_auth', JSON.stringify(parsed));
+    } catch (e) {}
+  }
+  if (typeof appState !== 'undefined') {
+    appState.currentUser = updatedUser;
+  }
+
+  updatePointsUI();
+  return updatedUser;
+}
+
+async function finalizeSpin(reward, spinBtn, resultDiv, userId) {
+  const now = new Date();
+  const isoNow = now.toISOString();
+
+  // Ce site n'utilise pas le SDK PocketBase (pas de "pb" global chargé nulle
+  // part — vérifiable : aucun <script src="pocketbase.umd.js">, aucun
+  // "new PocketBase(...)" dans tout le site). "pb" n'existe donc jamais, et
+  // la condition `typeof pb !== 'undefined'` était systématiquement fausse :
+  // la sauvegarde ne s'exécutait JAMAIS, silencieusement (pas d'erreur, pas
+  // de message). Résultat : les points ne s'enregistraient jamais, ET
+  // last_spin non plus — donc la limite "une fois par jour" ne pouvait
+  // jamais se déclencher, puisqu'elle dépend justement de last_spin.
+  // On utilise ici fetch() + getAuthHeaders(), exactement comme partout
+  // ailleurs sur ce site.
+  const user = getPbAuth();
+  const currentPoints = (user && user.points) || 0;
+  const newPoints = currentPoints + reward.points;
+
+  try {
+    await updateUserPocketBase(userId, { points: newPoints, last_spin: isoNow });
+
+    if (resultDiv) {
+      resultDiv.textContent = `Bravo ! Tu as gagné : ${reward.label} !`;
+      resultDiv.className = 'vafm-wheel-result win';
+      resultDiv.style.display = 'block';
+    }
+  } catch (err) {
+    console.error("Erreur sauvegarde roue :", err);
+    const serverMsg = err.message;
+    alert(`La base de données a bloqué la sauvegarde.\nErreur : ${serverMsg}\nVérifie tes API Rules PocketBase (la collection "users" doit autoriser la modification de "points" et "last_spin" par l'utilisateur connecté lui-même).`);
+  } finally {
+    isWheelSpinning = false;
+    if (spinBtn) spinBtn.disabled = false;
+  }
+}
+
+// ============================================================================
+// RÉCOMPENSES "TEMPS PASSÉ SUR LE SITE"
+// +100 points à 1min30 d'activité réelle, +200 points de plus à 3min.
+// "Réelle" = onglet au premier plan (document.visibilityState === 'visible'
+// ET fenêtre avec le focus) — le temps en arrière-plan ne compte pas.
+// Chaque palier ne peut être obtenu qu'une fois toutes les 24h (comme la
+// roue) : sans cette limite, il suffirait de rafraîchir la page en boucle
+// pour gagner des points à l'infini.
+// ============================================================================
+const VAFM_TIME_REWARDS = [
+  { seconds: 90, points: 100, field: 'last_time_bonus_90', claiming: false, claimedToday: false },
+  { seconds: 180, points: 200, field: 'last_time_bonus_180', claiming: false, claimedToday: false }
+];
+
+let vafmActiveSeconds = 0;
+let vafmTimeRewardTimer = null;
+
+function initTimeOnSiteRewards() {
+  if (!getPbAuth()) return; // réservé aux membres connectés
+
+  if (vafmTimeRewardTimer) clearInterval(vafmTimeRewardTimer);
+  vafmActiveSeconds = 0;
+
+  // Réinitialisation des états au démarrage
+  VAFM_TIME_REWARDS.forEach(r => {
+    r.claiming = false;
+    r.claimedToday = false;
+  });
+
+  vafmTimeRewardTimer = setInterval(() => {
+    // "Vraiment sur le site" : onglet visible ET fenêtre active au premier plan
+    if (document.visibilityState !== 'visible' || !document.hasFocus()) return;
+    vafmActiveSeconds += 1;
+    checkTimeOnSiteRewards();
+  }, 1000);
+}
+
+async function checkTimeOnSiteRewards() {
+  const user = getPbAuth();
+  if (!user) return;
+
+  for (const reward of VAFM_TIME_REWARDS) {
+    // Si déjà réclamé pendant cette session ou en cours de réclamation, on saute
+    if (vafmActiveSeconds < reward.seconds || reward.claiming || reward.claimedToday) continue;
+
+    const lastAward = user[reward.field] ? new Date(user[reward.field]) : null;
+    const now = new Date();
+    if (lastAward && (now.getTime() - lastAward.getTime()) < 24 * 60 * 60 * 1000) {
+      reward.claimedToday = true; // Verrouille localement pour la session
+      continue; // déjà obtenu dans les dernières 24h
+    }
+
+    reward.claiming = true; // évite un double-déclenchement pendant l'appel réseau
+    try {
+      const currentPoints = user.points || 0;
+      const updatedUser = await updateUserPocketBase(user.id, {
+        points: currentPoints + reward.points,
+        [reward.field]: now.toISOString()
+      });
+
+      // Mettre à jour l'objet utilisateur en mémoire/cache si ta fonction ne le fait pas automatiquement
+      if (updatedUser && typeof pb !== 'undefined') {
+        user[reward.field] = now.toISOString();
+        user.points = currentPoints + reward.points;
+      }
+
+      reward.claimedToday = true; // Marquer comme obtenu définitivement pour la session
+      showPointsToast(`+${reward.points} points pour ${formatDurationFr(reward.seconds)} passées sur VAFM ! 🎉`);
+      
+      if (typeof updatePointsUI === 'function') {
+        updatePointsUI();
+      }
+    } catch (err) {
+      console.error('Erreur récompense temps passé :', err);
+    } finally {
+      reward.claiming = false;
+    }
+  }
+}
+
+function formatDurationFr(seconds) {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return s === 0 ? `${m} min` : `${m} min ${s}s`;
+}
+
+function showPointsToast(message) {
+  let toast = document.getElementById('vafm-points-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'vafm-points-toast';
+    toast.className = 'vafm-points-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 4500);
+}
+
+function initVafmWheel() {
+  drawVafmWheel();
+  updatePointsUI();
+
+  const spinBtn = document.getElementById('spinWheelBtn');
+  if (spinBtn) {
+    spinBtn.removeEventListener('click', spinWheel);
+    spinBtn.addEventListener('click', spinWheel);
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initVafmWheel);
+  document.addEventListener('DOMContentLoaded', initTimeOnSiteRewards);
+} else {
+  initVafmWheel();
+  initTimeOnSiteRewards();
 }

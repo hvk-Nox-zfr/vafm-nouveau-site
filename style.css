@@ -3064,6 +3064,42 @@ footer#main-footer {
     transform: translateX(-50%) translateY(0) !important;
 }
 
+/* Notification "points gagnés" (roue, temps passé sur le site...) —
+   coin haut-droit pour ne jamais gêner le lecteur audio fixé en bas. */
+.vafm-points-toast {
+    position: fixed;
+    top: 116px; /* sous le header + bandeau dédicaces, voir style.css */
+    right: 20px;
+    max-width: 320px;
+    background: linear-gradient(135deg, #E50914 0%, #a40710 100%);
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 14px 18px;
+    border-radius: 14px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+    z-index: 999998; /* juste sous le lecteur audio, au-dessus du reste */
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(20px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.vafm-points-toast.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+@media screen and (max-width: 768px) {
+    .vafm-points-toast {
+        top: auto;
+        bottom: 110px; /* au-dessus du lecteur audio sur mobile */
+        left: 16px;
+        right: 16px;
+        max-width: none;
+    }
+}
+
 .vafm-video-header-info {
     display: flex !important;
     justify-content: space-between !important;
@@ -4567,4 +4603,194 @@ body.admin-logged-in #news-page-spa {
 .mainSwiper .swiper-pagination-bullet-active {
     width: 24px !important;
     background: #ffffff !important;
+}
+
+/* ==========================================================================
+   SECTION JEUX & ROUE DE LA FORTUNE
+   ========================================================================== */
+.vafm-games-section {
+    position: relative;
+    margin-top: 40px;
+}
+
+.vafm-wheel-card {
+    background: #16161e;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-premium, 16px);
+    padding: 40px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 48px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+}
+
+.vafm-wheel-wrapper {
+    position: relative;
+    width: 320px;
+    height: 320px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+#vafmWheelCanvas {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    box-shadow: 0 0 30px rgba(229, 9, 20, 0.25), 0 0 0 6px rgba(255, 255, 255, 0.05);
+}
+
+.vafm-wheel-pointer {
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 14px solid transparent;
+    border-right: 14px solid transparent;
+    border-top: 24px solid #E50914;
+    z-index: 10;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6));
+}
+
+.vafm-wheel-center-cap {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 68px;
+    height: 68px;
+    background: #09090b;
+    border: 3px solid #E50914;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 8;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+}
+
+.vafm-wheel-center-cap img {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+}
+
+.vafm-wheel-info {
+    flex: 1;
+    min-width: 280px;
+    max-width: 480px;
+}
+
+.vafm-wheel-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    background: rgba(229, 9, 20, 0.15);
+    border: 1px solid rgba(229, 9, 20, 0.4);
+    color: #E50914;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 14px;
+}
+
+.vafm-wheel-title {
+    color: #ffffff;
+    font-size: 1.75rem;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 12px;
+}
+
+.vafm-wheel-desc {
+    color: #a1a1aa;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 24px;
+}
+
+.vafm-wheel-spin-btn {
+    background: #E50914;
+    color: #ffffff;
+    border: none;
+    padding: 14px 28px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 15px rgba(229, 9, 20, 0.3);
+}
+
+.vafm-wheel-spin-btn:hover:not(:disabled) {
+    background: #b8141e;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(229, 9, 20, 0.5);
+}
+
+.vafm-wheel-spin-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.vafm-wheel-result {
+    margin-top: 20px;
+    padding: 14px 18px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    display: none;
+}
+
+.vafm-wheel-result.win {
+    display: block;
+    background: rgba(0, 230, 118, 0.12);
+    border: 1px solid rgba(0, 230, 118, 0.4);
+    color: #00e676;
+}
+
+.vafm-wheel-result.loose {
+    display: block;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #d4d4d8;
+}
+
+@media (max-width: 768px) {
+    .vafm-wheel-card {
+        padding: 24px;
+        gap: 30px;
+    }
+    .vafm-wheel-wrapper {
+        width: 260px;
+        height: 260px;
+    }
+}
+
+.user-points-badge {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 0.85rem;
+  color: #e50914; /* Rouges aux couleurs VAFM */
+  font-weight: 600;
+  background-color: rgba(229, 9, 20, 0.1);
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.user-points-badge strong {
+  font-weight: 800;
+}
+
+.lien-jeu {
+    color: #E50914;
 }

@@ -2,7 +2,6 @@ export default async function handler(req, res) {
   const POCKETBASE_URL = "https://api.vafmlaradio.fr";
   const SITE_URL = "https://vafmlaradio.fr";
 
-  // Échappement ciblé pour le contenu texte XML
   function escapeXmlText(str) {
     if (!str) return "";
     return String(str)
@@ -34,17 +33,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. Calculer la date limite (48h en arrière) au format PocketBase UTC "YYYY-MM-DD HH:mm:ss"
     const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
     const pbFormattedDate = fortyEightHoursAgo
       .toISOString()
       .replace("T", " ")
       .replace(/\.\d{3}Z$/, "");
 
-    const filterQuery = encodeURIComponent(`is_published = true && created >= "${pbFormattedDate}"`);
+    // Prise en compte de published_at et created pour le filtre 48h
+    const filterQuery = encodeURIComponent(`is_published = true && (published_at >= "${pbFormattedDate}" || created >= "${pbFormattedDate}")`);
 
-    // 2. Récupérer les articles publiés créés dans les dernières 48h, dans les deux
-    // collections qui contiennent de vrais articles (actus + hero mis en avant).
     const [actusRes, heroRes] = await Promise.all([
       fetch(`${POCKETBASE_URL}/api/collections/actus/records?filter=(${filterQuery})&sort=-created`),
       fetch(`${POCKETBASE_URL}/api/collections/hero/records?filter=(${filterQuery})&sort=-created`),
@@ -60,16 +57,14 @@ export default async function handler(req, res) {
       articles = articles.concat((data.items || []).map(a => ({ ...a, __urlCategory: "hero" })));
     }
 
-    // 3. Filtrage de sécurité côté JS
     const validArticles = articles.filter(art => Boolean(art.is_published));
 
-    // 4. Génération des blocs <url>
     const urlsXml = validArticles.map(article => {
       const { cleanTitle, fullSlug } = buildSlug(article);
       const articleUrl = `${SITE_URL}/article/${article.__urlCategory}/${fullSlug}`.trim();
 
-      // Date W3C ISO 8601 sans millisecondes pour Google News
-      const pubDate = new Date(article.created).toISOString().replace(/\.\d{3}Z$/, "Z");
+      const pubDateSource = article.published_at || article.created;
+      const pubDate = new Date(pubDateSource).toISOString().replace(/\.\d{3}Z$/, "Z");
 
       return `  <url>
     <loc>${articleUrl}</loc>
@@ -84,13 +79,11 @@ export default async function handler(req, res) {
   </url>`;
     }).join("\n");
 
-    // 5. Assemblage final
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
 ${urlsXml}
 </urlset>`;
 
-    // Envoi HTTP
     res.setHeader("Content-Type", "application/xml; charset=utf-8");
     res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
     return res.status(200).send(xml);
