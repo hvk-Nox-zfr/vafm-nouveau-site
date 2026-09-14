@@ -4,39 +4,50 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Méthode non autorisée' });
     }
 
+    // 1. Vérification explicite de la clé sur Vercel
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        console.error("[VAFM Moderation] GEMINI_API_KEY introuvable sur Vercel.");
+        return res.status(200).json({ safe: false, reason: "Clé API non détectée sur Vercel." });
+    }
+
     try {
-        // Décodage sécurisé du body
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-        const { text } = body;
-        const apiKey = process.env.GEMINI_API_KEY;
+        const text = body.text || "";
 
-        if (!apiKey) {
-            console.error("ERREUR VERCEL: GEMINI_API_KEY est absente des variables d'environnement.");
-            return res.status(500).json({ isSafe: false, reason: "Clé API non configurée sur Vercel." });
+        if (!text.trim()) {
+            return res.status(200).json({ safe: false, reason: "Message vide." });
         }
 
-        if (!text) {
-            return res.status(400).json({ isSafe: false, reason: "Texte manquant." });
-        }
-
-        const prompt = `Tu es le modérateur strict de la web radio VAFM.
-Analyse ce message de dédicace : "${text}"
-
-Règles :
-1. Interdis toute insulte, vulgarité, troll, harcèlement ou provocation (ex: "caca", "pue", "t nul", "merde"), peu importe l'orthographe, les espaces ou le verlan.
-2. Autorise uniquement les dédicaces amicales, sympathiques, amoureuses ou musicales.
-
-Réponds STRICTEMENT sous forme de JSON :
-{"safe": true} ou {"safe": false, "reason": "Motif très court en français"}`;
-
+        // 2. Appel Gemini avec Schema Structuré Forcé
         const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`,
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    // Désactive les filtres natifs pour laisser l'IA répondre le JSON {safe: false}
+                    contents: [{
+                        parts: [{
+                            text: `Tu es le modérateur strict de la radio VAFM.
+Analyse cette dédicace : "${text}"
+
+Consignes :
+- safe = false si le message contient : insulte, vulgarité, provocation, troll, gaminerie, haine, sexisme, harcèlement (ex: "caca", "pue", "t nul", "merde").
+- safe = true si le message est amical, sympathique, amoureux, musical ou bienveillant.
+- reason = explication très courte en français si safe = false.`
+                        }]
+                    }],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                safe: { type: "BOOLEAN" },
+                                reason: { type: "STRING" }
+                            },
+                            required: ["safe"]
+                        }
+                    },
                     safetySettings: [
                         { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
                         { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
@@ -49,30 +60,26 @@ Réponds STRICTEMENT sous forme de JSON :
 
         if (!response.ok) {
             const errText = await response.text();
-            console.error("Erreur HTTP Gemini:", errText);
-            return res.status(500).json({ isSafe: false, reason: "Erreur du service de modération." });
+            console.error("[VAFM Moderation] Erreur Google:", response.status, errText);
+            return res.status(200).json({ safe: false, reason: `Erreur API Google (${response.status})` });
         }
 
         const data = await response.json();
-        const candidate = data.candidates?.[0];
+        const rawJsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-        // Si Google bloque malgré tout la réponse
-        if (candidate?.finishReason === "SAFETY" || !candidate?.content) {
-            return res.status(200).json({ safe: false, reason: "Message refusé par la sécurité." });
+        if (!rawJsonText) {
+            return res.status(200).json({ safe: false, reason: "Message bloqué par la sécurité Gemini." });
         }
 
-        let rawText = candidate.content.parts?.[0]?.text || "";
-        rawText = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
-
-        if (!rawText) {
-            return res.status(200).json({ safe: false, reason: "Analyse impossible." });
-        }
-
-        const result = JSON.parse(rawText);
-        return res.status(200).json(result);
+        const result = JSON.parse(rawJsonText);
+        return res.status(200).json({
+            safe: Boolean(result.safe),
+            reason: result.reason || "Message refusé par la modération IA."
+        });
 
     } catch (err) {
-        console.error("Erreur interne Serverless :", err);
-        return res.status(500).json({ isSafe: false, reason: "Erreur du serveur de modération." });
+        console.error("[VAFM Moderation] Erreur interne :", err);
+        // Impossible de faire crasher le serveur (500) : on renvoie l'erreur sous forme de message lisible
+        return res.status(200).json({ safe: false, reason: "Erreur lors de l'analyse du message." });
     }
 }
