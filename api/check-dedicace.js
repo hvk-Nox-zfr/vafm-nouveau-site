@@ -4,14 +4,20 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Méthode non autorisée' });
     }
 
-    const { text } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY;
+    try {
+        const { text } = req.body || {};
+        const apiKey = process.env.GEMINI_API_KEY;
 
-    if (!apiKey) {
-        return res.status(500).json({ isSafe: false, reason: "Clé API non configurée sur Vercel." });
-    }
+        if (!apiKey) {
+            console.error("ERREUR VERCEL: GEMINI_API_KEY est introuvable dans les variables d'environnement.");
+            return res.status(500).json({ isSafe: false, reason: "Clé API non configurée sur Vercel." });
+        }
 
-    const prompt = `Tu es le modérateur strict de la web radio VAFM.
+        if (!text) {
+            return res.status(400).json({ isSafe: false, reason: "Texte manquant." });
+        }
+
+        const prompt = `Tu es le modérateur strict de la web radio VAFM.
 Analyse ce message de dédicace : "${text}"
 
 Règles :
@@ -21,7 +27,6 @@ Règles :
 Réponds STRICTEMENT sous forme de JSON :
 {"safe": true} ou {"safe": false, "reason": "Motif très court en français"}`;
 
-    try {
         const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`,
             {
@@ -34,6 +39,8 @@ Réponds STRICTEMENT sous forme de JSON :
         );
 
         if (!response.ok) {
+            const errText = await response.text();
+            console.error("Erreur Google Gemini API:", errText);
             return res.status(500).json({ isSafe: false, reason: "Erreur du service de modération." });
         }
 
@@ -45,6 +52,7 @@ Réponds STRICTEMENT sous forme de JSON :
         return res.status(200).json(result);
 
     } catch (err) {
-        return res.status(500).json({ isSafe: false, reason: "Erreur serveur." });
+        console.error("Erreur interne Serverless :", err);
+        return res.status(500).json({ isSafe: false, reason: "Erreur serveur de modération." });
     }
 }
