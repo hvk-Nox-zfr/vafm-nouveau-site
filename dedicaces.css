@@ -192,3 +192,11 @@ body.admin-logged-in .dedicaces-ticker {
         padding: 20px;
     }
 }
+
+/* Unité répétée par le script JS pour la boucle infinie */
+.ticker-unit {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    flex-shrink: 0;
+}

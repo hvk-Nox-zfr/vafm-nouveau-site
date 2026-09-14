@@ -1,11 +1,44 @@
 // ============================================================================
-// VAFM — Dédicaces (bandeau défilant + envoi)
+// VAFM — Dédicaces (bandeau défilant + envoi sécurisé)
 // ============================================================================
 
 let dedicacesList = [];
 let tickerAnimationId = null;
 let currentPosition = 0;
-const SCROLL_SPEED = 0.8; // Vitesse de défilement (en pixels par frame)
+const SCROLL_SPEED = 0.8; // Vitesse de défilement (pixels/frame)
+
+// ----------------------------------------------------------------------------
+// MODÉRATION 100% IA (Google Gemini API - Avec Fallback Anti-Surcharge 503)
+// ----------------------------------------------------------------------------
+
+async function checkDedicaceSafety(text) {
+    try {
+        const response = await fetch("/api/check-dedicace", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text })
+        });
+
+        const data = await response.json();
+
+        if (!data.safe) {
+            return { 
+                isSafe: false, 
+                reason: data.reason || "Message refusé par la modération IA." 
+            };
+        }
+
+        return { isSafe: true };
+
+    } catch (err) {
+        console.error("Erreur de connexion à l'API :", err);
+        return { isSafe: false, reason: "Impossible de vérifier le message." };
+    }
+}
+
+// ----------------------------------------------------------------------------
+// 2. BANDEAU DÉFILANT CONTINU (BOUCLE INFINIE SANS SACCADE)
+// ----------------------------------------------------------------------------
 
 async function fetchAndRenderDedicaces() {
     try {
@@ -33,8 +66,8 @@ function renderDedicacesTicker() {
         return;
     }
 
-    // Un seul exemplaire de chaque dédicace
-    const itemsHtml = dedicacesList
+    // Construction de la chaîne d'items
+    const singleSequenceHtml = dedicacesList
         .map(d => {
             const authorName = d.expand?.user?.name || d.expand?.user?.username || 'Membre VAFM';
             const safeName = escapeDedicaceText(authorName);
@@ -44,7 +77,11 @@ function renderDedicacesTicker() {
         })
         .join('<span class="dedicaces-ticker-sep">•</span>');
 
-    track.innerHTML = itemsHtml;
+    // On double le contenu dans deux conteneurs frères pour une boucle 100% sans trou
+    track.innerHTML = `
+        <div class="ticker-unit" id="ticker-unit-1">${singleSequenceHtml}</div>
+        <div class="ticker-unit" id="ticker-unit-2">${singleSequenceHtml}</div>
+    `;
 
     startContinuousTicker(track);
 }
@@ -52,28 +89,22 @@ function renderDedicacesTicker() {
 function startContinuousTicker(track) {
     if (tickerAnimationId) cancelAnimationFrame(tickerAnimationId);
 
-    const savedPos = sessionStorage.getItem('vafm_ticker_pos');
-    if (savedPos !== null) {
-        currentPosition = parseFloat(savedPos);
-    }
+    const unit1 = document.getElementById('ticker-unit-1');
+    if (!unit1) return;
 
     function step() {
-        const trackWidth = track.scrollWidth;
-        const containerWidth = track.parentElement ? track.parentElement.offsetWidth : window.innerWidth;
+        // La largeur exacte d'un bloc complet de dédicaces
+        const unitWidth = unit1.offsetWidth;
 
         currentPosition += SCROLL_SPEED;
 
-        // Quand tout le texte est sorti par la gauche (défilé de sa propre largeur),
-        // on le repousse à droite de l'écran (largeur du conteneur).
-        if (currentPosition >= trackWidth) {
-            currentPosition = -containerWidth;
+        // Dès que le premier bloc s'est complètement effacé à gauche,
+        // on réinitialise la position à 0 de façon totalement invisible
+        if (currentPosition >= unitWidth) {
+            currentPosition = 0;
         }
 
-        // On applique le décalage (quand currentPosition est négatif, translateX devient positif et le place à droite)
         track.style.transform = `translateX(${-currentPosition}px)`;
-
-        sessionStorage.setItem('vafm_ticker_pos', currentPosition.toString());
-
         tickerAnimationId = requestAnimationFrame(step);
     }
 
@@ -88,7 +119,7 @@ function escapeDedicaceText(str) {
 }
 
 // ----------------------------------------------------------------------------
-// Formulaire d'envoi (connexion requise + limite de 2 / jour)
+// 3. FORMULAIRE D'ENVOI
 // ----------------------------------------------------------------------------
 
 function updateDedicaceFormVisibility() {
@@ -136,8 +167,23 @@ async function submitDedicace(event) {
     }
 
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Vérification…';
-    if (feedback) feedback.textContent = '';
+    submitBtn.textContent = 'Modération…';
+    if (feedback) {
+        feedback.textContent = '';
+        feedback.classList.remove('success');
+    }
+
+    // Analyse par l'IA avant d'envoyer à la base de données
+    const safetyCheck = await checkDedicaceSafety(message);
+    if (!safetyCheck.isSafe) {
+        if (feedback) {
+            feedback.textContent = safetyCheck.reason || "Votre dédicace contient du contenu inapproprié.";
+            feedback.classList.remove('success');
+        }
+        submitBtn.textContent = 'Envoyer ma dédicace';
+        updateDedicaceSubmitState();
+        return;
+    }
 
     try {
         const startOfDay = new Date();
@@ -178,7 +224,7 @@ async function submitDedicace(event) {
         checkbox.checked = false;
         updateDedicaceCounter();
         if (feedback) {
-            feedback.textContent = 'Dédicace envoyée ! Elle apparaît dans le bandeau en haut du site. 🎉';
+            feedback.textContent = 'Dédicace validée et envoyée dans le bandeau ! 🎉';
             feedback.classList.add('success');
         }
 
