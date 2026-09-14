@@ -5,11 +5,13 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { text } = req.body || {};
+        // Décodage sécurisé du body
+        const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+        const { text } = body;
         const apiKey = process.env.GEMINI_API_KEY;
 
         if (!apiKey) {
-            console.error("ERREUR VERCEL: GEMINI_API_KEY est introuvable dans les variables d'environnement.");
+            console.error("ERREUR VERCEL: GEMINI_API_KEY est absente des variables d'environnement.");
             return res.status(500).json({ isSafe: false, reason: "Clé API non configurée sur Vercel." });
         }
 
@@ -33,26 +35,44 @@ Réponds STRICTEMENT sous forme de JSON :
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }]
+                    contents: [{ parts: [{ text: prompt }] }],
+                    // Désactive les filtres natifs pour laisser l'IA répondre le JSON {safe: false}
+                    safetySettings: [
+                        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+                    ]
                 })
             }
         );
 
         if (!response.ok) {
             const errText = await response.text();
-            console.error("Erreur Google Gemini API:", errText);
+            console.error("Erreur HTTP Gemini:", errText);
             return res.status(500).json({ isSafe: false, reason: "Erreur du service de modération." });
         }
 
         const data = await response.json();
-        let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        const candidate = data.candidates?.[0];
+
+        // Si Google bloque malgré tout la réponse
+        if (candidate?.finishReason === "SAFETY" || !candidate?.content) {
+            return res.status(200).json({ safe: false, reason: "Message refusé par la sécurité." });
+        }
+
+        let rawText = candidate.content.parts?.[0]?.text || "";
         rawText = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+        if (!rawText) {
+            return res.status(200).json({ safe: false, reason: "Analyse impossible." });
+        }
 
         const result = JSON.parse(rawText);
         return res.status(200).json(result);
 
     } catch (err) {
         console.error("Erreur interne Serverless :", err);
-        return res.status(500).json({ isSafe: false, reason: "Erreur serveur de modération." });
+        return res.status(500).json({ isSafe: false, reason: "Erreur du serveur de modération." });
     }
 }
