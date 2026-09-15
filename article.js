@@ -1073,6 +1073,12 @@ async function handleTogglePublishInStudio(collectionName, id, currentStatus, ca
         });
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        // 🚀 PING SI L'ARTICLE PASSE EN ÉTAT PUBLIÉ
+        if (nextStatus) {
+            pingRSSFeed();
+        }
+
         await openArticleView(category, id);
     } catch (error) {
         console.error("Erreur lors du changement de statut de publication:", error);
@@ -1309,6 +1315,22 @@ async function handleCanvaImageUpload(event) {
     }
 }
 
+// Fonction utilitaire pour le ping RSS
+async function pingRSSFeed() {
+    const rssUrl = "https://vafmlaradio.fr/rss.xml";
+    const siteName = "VAFM - La Radio qu'il vous faut";
+    const siteUrl = "https://vafmlaradio.fr";
+
+    try {
+        await fetch(`https://pingomatic.com/ping/?title=${encodeURIComponent(siteName)}&blogurl=${encodeURIComponent(siteUrl)}&rssurl=${encodeURIComponent(rssUrl)}`, {
+            mode: 'no-cors'
+        });
+        console.log("[VAFM RSS] Ping RSS envoyé avec succès !");
+    } catch (err) {
+        console.warn("[VAFM RSS] Échec de l'envoi du ping RSS :", err);
+    }
+}
+
 async function saveCanvaArticle(collectionName, id) {
     try {
         const titleElement = document.getElementById('canva-doc-title');
@@ -1438,6 +1460,11 @@ async function saveCanvaArticle(collectionName, id) {
 
         alert("✨ Article enregistré avec succès !");
         
+        // 🚀 Ping du flux RSS si l'article est actuellement publié
+        if (updatedRecord.is_published || updatedRecord.published) {
+            pingRSSFeed();
+        }
+
         if (fileInput) fileInput.value = '';
         
         if (typeof fetchAllFromPocketBase === 'function') {
