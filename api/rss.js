@@ -32,9 +32,9 @@ export default async function handler(req, res) {
      xmlns:content="http://purl.org/rss/1.0/modules/content/"
      xmlns:media="http://search.yahoo.com/mrss/">
   <channel>
-    <title>VAFM - L'actualité de la région</title>
+    <title>VAFM – La Radio qu'il vous faut à Valenciennes</title>
     <link>https://vafmlaradio.fr</link>
-    <description>Retrouvez toute l'actualité locale et la web radio en direct sur VAFM.</description>
+    <description>Écoutez VAFM, la radio qu'il vous faut à Valenciennes ! Musique en direct, hits préférés et actualités locales du Valenciennois. Écoutez le direct dès maintenant.</description>
     <language>fr-FR</language>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
     ${itemsXml}
