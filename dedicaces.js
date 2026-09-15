@@ -18,8 +18,9 @@ let dedicacesSignature = ''; // empreinte du contenu actuellement affiché
 
 async function fetchAndRenderDedicaces() {
     try {
+        // &expand=user permet de charger les données de l'utilisateur lié à la dédicace
         const res = await fetch(
-            `${POCKETBASE_URL}/api/collections/dedicaces/records?filter=(is_published=true)&sort=-created&perPage=50`
+            `${POCKETBASE_URL}/api/collections/dedicaces/records?filter=(is_published=true)&sort=-created&perPage=50&expand=user`
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
@@ -29,11 +30,6 @@ async function fetchAndRenderDedicaces() {
         return;
     }
 
-    // On ne reconstruit le bandeau QUE si son contenu a réellement changé.
-    // Sans cette vérification, le rafraîchissement périodique (toutes les
-    // 60s) réécrivait le HTML à chaque fois — ce qui coupait net l'animation
-    // CSS en cours et la faisait repartir de zéro, donnant l'impression que
-    // les dédicaces "revenaient" brutalement au lieu de défiler en continu.
     const newSignature = dedicacesList.map(d => d.id).join(',');
     if (newSignature === dedicacesSignature) return;
     dedicacesSignature = newSignature;
@@ -52,11 +48,16 @@ function renderDedicacesTicker() {
     }
 
     const itemsHtml = dedicacesList
-        .map(d => `<span class="dedicaces-ticker-item">🎤 ${escapeDedicaceText(d.message)}</span>`)
+        .map(d => {
+            // Récupère le pseudo (ou prénom) de l'utilisateur PocketBase, ou fallback sur "Auditeur"
+            const userObj = d.expand?.user;
+            const pseudo = escapeDedicaceText(userObj?.username || userObj?.name || 'Auditeur');
+            const message = escapeDedicaceText(d.message);
+
+            return `<span class="dedicaces-ticker-item"><strong>${pseudo} :</strong> ${message}</span>`;
+        })
         .join('<span class="dedicaces-ticker-sep">•</span>');
 
-    // On duplique le contenu pour un défilement en boucle parfaitement continu
-    // (animation CSS qui translate de -50% : voir dedicaces.css).
     track.innerHTML = itemsHtml + '<span class="dedicaces-ticker-sep">•</span>' + itemsHtml;
     track.classList.add('scrolling');
 }

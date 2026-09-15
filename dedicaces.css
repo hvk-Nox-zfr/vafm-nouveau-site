@@ -401,3 +401,65 @@ body.admin-logged-in .dedicaces-ticker {
     white-space: nowrap;
     flex-shrink: 0;
 }
+
+/* ============================================================================
+   VAFM — Bandeau défilant des dédicaces (dedicaces.css)
+   ============================================================================ */
+
+/* Conteneur externe : masque tout ce qui dépasse de l'écran */
+.dedicaces-ticker-container {
+    width: 100%;
+    overflow: hidden;
+    background: #0d0e12;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 10px 0;
+    white-space: nowrap;
+    box-sizing: border-box;
+    user-select: none;
+}
+
+/* Piste défilante ciblée par l'ID de ton script JS */
+#dedicaces-ticker-track {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    will-change: transform; /* Active l'accélération matérielle (GPU) */
+}
+
+/* Lancement du défilement continu via la classe ajoutée par le JS */
+#dedicaces-ticker-track.scrolling {
+    animation: vafm-ticker-loop 35s linear infinite;
+}
+
+/* Pause fluide au survol du curseur */
+#dedicaces-ticker-track.scrolling:hover {
+    animation-play-state: paused;
+}
+
+/* Animation : décalage parfait d'une moitié à l'autre */
+@keyframes vafm-ticker-loop {
+    0% {
+        transform: translate3d(0, 0, 0);
+    }
+    100% {
+        transform: translate3d(-50%, 0, 0);
+    }
+}
+
+/* Style des éléments textuels */
+.dedicaces-ticker-item {
+    font-size: 0.92rem;
+    font-weight: 500;
+    color: #f8fafc;
+    letter-spacing: 0.2px;
+}
+
+/* Séparateur entre les dédicaces */
+.dedicaces-ticker-sep {
+    color: #e11d48; /* Accent néon VAFM */
+    margin: 0 16px;
+    font-size: 0.75rem;
+    vertical-align: middle;
+    opacity: 0.85;
+}
