@@ -33,28 +33,39 @@ export default async function handler(req, res) {
   }
 
   try {
-    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
-    const pbFormattedDate = fortyEightHoursAgo
-      .toISOString()
-      .replace("T", " ")
-      .replace(/\.\d{3}Z$/, "");
+    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
-    // Prise en compte de published_at et created pour le filtre 48h
-    const filterQuery = encodeURIComponent(`is_published = true && (published_at >= "${pbFormattedDate}" || created >= "${pbFormattedDate}")`);
+    // Fonction de récupération sécurisée sur le champ natif 'created'
+    const fetchArticles = async (useFilter = true) => {
+      const filter = useFilter 
+        ? encodeURIComponent(`is_published = true && created >= "${fortyEightHoursAgo}"`)
+        : encodeURIComponent(`is_published = true`);
+      
+      const query = `?filter=(${filter})&sort=-created&perPage=10`;
 
-    const [actusRes, heroRes] = await Promise.all([
-      fetch(`${POCKETBASE_URL}/api/collections/actus/records?filter=(${filterQuery})&sort=-created`),
-      fetch(`${POCKETBASE_URL}/api/collections/hero/records?filter=(${filterQuery})&sort=-created`),
-    ]);
+      const [actusRes, heroRes] = await Promise.all([
+        fetch(`${POCKETBASE_URL}/api/collections/actus/records${query}`),
+        fetch(`${POCKETBASE_URL}/api/collections/hero/records${query}`),
+      ]);
 
-    let articles = [];
-    if (actusRes.ok) {
-      const data = await actusRes.json();
-      articles = articles.concat((data.items || []).map(a => ({ ...a, __urlCategory: "news" })));
-    }
-    if (heroRes.ok) {
-      const data = await heroRes.json();
-      articles = articles.concat((data.items || []).map(a => ({ ...a, __urlCategory: "hero" })));
+      let list = [];
+      if (actusRes.ok) {
+        const data = await actusRes.json();
+        list = list.concat((data.items || []).map(a => ({ ...a, __urlCategory: "news" })));
+      }
+      if (heroRes.ok) {
+        const data = await heroRes.json();
+        list = list.concat((data.items || []).map(a => ({ ...a, __urlCategory: "hero" })));
+      }
+      return list;
+    };
+
+    // 1. Essai avec le filtre 48h
+    let articles = await fetchArticles(true);
+
+    // 2. Fallback de sécurité : Si 0 article dans les 48h, on prend les récents
+    if (articles.length === 0) {
+      articles = await fetchArticles(false);
     }
 
     const validArticles = articles.filter(art => Boolean(art.is_published));
@@ -70,7 +81,7 @@ export default async function handler(req, res) {
     <loc>${articleUrl}</loc>
     <news:news>
       <news:publication>
-        <news:name>VAFM - La Radio qu'il vous faut</news:name>
+        <news:name>VAFM</news:name>
         <news:language>fr</news:language>
       </news:publication>
       <news:publication_date>${pubDate}</news:publication_date>
