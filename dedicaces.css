@@ -432,11 +432,6 @@ body.admin-logged-in .dedicaces-ticker {
     animation: vafm-ticker-loop 35s linear infinite;
 }
 
-/* Pause fluide au survol du curseur */
-#dedicaces-ticker-track.scrolling:hover {
-    animation-play-state: paused;
-}
-
 /* Animation : décalage parfait d'une moitié à l'autre */
 @keyframes vafm-ticker-loop {
     0% {

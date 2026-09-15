@@ -35,7 +35,7 @@ export default async function handler(req, res) {
 
   try {
     const aiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -46,23 +46,52 @@ export default async function handler(req, res) {
             }]
           },
           contents: [{ parts: [{ text: message }] }],
-          generationConfig: { maxOutputTokens: 5, temperature: 0 }
+          generationConfig: { maxOutputTokens: 5, temperature: 0 },
+          // Sans ceci, les filtres de sécurité par défaut de Gemini peuvent
+          // bloquer la réponse à cause du SUJET de la consigne elle-même
+          // (qui mentionne "insultes", "contenu sexuel" etc. comme exemples
+          // à détecter) — même pour un message totalement inoffensif comme
+          // "coucou". La réponse revient alors vide, et le code interprétait
+          // ça comme un refus ("NON"), donnant l'impression que l'IA jugeait
+          // le message vulgaire alors qu'elle n'avait tout simplement pas pu
+          // répondre.
+          safetySettings: [
+            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' }
+          ]
         })
       }
     );
 
     if (!aiRes.ok) {
       console.error('Erreur API Gemini :', await aiRes.text());
-      return res.status(200).json({ approved: false, reason: 'Erreur de modération' });
+      return res.status(200).json({ approved: false, reason: 'technical', detail: 'Erreur de modération' });
     }
 
     const data = await aiRes.json();
-    const textResponse = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').trim().toUpperCase();
-    const approved = textResponse.startsWith('OUI');
 
-    return res.status(200).json({ approved });
+    // Réponse bloquée par les filtres de sécurité de Gemini lui-même (pas un
+    // refus de notre consigne) : on logue le détail pour comprendre, et on
+    // traite ça comme une erreur technique, pas comme "message inapproprié".
+    const blockReason = data.promptFeedback?.blockReason;
+    if (blockReason) {
+      console.error('Réponse Gemini bloquée par ses filtres internes :', blockReason, '— message :', message);
+      return res.status(200).json({ approved: false, reason: 'technical', detail: `Bloqué par Gemini (${blockReason})` });
+    }
+
+    const textResponse = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').trim().toUpperCase();
+
+    if (!textResponse) {
+      console.error('Réponse Gemini vide/inattendue :', JSON.stringify(data));
+      return res.status(200).json({ approved: false, reason: 'technical', detail: 'Réponse vide de Gemini' });
+    }
+
+    const approved = textResponse.startsWith('OUI');
+    return res.status(200).json({ approved, reason: approved ? null : 'content' });
   } catch (err) {
     console.error('Erreur modération dédicace :', err);
-    return res.status(200).json({ approved: false, reason: 'Erreur serveur' });
+    return res.status(200).json({ approved: false, reason: 'technical', detail: 'Erreur serveur' });
   }
 }
