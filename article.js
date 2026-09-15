@@ -24,6 +24,39 @@ function calculateReadTime(text) {
     return Math.max(1, Math.ceil(words / readingSpeedWPM));
 }
 
+// Nettoyage propre des extraits de texte (SEO / Social)
+function generateCleanSnippet(rawHtml, maxLength = 160) {
+    if (!rawHtml) return "";
+    let text = rawHtml
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'")
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    if (text.length <= maxLength) return text;
+    
+    // Découpe au dernier mot complet
+    const truncated = text.substring(0, maxLength);
+    const lastSpace = truncated.lastIndexOf(' ');
+    return (lastSpace > 0 ? truncated.substring(0, lastSpace) : truncated) + '...';
+}
+
+// Helper universel de mise à jour/création des balises du <head>
+function updateHeadTag(tagName, attrKey, attrVal, contentKey, contentVal) {
+    let el = document.querySelector(`${tagName}[${attrKey}="${attrVal}"]`);
+    if (!el) {
+        el = document.createElement(tagName);
+        el.setAttribute(attrKey, attrVal);
+        document.head.appendChild(el);
+    }
+    el.setAttribute(contentKey, contentVal);
+}
+
 /* --------------------------------------------------------------------------
    ASSISTANT IA GROQ (VIA VERCEL SERVERLESS FUNCTION)
    -------------------------------------------------------------------------- */
@@ -67,7 +100,6 @@ async function runAICorrection() {
         let correctedContent = data.choices?.[0]?.message?.content;
 
         if (correctedContent) {
-            // Nettoyage rigoureux des balises Markdown de code (au début et à la fin)
             correctedContent = correctedContent
                 .replace(/^```(?:html)?\s*/i, '')
                 .replace(/\s*```$/i, '')
@@ -97,7 +129,6 @@ function safeRenderCanvaContent(rawText, isAdmin) {
         return `<div class="canva-block p" ${isAdmin ? 'contenteditable="true"' : ''}><p>Aucun contenu pour cet article.</p></div>`;
     }
 
-    // 1. Essayer le formateur Canva natif
     if (typeof formatContentToCanvaBlocks === 'function') {
         try {
             const html = formatContentToCanvaBlocks(rawText, isAdmin);
@@ -107,12 +138,10 @@ function safeRenderCanvaContent(rawText, isAdmin) {
         }
     }
 
-    // 2. Si le texte contient déjà du HTML
     if (rawText.includes('<p>') || rawText.includes('<div') || rawText.includes('<h')) {
         return `<div class="canva-block p" ${isAdmin ? 'contenteditable="true"' : ''}>${rawText}</div>`;
     }
 
-    // 3. Texte brut -> Conversion automatique en paragraphes
     return rawText.split(/\n\s*\n/).map(p => {
         const clean = p.trim();
         if (!clean) return '';
@@ -128,7 +157,6 @@ function safeRenderCanvaContent(rawText, isAdmin) {
    OUVERTURE ET INJECTION DE L'ARTICLE
    ========================================================================== */
 async function openArticleView(category, id) {
-    // ❌ Bloquer l'affichage de la page article pour les émissions et les animateurs
     if (category === 'shows' || category === 'emissions' || category === 'team' || category === 'animateurs') {
         console.warn(`[VAFM] Les éléments de type '${category}' ne s'ouvrent pas dans une page article.`);
         return;
@@ -137,7 +165,6 @@ async function openArticleView(category, id) {
     const collectionMap = { hero: 'hero', news: 'actus', actus: 'actus' };
     const collectionName = collectionMap[category] || 'actus';
 
-    // Fetch PocketBase
     let data = null;
     try {
         const response = await fetch(`${POCKETBASE_URL}/api/collections/${collectionName}/records/${id}?expand=author,user,user_id`);
@@ -156,7 +183,6 @@ async function openArticleView(category, id) {
     const title = data.titre || data.title || data.nom || 'Sans titre';
     const rawText = data.texte || data.contenu || data.description || data.text || '';
 
-    // Vérification du mode admin (placé AVANT la génération du HTML)
     const isAdmin = Boolean(
         (window.appState && window.appState.editMode) || 
         document.body.classList.contains('admin-logged-in') || 
@@ -164,7 +190,7 @@ async function openArticleView(category, id) {
     );
 
     // ==========================================================================
-    // INJECTION DES DONNÉES STRUCTURÉES (SEO GOOGLE NEWS & OPEN GRAPH)
+    // INJECTION DES DONNÉES STRUCTURÉES (SEO GOOGLE NEWS, CANONICAL & SOCIAL)
     // ==========================================================================
     const rawImg = data.image || data.img;
     let articleImageUrl = "https://vafmlaradio.fr/LOGO-VAFM.png";
@@ -175,7 +201,6 @@ async function openArticleView(category, id) {
             : (rawImg.startsWith('http') ? rawImg : `https://vafmlaradio.fr${rawImg}`);
     }
 
-    // Génération du slug propre
     const cleanSlug = title
         .toLowerCase()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -184,24 +209,29 @@ async function openArticleView(category, id) {
 
     const cleanUrlPath = `/article/${category}/${id}-${cleanSlug}`;
     const fullArticleUrl = `https://vafmlaradio.fr${cleanUrlPath}`;
+    const plainTextSnippet = generateCleanSnippet(rawText, 160) || "Découvrez cet article sur VAFM.";
 
-    // 1. Mise à jour du titre de l'onglet
+    // 1. Titre onglet & URL Canonique
     document.title = `${title} – VAFM`;
+    updateHeadTag('link', 'rel', 'canonical', 'href', fullArticleUrl);
 
-    // 2. Open Graph
-    const ogTitle = document.getElementById('og-title');
-    const ogDesc = document.getElementById('og-desc');
-    const ogImage = document.getElementById('og-image');
-    const ogUrl = document.getElementById('og-url');
+    // 2. Méta description standard
+    updateHeadTag('meta', 'name', 'description', 'content', plainTextSnippet);
 
-    const plainTextSnippet = rawText.replace(/<[^>]*>/g, '').substring(0, 160).trim();
+    // 3. Open Graph (Facebook / WhatsApp / LinkedIn)
+    updateHeadTag('meta', 'property', 'og:type', 'content', 'article');
+    updateHeadTag('meta', 'property', 'og:title', 'content', title);
+    updateHeadTag('meta', 'property', 'og:description', 'content', plainTextSnippet);
+    updateHeadTag('meta', 'property', 'og:image', 'content', articleImageUrl);
+    updateHeadTag('meta', 'property', 'og:url', 'content', fullArticleUrl);
 
-    if (ogTitle) ogTitle.setAttribute('content', title);
-    if (ogDesc) ogDesc.setAttribute('content', plainTextSnippet || "Découvrez cet article sur VAFM.");
-    if (ogImage) ogImage.setAttribute('content', articleImageUrl);
-    if (ogUrl) ogUrl.setAttribute('content', fullArticleUrl);
+    // 4. Twitter Cards
+    updateHeadTag('meta', 'name', 'twitter:card', 'content', 'summary_large_image');
+    updateHeadTag('meta', 'name', 'twitter:title', 'content', title);
+    updateHeadTag('meta', 'name', 'twitter:description', 'content', plainTextSnippet);
+    updateHeadTag('meta', 'name', 'twitter:image', 'content', articleImageUrl);
 
-    // 3. Schema.org JSON-LD
+    // 5. Schema.org JSON-LD
     const publishedIsoDate = new Date(data.published_at || data.created).toISOString();
     const modifiedIsoDate = new Date(data.updated || data.created).toISOString();
 
@@ -230,7 +260,7 @@ async function openArticleView(category, id) {
           "url": "https://vafmlaradio.fr/LOGO-VAFM.png"
         }
       },
-      "description": plainTextSnippet || title
+      "description": plainTextSnippet
     };
 
     let script = document.getElementById('news-schema');
@@ -284,7 +314,6 @@ async function openArticleView(category, id) {
     ::selection { background-color: #E50914 !important; color: #ffffff !important; }
     ::-moz-selection { background-color: #E50914 !important; color: #ffffff !important; }
 
-    /* Conteneur de la modale dans le flux principal sous le bandeau d'origine */
     #article-modal {
         display: block !important;
         visibility: visible !important;
@@ -299,7 +328,6 @@ async function openArticleView(category, id) {
         box-sizing: border-box !important;
     }
 
-    /* Barre Studio au-dessus du lecteur audio */
     .vafm-player-toolbar {
         position: fixed !important;
         bottom: 110px !important;
@@ -411,7 +439,6 @@ async function openArticleView(category, id) {
     .canva-layout { width: 100% !important; display: flex !important; flex-direction: column !important; }
     .canva-workspace { width: 100% !important; padding: 0 !important; margin: 0 !important; box-sizing: border-box !important; background-color: #f4f4f7 !important; display: flex !important; justify-content: center !important; }
     
-    /* Document central */
     .canva-document { 
         width: 100% !important; 
         max-width: 850px !important; 
@@ -494,27 +521,14 @@ async function openArticleView(category, id) {
     .canva-block.img-center { float: none !important; margin-left: auto !important; margin-right: auto !important; margin-top: 20px !important; margin-bottom: 20px !important; clear: both; }
     .canva-block.img-full { float: none !important; width: 100% !important; margin: 20px 0 !important; clear: both; }
 
-    /* Assure un minimum de 250px pour la taille S afin d'éviter d'être bloqué */
-.canva-block.size-sm { 
-    width: 35% !important; 
-    min-width: 250px !important; 
-}
-
-.canva-block.size-md { 
-    width: 50% !important; 
-    min-width: 300px !important; 
-}
+    .canva-block.size-sm { width: 35% !important; min-width: 250px !important; }
+    .canva-block.size-md { width: 50% !important; min-width: 300px !important; }
     .canva-block.size-lg { width: 75% !important; }
     .canva-block.size-full { width: 100% !important; }
 
     .canva-block img { width: 100%; border-radius: 8px; display: block; cursor: zoom-in; }
     blockquote.canva-quote { border-left: 4px solid #E50914; padding-left: 16px; margin: 20px 0; font-style: italic; color: #555; }
 
-    /* Sur mobile, les pourcentages fixes (30%/50%/75%) donnent des images
-       minuscules puisque la colonne de texte est déjà étroite — la
-       différence entre les tailles devient même invisible. On agrandit tout
-       et on désactive le flottement (le texte autour d'une petite image
-       flottante est illisible sur un écran étroit). */
     @media screen and (max-width: 768px) {
         .canva-block.img-left,
         .canva-block.img-right {
@@ -689,72 +703,58 @@ async function openArticleView(category, id) {
         </div>
     `;
 
-    // 1. Masquer les vues d'accueil ET la grille des actualités SPA pour laisser toute la place
     const mainContent = document.getElementById('content');
     const newsSpa = document.getElementById('news-page-spa');
 
-    // On mémorise d'où vient l'utilisateur (Accueil ou page Actus) pour pouvoir
-    // y revenir correctement à la fermeture de l'article.
     window._articleReturnTo = (newsSpa && newsSpa.classList.contains('active')) ? 'news' : 'home';
 
     if (mainContent) mainContent.style.display = 'none';
     if (newsSpa) {
-        // Important : la classe "active" pilote un `display: block !important` dans
-        // news.css. Un simple style.display = 'none' ne suffit donc pas à la masquer,
-        // il faut aussi retirer la classe, sinon la page Actus reste visible derrière
-        // et pousse la fiche article tout en bas de la page.
         newsSpa.classList.remove('active');
         newsSpa.style.display = 'none';
     }
     
-    // 2. Afficher la vue article et scroller en haut de la page
     articleContainer.style.display = 'block';
     window.scrollTo({ top: 0, behavior: 'instant' });
 
-    // 3. Initialisation des scripts Admin / AdSense
     if (isAdmin) {
         if (typeof initCanvaInteractions === 'function') initCanvaInteractions();
         initDynamicTooltips();
         initStudioShortcuts(collectionName, id);
-} else {
+    } else {
+        initArticleImageLightbox();
 
-    // Aperçu plein écran au clic sur une image d'article (lecture publique
-    // uniquement — en mode admin, cliquer une image sert à sélectionner le
-    // bloc pour le redimensionner/déplacer, donc on ne touche pas à ce
-    // comportement-là).
-    initArticleImageLightbox();
+        function initArticleAds(attempt = 0) {
+            if (typeof window.adsbygoogle === 'undefined') {
+                if (attempt < 10) setTimeout(() => initArticleAds(attempt + 1), 300);
+                return;
+            }
 
-function initArticleAds(attempt = 0) {
-    if (typeof window.adsbygoogle === 'undefined') {
-        if (attempt < 10) setTimeout(() => initArticleAds(attempt + 1), 300);
-        return;
+            const ads = document.querySelectorAll('ins.adsbygoogle:not([data-adsbygoogle-status])');
+
+            ads.forEach(ad => {
+                if (ad.dataset.adsInitialized === 'true') return;
+
+                const width = ad.getBoundingClientRect().width;
+                if (width === 0) {
+                    if (attempt < 10) setTimeout(() => initArticleAds(attempt + 1), 300);
+                    return;
+                }
+
+                try {
+                    ad.dataset.adsInitialized = 'true';
+                    (window.adsbygoogle = window.adsbygoogle || []).push({});
+                } catch (error) {
+                    delete ad.dataset.adsInitialized;
+                    console.error("Erreur AdSense :", error);
+                }
+            });
+        }
+
+        setTimeout(() => {
+            initArticleAds();
+        }, 500);
     }
-
-    const ads = document.querySelectorAll('ins.adsbygoogle:not([data-adsbygoogle-status])');
-
-    ads.forEach(ad => {
-        if (ad.dataset.adsInitialized === 'true') return;
-
-        const width = ad.getBoundingClientRect().width;
-        if (width === 0) {
-            if (attempt < 10) setTimeout(() => initArticleAds(attempt + 1), 300);
-            return;
-        }
-
-        try {
-            ad.dataset.adsInitialized = 'true';
-            (window.adsbygoogle = window.adsbygoogle || []).push({});
-        } catch (error) {
-            delete ad.dataset.adsInitialized;
-            console.error("Erreur AdSense :", error);
-        }
-    });
-}
-
-    setTimeout(() => {
-        initArticleAds();
-    }, 500);
-}
 
     history.pushState({ page: 'article', category, id }, title, cleanUrlPath);
 }
@@ -827,7 +827,7 @@ function handleStudioKeydown(e) {
 }
 
 /* --------------------------------------------------------------------------
-   3. FORMATAGE DES BLOCS ET PUBS ADSENSE
+   FORMATAGE DES BLOCS ET PUBS ADSENSE
    -------------------------------------------------------------------------- */
 function formatContentToCanvaBlocks(htmlContent, isAdmin = false) {
     if (!htmlContent || htmlContent.trim() === '') {
@@ -837,26 +837,23 @@ function formatContentToCanvaBlocks(htmlContent, isAdmin = false) {
     const temp = document.createElement('div');
     temp.innerHTML = htmlContent;
 
-    // ============================================================
-    // ADSENSE INTEGRATION
-    // ============================================================
     temp.querySelectorAll('.vafm-ad-placeholder').forEach(adNode => {
-    if (isAdmin) return;
+        if (isAdmin) return;
 
-    const adContainer = document.createElement('div');
-    adContainer.className = 'canva-block img-full size-full adsense-rendered-block';
+        const adContainer = document.createElement('div');
+        adContainer.className = 'canva-block img-full size-full adsense-rendered-block';
 
-    adContainer.innerHTML = `
-        <ins class="adsbygoogle"
-            style="display:block; text-align:center;"
-            data-ad-layout="in-article"
-            data-ad-format="fluid"
-            data-ad-client="${ADSENSE_CONFIG.client}"
-            data-ad-slot="${ADSENSE_CONFIG.slot}"></ins>
-    `;
+        adContainer.innerHTML = `
+            <ins class="adsbygoogle"
+                style="display:block; text-align:center;"
+                data-ad-layout="in-article"
+                data-ad-format="fluid"
+                data-ad-client="${ADSENSE_CONFIG.client}"
+                data-ad-slot="${ADSENSE_CONFIG.slot}"></ins>
+        `;
 
-    adNode.replaceWith(adContainer);
-});
+        adNode.replaceWith(adContainer);
+    });
 
     let result = '';
 
@@ -1019,7 +1016,7 @@ function setBlockSize(size) {
 }
 
 /* --------------------------------------------------------------------------
-   4. OUTILS, LIENS ET SUPPRESSION
+   OUTILS, LIENS ET SUPPRESSION
    -------------------------------------------------------------------------- */
 function applyFormat(command) {
     document.execCommand(command, false, null);
@@ -1083,10 +1080,6 @@ async function handleTogglePublishInStudio(collectionName, id, currentStatus, ca
     }
 }
 
-// Aperçu plein écran (lightbox) pour les images d'un article, en lecture
-// publique seulement. Délégation d'événement sur le conteneur du contenu :
-// fonctionne pour toutes les images, y compris celles déjà écrites avant
-// l'ajout de cette fonctionnalité, sans avoir à retoucher le contenu stocké.
 function initArticleImageLightbox() {
     const content = document.getElementById('canva-doc-content');
     if (!content) return;
@@ -1094,7 +1087,6 @@ function initArticleImageLightbox() {
     content.addEventListener('click', (e) => {
         const img = e.target.closest('.canva-block img');
         if (!img) return;
-        // On ignore une éventuelle image à l'intérieur d'un emplacement pub
         if (img.closest('.vafm-ad-placeholder') || img.closest('ins.adsbygoogle')) return;
         openImageLightbox(img.src, img.alt || '');
     });
@@ -1152,20 +1144,26 @@ function closeArticleView(options = {}) {
     // Supprime le balisage Schema de l'article fermé
     document.getElementById('news-schema')?.remove();
 
-    // Si l'appelant (ex: handleNavigation) va de toute façon rediriger vers
-    // sa propre destination, on ne fait qu'éteindre l'article et on le
-    // laisse gérer la suite — sinon on se marchait dessus : l'article
-    // restait affiché "en bas" de la page vers laquelle on venait de
-    // naviguer (ex: Animateurs), car rien ne le refermait jamais.
+    // Réinitialisation des balises SEO aux valeurs par défaut VAFM
+    document.title = "VAFM – La Radio qu'il vous faut";
+    updateHeadTag('link', 'rel', 'canonical', 'href', 'https://vafmlaradio.fr');
+    updateHeadTag('meta', 'name', 'description', 'content', "Écoutez VAFM, la radio qu'il vous faut. Actualités locales, musique et divertissement.");
+    updateHeadTag('meta', 'property', 'og:type', 'content', 'website');
+    updateHeadTag('meta', 'property', 'og:title', 'content', "VAFM – La Radio qu'il vous faut");
+    updateHeadTag('meta', 'property', 'og:description', 'content', "Écoutez VAFM, la radio qu'il vous faut. Actualités locales, musique et divertissement.");
+    updateHeadTag('meta', 'property', 'og:image', 'content', "https://vafmlaradio.fr/LOGO-VAFM.png");
+    updateHeadTag('meta', 'property', 'og:url', 'content', "https://vafmlaradio.fr");
+
+    updateHeadTag('meta', 'name', 'twitter:card', 'content', 'summary_large_image');
+    updateHeadTag('meta', 'name', 'twitter:title', 'content', "VAFM – La Radio qu'il vous faut");
+    updateHeadTag('meta', 'name', 'twitter:description', 'content', "Écoutez VAFM, la radio qu'il vous faut. Actualités locales, musique et divertissement.");
+    updateHeadTag('meta', 'name', 'twitter:image', 'content', "https://vafmlaradio.fr/LOGO-VAFM.png");
+
     if (options.skipRestore) {
         delete window._articleReturnTo;
         return wasOpen;
     }
 
-    // Rétablir la vue précédente (page Actus ou Accueil), en se basant sur l'origine
-    // mémorisée à l'ouverture plutôt que sur un test de contenu HTML (toujours vrai
-    // pour la grille Actus, qui est statique). On réutilise les fonctions de news.js
-    // qui gèrent déjà correctement les classes "active" et les menus de navigation.
     const returnTo = window._articleReturnTo || 'home';
     delete window._articleReturnTo;
 
@@ -1176,7 +1174,6 @@ function closeArticleView(options = {}) {
         showHomePage();
         history.pushState({ page: 'home' }, '', '/');
     } else {
-        // Repli si news.js n'est pas chargé (ne devrait pas arriver)
         const newsSpa = document.getElementById('news-page-spa');
         const mainContent = document.getElementById('content');
         if (returnTo === 'news' && newsSpa) {
@@ -1200,7 +1197,7 @@ window.addEventListener('popstate', (e) => {
 });
 
 /* --------------------------------------------------------------------------
-   5. AJOUT DE BLOCS ET SAUVEGARDE (POCKETBASE)
+   AJOUT DE BLOCS ET SAUVEGARDE (POCKETBASE)
    -------------------------------------------------------------------------- */
 function addCanvaBlock(type = 'p') {
     const contentBox = document.getElementById('canva-doc-content');
@@ -1241,13 +1238,10 @@ async function handleCanvaImageUpload(event) {
     const contentBox = document.getElementById('canva-doc-content');
     if (!contentBox) return;
 
-    // 1. Compression immédiate (WebP, ~80-90% plus léger) pour fluidifier
-    //    l'éditeur, que l'upload distant fonctionne ou non.
     const compressed = (typeof compressImage === 'function')
         ? await compressImage(file, 1400, 0.82)
         : file;
 
-    // 2. On détermine la cible : image déjà sélectionnée ou nouveau bloc
     let targetImg;
     if (activeBlock && activeBlock.querySelector('img')) {
         targetImg = activeBlock.querySelector('img');
@@ -1268,13 +1262,11 @@ async function handleCanvaImageUpload(event) {
         }
     }
 
-    // 3. Aperçu instantané et léger pendant l'upload (pas de base64 ici)
     const previewUrl = URL.createObjectURL(compressed);
     targetImg.src = previewUrl;
     targetImg.dataset.uploading = "1";
     initCanvaInteractions();
 
-    // 4. Upload réel du fichier vers PocketBase
     try {
         const articleId = (typeof currentArticleData !== 'undefined' && currentArticleData) ? currentArticleData.id : null;
         const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
@@ -1319,7 +1311,6 @@ async function handleCanvaImageUpload(event) {
 
 async function saveCanvaArticle(collectionName, id) {
     try {
-        // 1. Récupération des éléments DOM
         const titleElement = document.getElementById('canva-doc-title');
         const title = titleElement ? titleElement.innerText.trim() : '';
 
@@ -1332,14 +1323,11 @@ async function saveCanvaArticle(collectionName, id) {
         const fileInput = document.getElementById('canva-file-input');
         const hasNewFile = fileInput && fileInput.files && fileInput.files[0];
 
-        // 2. Nettoyage propre des éléments d'édition Canva
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = contentBox.innerHTML;
 
-        // Suppression de TOUS les indicateurs de drop
         tempDiv.querySelectorAll('.canva-drop-indicator').forEach(el => el.remove());
 
-        // Nettoyage des classes et attributs d'édition sur tous les blocs et éléments enfants
         tempDiv.querySelectorAll('.canva-block').forEach(b => {
             b.classList.remove('selected', 'editing', 'dragging');
             b.removeAttribute('data-interactive');
@@ -1351,23 +1339,18 @@ async function saveCanvaArticle(collectionName, id) {
         });
 
         const content = tempDiv.innerHTML.trim();
+        const plainExcerpt = generateCleanSnippet(tempDiv.innerHTML, 200);
 
-        // Extrait texte brut pour la vignette de la page d'accueil (200 caractères)
-        const plainExcerpt = (tempDiv.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 200);
-
-        // 3. Détermination de la collection PocketBase
         let realCollection = collectionName;
         if (collectionName === 'news' || collectionName === 'article') {
             realCollection = 'actus';
         }
 
-        // Récupération de l'auteur connecté
         let authorDisplayName = "Équipe VAFM";
         if (window.appState && window.appState.currentUser) {
             authorDisplayName = window.appState.currentUser.name || window.appState.currentUser.username || "Équipe VAFM";
         }
 
-        // 4. Token & Headers d'authentification
         const token = typeof getAuthToken === 'function' 
             ? getAuthToken() 
             : (window.appState?.pbToken || (localStorage.getItem('pocketbase_auth') ? JSON.parse(localStorage.getItem('pocketbase_auth')).token : null));
@@ -1379,7 +1362,6 @@ async function saveCanvaArticle(collectionName, id) {
 
         let bodyPayload;
 
-        // 5. Préparation du payload (Multipart FormData ou JSON)
         if (hasNewFile) {
             const formData = new FormData();
             formData.append('titre', title);
@@ -1396,7 +1378,6 @@ async function saveCanvaArticle(collectionName, id) {
                 formData.append('user_id', userId);
             }
             
-            // Compression sécurisée de l'image de couverture
             let coverFile = fileInput.files[0];
             if (typeof compressImage === 'function') {
                 try {
@@ -1428,7 +1409,6 @@ async function saveCanvaArticle(collectionName, id) {
             bodyPayload = JSON.stringify(jsonBody);
         }
 
-        // 6. Envoi de la requête PATCH à PocketBase
         const baseUrl = typeof POCKETBASE_URL !== 'undefined' ? POCKETBASE_URL : (window.POCKETBASE_URL || '');
         const response = await fetch(`${baseUrl}/api/collections/${realCollection}/records/${id}`, {
             method: 'PATCH',
@@ -1460,7 +1440,6 @@ async function saveCanvaArticle(collectionName, id) {
         
         if (fileInput) fileInput.value = '';
         
-        // Rafraîchissement des données globales
         if (typeof fetchAllFromPocketBase === 'function') {
             await fetchAllFromPocketBase();
         }
@@ -1472,7 +1451,7 @@ async function saveCanvaArticle(collectionName, id) {
 }
 
 /* --------------------------------------------------------------------------
-   6. CHARGEMENT AUTOMATIQUE VIA URL
+   CHARGEMENT AUTOMATIQUE VIA URL
    -------------------------------------------------------------------------- */
 document.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
