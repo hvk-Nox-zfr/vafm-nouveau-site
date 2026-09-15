@@ -3797,16 +3797,10 @@ async function finalizeSpin(reward, spinBtn, resultDiv, userId) {
 
 // ============================================================================
 // RÉCOMPENSES "TEMPS PASSÉ SUR LE SITE"
-// +100 points à 1min30 d'activité réelle, +200 points de plus à 3min.
-// "Réelle" = onglet au premier plan (document.visibilityState === 'visible'
-// ET fenêtre avec le focus) — le temps en arrière-plan ne compte pas.
-// Chaque palier ne peut être obtenu qu'une fois toutes les 24h (comme la
-// roue) : sans cette limite, il suffirait de rafraîchir la page en boucle
-// pour gagner des points à l'infini.
 // ============================================================================
 const VAFM_TIME_REWARDS = [
-  { seconds: 90, points: 100, field: 'last_time_bonus_90', claiming: false, claimedToday: false },
-  { seconds: 180, points: 200, field: 'last_time_bonus_180', claiming: false, claimedToday: false }
+  { seconds: 90, points: 100, field: 'last_time_bonus_90', claiming: false },
+  { seconds: 180, points: 200, field: 'last_time_bonus_180', claiming: false }
 ];
 
 let vafmActiveSeconds = 0;
@@ -3818,14 +3812,12 @@ function initTimeOnSiteRewards() {
   if (vafmTimeRewardTimer) clearInterval(vafmTimeRewardTimer);
   vafmActiveSeconds = 0;
 
-  // Réinitialisation des états au démarrage
   VAFM_TIME_REWARDS.forEach(r => {
     r.claiming = false;
-    r.claimedToday = false;
   });
 
   vafmTimeRewardTimer = setInterval(() => {
-    // "Vraiment sur le site" : onglet visible ET fenêtre active au premier plan
+    // Premier plan uniquement
     if (document.visibilityState !== 'visible' || !document.hasFocus()) return;
     vafmActiveSeconds += 1;
     checkTimeOnSiteRewards();
@@ -3837,38 +3829,38 @@ async function checkTimeOnSiteRewards() {
   if (!user) return;
 
   for (const reward of VAFM_TIME_REWARDS) {
-    // Si déjà réclamé pendant cette session ou en cours de réclamation, on saute
-    if (vafmActiveSeconds < reward.seconds || reward.claiming || reward.claimedToday) continue;
+    if (vafmActiveSeconds < reward.seconds || reward.claiming) continue;
 
+    // Vérification du délai de 24h basé sur l'horodatage stocké
     const lastAward = user[reward.field] ? new Date(user[reward.field]) : null;
     const now = new Date();
+
     if (lastAward && (now.getTime() - lastAward.getTime()) < 24 * 60 * 60 * 1000) {
-      reward.claimedToday = true; // Verrouille localement pour la session
-      continue; // déjà obtenu dans les dernières 24h
+      continue; // Moins de 24h écoulées, passe au palier suivant
     }
 
-    reward.claiming = true; // évite un double-déclenchement pendant l'appel réseau
+    reward.claiming = true; // Verrou anti-double appel pendant le fetch
+    
     try {
       const currentPoints = user.points || 0;
+      const isoNow = now.toISOString();
+
       const updatedUser = await updateUserPocketBase(user.id, {
         points: currentPoints + reward.points,
-        [reward.field]: now.toISOString()
+        [reward.field]: isoNow
       });
 
-      // Mettre à jour l'objet utilisateur en mémoire/cache si ta fonction ne le fait pas automatiquement
-      if (updatedUser && typeof pb !== 'undefined') {
-        user[reward.field] = now.toISOString();
-        user.points = currentPoints + reward.points;
-      }
+      // Synchronisation de l'objet utilisateur local
+      user[reward.field] = isoNow;
+      user.points = currentPoints + reward.points;
 
-      reward.claimedToday = true; // Marquer comme obtenu définitivement pour la session
       showPointsToast(`+${reward.points} points pour ${formatDurationFr(reward.seconds)} passées sur VAFM ! 🎉`);
       
       if (typeof updatePointsUI === 'function') {
         updatePointsUI();
       }
     } catch (err) {
-      console.error('Erreur récompense temps passé :', err);
+      console.error('Erreur lors de l’attribution de la récompense :', err);
     } finally {
       reward.claiming = false;
     }
