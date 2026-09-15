@@ -1,49 +1,25 @@
 // ============================================================================
-// VAFM — Dédicaces (bandeau défilant + envoi sécurisé)
+// VAFM — Dédicaces (bandeau défilant + envoi)
+// ============================================================================
+// Collection PocketBase attendue : "dedicaces"
+//   - message       (text, max 30 caractères)
+//   - user          (relation vers "users", optionnel mais recommandé)
+//   - is_published  (bool, à activer par défaut côté PocketBase)
+//   - created       (auto, géré par PocketBase)
+//
+// Règles d'API à configurer dans PocketBase (obligatoire) :
+//   - List/View  : is_published = true  (public)
+//   - Create     : @request.auth.id != ""  (connexion obligatoire)
+//   - Update/Delete : réservé à l'admin
 // ============================================================================
 
 let dedicacesList = [];
-let tickerAnimationId = null;
-let currentPosition = 0;
-const SCROLL_SPEED = 0.8; // Vitesse de défilement (pixels/frame)
-
-// ----------------------------------------------------------------------------
-// MODÉRATION 100% IA (Google Gemini API - Avec Fallback Anti-Surcharge 503)
-// ----------------------------------------------------------------------------
-
-async function checkDedicaceSafety(text) {
-    try {
-        const response = await fetch("/api/check-dedicace", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text })
-        });
-
-        const data = await response.json();
-
-        if (!data.safe) {
-            return { 
-                isSafe: false, 
-                reason: data.reason || "Message refusé par la modération IA." 
-            };
-        }
-
-        return { isSafe: true };
-
-    } catch (err) {
-        console.error("Erreur de connexion à l'API :", err);
-        return { isSafe: false, reason: "Impossible de vérifier le message." };
-    }
-}
-
-// ----------------------------------------------------------------------------
-// 2. BANDEAU DÉFILANT CONTINU (BOUCLE INFINIE SANS SACCADE)
-// ----------------------------------------------------------------------------
+let dedicacesSignature = ''; // empreinte du contenu actuellement affiché
 
 async function fetchAndRenderDedicaces() {
     try {
         const res = await fetch(
-            `${POCKETBASE_URL}/api/collections/dedicaces/records?filter=(is_published=true)&sort=-created&perPage=50&expand=user`
+            `${POCKETBASE_URL}/api/collections/dedicaces/records?filter=(is_published=true)&sort=-created&perPage=50`
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
@@ -52,6 +28,15 @@ async function fetchAndRenderDedicaces() {
         console.error('Erreur chargement des dédicaces :', err);
         return;
     }
+
+    // On ne reconstruit le bandeau QUE si son contenu a réellement changé.
+    // Sans cette vérification, le rafraîchissement périodique (toutes les
+    // 60s) réécrivait le HTML à chaque fois — ce qui coupait net l'animation
+    // CSS en cours et la faisait repartir de zéro, donnant l'impression que
+    // les dédicaces "revenaient" brutalement au lieu de défiler en continu.
+    const newSignature = dedicacesList.map(d => d.id).join(',');
+    if (newSignature === dedicacesSignature) return;
+    dedicacesSignature = newSignature;
 
     renderDedicacesTicker();
 }
@@ -62,53 +47,18 @@ function renderDedicacesTicker() {
 
     if (dedicacesList.length === 0) {
         track.innerHTML = `<span class="dedicaces-ticker-item">🎶 Soyez le premier à envoyer une dédicace !</span>`;
-        if (tickerAnimationId) cancelAnimationFrame(tickerAnimationId);
+        track.classList.remove('scrolling');
         return;
     }
 
-    // Construction de la chaîne d'items
-    const singleSequenceHtml = dedicacesList
-        .map(d => {
-            const authorName = d.expand?.user?.name || d.expand?.user?.username || 'Membre VAFM';
-            const safeName = escapeDedicaceText(authorName);
-            const safeMsg = escapeDedicaceText(d.message);
-            
-            return `<span class="dedicaces-ticker-item"><strong>${safeName} :</strong> ${safeMsg}</span>`;
-        })
+    const itemsHtml = dedicacesList
+        .map(d => `<span class="dedicaces-ticker-item">🎤 ${escapeDedicaceText(d.message)}</span>`)
         .join('<span class="dedicaces-ticker-sep">•</span>');
 
-    // On double le contenu dans deux conteneurs frères pour une boucle 100% sans trou
-    track.innerHTML = `
-        <div class="ticker-unit" id="ticker-unit-1">${singleSequenceHtml}</div>
-        <div class="ticker-unit" id="ticker-unit-2">${singleSequenceHtml}</div>
-    `;
-
-    startContinuousTicker(track);
-}
-
-function startContinuousTicker(track) {
-    if (tickerAnimationId) cancelAnimationFrame(tickerAnimationId);
-
-    const unit1 = document.getElementById('ticker-unit-1');
-    if (!unit1) return;
-
-    function step() {
-        // La largeur exacte d'un bloc complet de dédicaces
-        const unitWidth = unit1.offsetWidth;
-
-        currentPosition += SCROLL_SPEED;
-
-        // Dès que le premier bloc s'est complètement effacé à gauche,
-        // on réinitialise la position à 0 de façon totalement invisible
-        if (currentPosition >= unitWidth) {
-            currentPosition = 0;
-        }
-
-        track.style.transform = `translateX(${-currentPosition}px)`;
-        tickerAnimationId = requestAnimationFrame(step);
-    }
-
-    tickerAnimationId = requestAnimationFrame(step);
+    // On duplique le contenu pour un défilement en boucle parfaitement continu
+    // (animation CSS qui translate de -50% : voir dedicaces.css).
+    track.innerHTML = itemsHtml + '<span class="dedicaces-ticker-sep">•</span>' + itemsHtml;
+    track.classList.add('scrolling');
 }
 
 function escapeDedicaceText(str) {
@@ -119,7 +69,7 @@ function escapeDedicaceText(str) {
 }
 
 // ----------------------------------------------------------------------------
-// 3. FORMULAIRE D'ENVOI
+// Formulaire d'envoi (connexion requise)
 // ----------------------------------------------------------------------------
 
 function updateDedicaceFormVisibility() {
@@ -167,47 +117,44 @@ async function submitDedicace(event) {
     }
 
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Modération…';
+    submitBtn.textContent = 'Vérification…';
     if (feedback) {
         feedback.textContent = '';
         feedback.classList.remove('success');
     }
 
-    // Analyse par l'IA avant d'envoyer à la base de données
-    const safetyCheck = await checkDedicaceSafety(message);
-    if (!safetyCheck.isSafe) {
-        if (feedback) {
-            feedback.textContent = safetyCheck.reason || "Votre dédicace contient du contenu inapproprié.";
-            feedback.classList.remove('success');
+    // Modération IA : on vérifie le message AVANT de le créer dans
+    // PocketBase, pour ne jamais publier de contenu inapproprié même
+    // brièvement. En cas de souci technique avec la modération elle-même,
+    // on refuse par prudence plutôt que de tout laisser passer.
+    try {
+        const modRes = await fetch('/api/moderate-dedicace', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+        });
+        const modData = await modRes.json().catch(() => ({ approved: false }));
+
+        if (!modData.approved) {
+            if (feedback) {
+                feedback.textContent = "Ce message n'a pas pu être publié (contenu non approprié). Essaie une autre formulation.";
+                feedback.classList.remove('success');
+            }
+            submitBtn.textContent = 'Envoyer ma dédicace';
+            updateDedicaceSubmitState();
+            return;
         }
+    } catch (err) {
+        console.error('Erreur de modération :', err);
+        if (feedback) feedback.textContent = "La vérification a échoué, réessaie dans un instant.";
         submitBtn.textContent = 'Envoyer ma dédicace';
         updateDedicaceSubmitState();
         return;
     }
 
+    submitBtn.textContent = 'Envoi…';
+
     try {
-        const startOfDay = new Date();
-        startOfDay.setHours(0, 0, 0, 0);
-        const startOfDayISO = startOfDay.toISOString().replace('T', ' ');
-
-        const checkRes = await fetch(
-            `${POCKETBASE_URL}/api/collections/dedicaces/records?filter=(user='${appState.currentUser.id}' && created>='${startOfDayISO}')`,
-            { headers: getAuthHeaders() }
-        );
-
-        if (checkRes.ok) {
-            const checkData = await checkRes.json();
-            if (checkData.totalItems >= 2) {
-                if (feedback) {
-                    feedback.textContent = 'Vous avez déjà atteint la limite de 2 dédicaces aujourd\'hui.';
-                    feedback.classList.remove('success');
-                }
-                return;
-            }
-        }
-
-        submitBtn.textContent = 'Envoi…';
-
         const res = await fetch(`${POCKETBASE_URL}/api/collections/dedicaces/records`, {
             method: 'POST',
             headers: getAuthHeaders(true),
@@ -224,7 +171,7 @@ async function submitDedicace(event) {
         checkbox.checked = false;
         updateDedicaceCounter();
         if (feedback) {
-            feedback.textContent = 'Dédicace validée et envoyée dans le bandeau ! 🎉';
+            feedback.textContent = 'Dédicace envoyée ! Elle apparaît dans le bandeau en haut du site. 🎉';
             feedback.classList.add('success');
         }
 
@@ -248,13 +195,18 @@ async function submitDedicace(event) {
 document.addEventListener('DOMContentLoaded', () => {
     fetchAndRenderDedicaces();
 
+    // Rafraîchit le bandeau régulièrement pour faire apparaître les nouvelles
+    // dédicaces sans que les visiteurs aient besoin de recharger la page.
     setInterval(fetchAndRenderDedicaces, 60000);
 
+    // L'état de connexion (appState.currentUser) est déterminé de façon
+    // asynchrone par script.js au chargement — on vérifie régulièrement au
+    // début, puis on se contente de réagir aux connexions/déconnexions.
     updateDedicaceFormVisibility();
     let authCheckAttempts = 0;
     const authCheckInterval = setInterval(() => {
         updateDedicaceFormVisibility();
         authCheckAttempts++;
-        if (authCheckAttempts > 20) clearInterval(authCheckInterval);
+        if (authCheckAttempts > 20) clearInterval(authCheckInterval); // ~10s max
     }, 500);
 });
