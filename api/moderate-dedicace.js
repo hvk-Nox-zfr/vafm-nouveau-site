@@ -42,11 +42,11 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           systemInstruction: {
             parts: [{
-              text: "Tu modères des dédicaces très courtes (30 caractères maximum) publiées publiquement sur le bandeau du site d'une radio locale familiale (VAFM). On te donne un message. Réponds UNIQUEMENT par le mot OUI si le message est acceptable pour un public familial (aucune insulte, propos haineux ou discriminatoire, contenu sexuel, violence, spam, lien, numéro de téléphone, ou contenu déplacé). Réponds UNIQUEMENT par le mot NON si le message doit être bloqué. Ne réponds jamais autre chose que OUI ou NON, sans aucune explication."
+              text: "Tu modères des dédicaces très courtes (30 caractères maximum) publiées publiquement sur le bandeau du site d'une radio locale familiale (VAFM). On te donne un message. Réponds SEULEMENT par un seul mot, sans aucun texte avant ni après, sans ponctuation : OUI si le message est acceptable pour un public familial (aucune insulte, propos haineux ou discriminatoire, contenu sexuel, violence, spam, lien, numéro de téléphone, ou contenu déplacé), ou NON s'il doit être bloqué. Un simple salut, prénom, ou message affectueux anodin (ex: \"coucou\", \"bonne journée\", \"salut la team\") est toujours OUI."
             }]
           },
           contents: [{ parts: [{ text: message }] }],
-          generationConfig: { maxOutputTokens: 5, temperature: 0 },
+          generationConfig: { maxOutputTokens: 20, temperature: 0 },
           // Sans ceci, les filtres de sécurité par défaut de Gemini peuvent
           // bloquer la réponse à cause du SUJET de la consigne elle-même
           // (qui mentionne "insultes", "contenu sexuel" etc. comme exemples
@@ -88,7 +88,20 @@ export default async function handler(req, res) {
       return res.status(200).json({ approved: false, reason: 'technical', detail: 'Réponse vide de Gemini' });
     }
 
-    const approved = textResponse.startsWith('OUI');
+    // On cherche OUI/NON n'importe où dans la réponse plutôt qu'au tout
+    // début : avec seulement 5 tokens autorisés, un léger préambule avant
+    // le mot-clé (même minime) le faisait tronquer avant qu'il n'apparaisse,
+    // et tout finissait rejeté par défaut — d'où "coucou" refusé à tort.
+    let approved;
+    if (textResponse.includes('NON')) {
+      approved = false;
+    } else if (textResponse.includes('OUI')) {
+      approved = true;
+    } else {
+      console.warn('Réponse Gemini ambiguë (ni OUI ni NON) :', textResponse);
+      approved = false; // réponse imprévue : on refuse par prudence
+    }
+
     return res.status(200).json({ approved, reason: approved ? null : 'content' });
   } catch (err) {
     console.error('Erreur modération dédicace :', err);
