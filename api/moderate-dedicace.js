@@ -46,7 +46,17 @@ export default async function handler(req, res) {
             }]
           },
           contents: [{ parts: [{ text: message }] }],
-          generationConfig: { maxOutputTokens: 20, temperature: 0 },
+          generationConfig: {
+            maxOutputTokens: 30,
+            temperature: 0,
+            // gemini-3.6-flash "réfléchit" en interne avant de répondre, et
+            // ce temps de réflexion consomme une partie du budget
+            // maxOutputTokens — pour une simple classification OUI/NON,
+            // c'est inutile et ça faisait épuiser tout le budget avant même
+            // d'écrire la réponse (finishReason: MAX_TOKENS, content vide).
+            // On désactive donc la réflexion pour cette tâche précise.
+            thinkingConfig: { thinkingBudget: 0 }
+          },
           // Sans ceci, les filtres de sécurité par défaut de Gemini peuvent
           // bloquer la réponse à cause du SUJET de la consigne elle-même
           // (qui mentionne "insultes", "contenu sexuel" etc. comme exemples
