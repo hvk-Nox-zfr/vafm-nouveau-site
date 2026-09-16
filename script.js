@@ -3799,8 +3799,8 @@ async function finalizeSpin(reward, spinBtn, resultDiv, userId) {
 // RÉCOMPENSES "TEMPS PASSÉ SUR LE SITE"
 // ============================================================================
 const VAFM_TIME_REWARDS = [
-  { seconds: 90, points: 100, field: 'last_time_bonus_90', claiming: false },
-  { seconds: 180, points: 200, field: 'last_time_bonus_180', claiming: false }
+  { seconds: 90, points: 100, field: 'last_time_bonus_90', claiming: false, claimedInSession: false },
+  { seconds: 180, points: 200, field: 'last_time_bonus_180', claiming: false, claimedInSession: false }
 ];
 
 let vafmActiveSeconds = 0;
@@ -3814,6 +3814,7 @@ function initTimeOnSiteRewards() {
 
   VAFM_TIME_REWARDS.forEach(r => {
     r.claiming = false;
+    r.claimedInSession = false;
   });
 
   vafmTimeRewardTimer = setInterval(() => {
@@ -3829,17 +3830,21 @@ async function checkTimeOnSiteRewards() {
   if (!user) return;
 
   for (const reward of VAFM_TIME_REWARDS) {
-    if (vafmActiveSeconds < reward.seconds || reward.claiming) continue;
+    // Si pas encore atteint le temps, ou déjà en train de claim, ou déjà claim cette session -> on passe
+    if (vafmActiveSeconds < reward.seconds || reward.claiming || reward.claimedInSession) continue;
 
-    // Vérification du délai de 24h basé sur l'horodatage stocké
+    // Vérification de la date enregistrée en BDD
     const lastAward = user[reward.field] ? new Date(user[reward.field]) : null;
     const now = new Date();
 
     if (lastAward && (now.getTime() - lastAward.getTime()) < 24 * 60 * 60 * 1000) {
-      continue; // Moins de 24h écoulées, passe au palier suivant
+      // Déjà obtenu sur les dernières 24h -> on verrouille pour cette session
+      reward.claimedInSession = true;
+      continue;
     }
 
-    reward.claiming = true; // Verrou anti-double appel pendant le fetch
+    // Verrouillage immédiat pour éviter les exécutions parallèles aux secondes suivantes
+    reward.claiming = true;
     
     try {
       const currentPoints = user.points || 0;
@@ -3850,9 +3855,17 @@ async function checkTimeOnSiteRewards() {
         [reward.field]: isoNow
       });
 
-      // Synchronisation de l'objet utilisateur local
-      user[reward.field] = isoNow;
-      user.points = currentPoints + reward.points;
+      // Verrouillage de la session
+      reward.claimedInSession = true;
+
+      // Mise à jour explicite du store local PocketBase
+      if (typeof pb !== 'undefined' && pb.authStore && pb.authStore.model) {
+        pb.authStore.model[reward.field] = isoNow;
+        pb.authStore.model.points = currentPoints + reward.points;
+      } else {
+        user[reward.field] = isoNow;
+        user.points = currentPoints + reward.points;
+      }
 
       showPointsToast(`+${reward.points} points pour ${formatDurationFr(reward.seconds)} passées sur VAFM ! 🎉`);
       
