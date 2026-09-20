@@ -4794,3 +4794,9 @@ body.admin-logged-in #news-page-spa {
 .lien-jeu {
     color: #E50914;
 }
+
+.adsbygoogle {
+    display: block !important;
+    text-align: center !important;
+    margin: 20px auto !important;
+}
