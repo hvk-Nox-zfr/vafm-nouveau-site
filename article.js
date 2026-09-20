@@ -1074,9 +1074,16 @@ async function handleTogglePublishInStudio(collectionName, id, currentStatus, ca
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-        // 🚀 PING SI L'ARTICLE PASSE EN ÉTAT PUBLIÉ
+        // 🚀 PING RSS ET INDEXNOW SI L'ARTICLE PASSE EN ÉTAT PUBLIÉ
         if (nextStatus) {
             pingRSSFeed();
+
+            if (currentArticleData) {
+                const title = currentArticleData.titre || currentArticleData.title || '';
+                const cleanSlug = title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                const fullArticleUrl = `https://vafmlaradio.fr/article/${category}/${id}-${cleanSlug}`;
+                pingIndexNow(fullArticleUrl);
+            }
         }
 
         await openArticleView(category, id);
@@ -1331,6 +1338,36 @@ async function pingRSSFeed() {
     }
 }
 
+// Fonction utilitaire pour IndexNow
+async function pingIndexNow(articleUrl) {
+    const host = 'vafmlaradio.fr';
+    const key = '67f1b529c5bd4c4d9d251bee1211c6b9'; // Indique le nom de ta clé texte sans le .txt
+    const keyLocation = `https://${host}/${key}.txt`;
+
+    const payload = {
+        host: host,
+        key: key,
+        keyLocation: keyLocation,
+        urlList: [articleUrl]
+    };
+
+    try {
+        const response = await fetch('https://api.indexnow.org/IndexNow', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok || response.status === 202) {
+            console.log('[VAFM IndexNow] URL soumise avec succès à IndexNow !');
+        } else {
+            console.warn('[VAFM IndexNow] Statut de réponse :', response.status);
+        }
+    } catch (err) {
+        console.warn('[VAFM IndexNow] Erreur lors de la soumission :', err);
+    }
+}
+
 async function saveCanvaArticle(collectionName, id) {
     try {
         const titleElement = document.getElementById('canva-doc-title');
@@ -1460,9 +1497,14 @@ async function saveCanvaArticle(collectionName, id) {
 
         alert("✨ Article enregistré avec succès !");
         
-        // 🚀 Ping du flux RSS si l'article est actuellement publié
+        // 🚀 Ping du flux RSS et IndexNow si l'article est actuellement publié
         if (updatedRecord.is_published || updatedRecord.published) {
             pingRSSFeed();
+
+            const cleanSlug = title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+            const category = currentCategory || 'news';
+            const fullArticleUrl = `https://vafmlaradio.fr/article/${category}/${id}-${cleanSlug}`;
+            pingIndexNow(fullArticleUrl);
         }
 
         if (fileInput) fileInput.value = '';
