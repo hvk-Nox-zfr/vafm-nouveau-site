@@ -4796,7 +4796,5 @@ body.admin-logged-in #news-page-spa {
 }
 
 .adsbygoogle {
-    display: block !important;
-    text-align: center !important;
-    margin: 20px auto !important;
+    margin-left: 20px;
 }
