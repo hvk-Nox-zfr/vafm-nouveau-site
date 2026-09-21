@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+    <script>
+  (function() {
+    var host = window.location.hostname;
+    var element = document.createElement('script');
+    var firstScript = document.getElementsByTagName('script')[0];
+    var url = 'https://cmp.quantcast.com'; // Ou ton stub TCF personnalisé
+    window.__tcfapi = window.__tcfapi || function() {
+      (window.__tcfapi.q = window.__tcfapi.q || []).push(arguments);
+    };
+  })();
+</script>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-E9V5XJYL0E"></script>
     <script>

@@ -220,6 +220,39 @@ function canCreateInCategory(category) {
   return false;
 }
 
+// Fonction pour vérifier la chaîne TCF v2.2 et le consentement Google
+function getTCFConsent() {
+  return new Promise((resolve) => {
+    // Si la CMP n'est pas présente sur la page (ex: hors UE ou dev)
+    if (typeof window.__tcfapi !== 'function') {
+      console.warn("⚠️ CMP (TCF v2.2) non détectée sur la page.");
+      return resolve({ tcString: null, googleConsent: true });
+    }
+
+    // Interrogation de l'API TCF v2.2
+    window.__tcfapi('addEventListener', 2, (tcData, success) => {
+      if (success && (tcData.eventStatus === 'tcloaded' || tcData.eventStatus === 'useractioncomplete')) {
+        
+        // Google / Google Advertising Products (Vendor IAB ID = 755)
+        const GOOGLE_VENDOR_ID = 755;
+        const vendorConsents = tcData.vendor?.consents || {};
+        
+        // Vérification de la chaîne de consentement TCF v2.2
+        const tcString = tcData.tcString;
+        const hasGoogleConsent = !!vendorConsents[GOOGLE_VENDOR_ID];
+
+        console.log("📜 Chaine TCF v2.2 récupérée :", tcString);
+        console.log("✅ Consentement Google Ad Manager (Vendor 755) :", hasGoogleConsent);
+
+        // Suppression de l'écouteur après récupération
+        window.__tcfapi('removeEventListener', 2, () => {}, tcData.listenerId);
+
+        resolve({ tcString, googleConsent: hasGoogleConsent });
+      }
+    });
+  });
+}
+
 /* ==========================================================================
 4. INITIALISATION & PARSING URL DYNAMIQUE
 ========================================================================== */
@@ -2183,7 +2216,7 @@ function closeModal(id) {
 ========================================================================== */
 
 // URL du tag VAST Ads Manager
-const VAST_URL = "https://pubads.g.doubleclick.net/gampad/ads?iu=/23378612411/vafm_preroll_audio&description_url=https%3A%2F%2Fvafmlaradio.fr&tfcd=0&npa=0&ad_type=audio&sz=1x1&gdfp_req=1&unviewed_position_start=1&output=vast&env=vp&impl=s&correlator=";
+const VAST_URL = "https://pubads.g.doubleclick.net/gampad/ads?iu=/23378612411/vafm_preroll_audio&description_url=https%3A%2F%2Fvafmlaradio.fr&tfcd=0&npa=1&ad_type=audio&sz=1x1&gdfp_req=1&unviewed_position_start=1&output=vast&env=vp&impl=s&correlator=" + Date.now();
 
 // Variables globales SDK IMA
 let adsLoader = null;
@@ -2913,51 +2946,64 @@ function initRadioPlayer() {
     });
   }
 
-  function requestAudioAd() {
-      let adContainer = document.getElementById('ad-container');
-      if (!adContainer) {
-          adContainer = document.createElement('div');
-          adContainer.id = 'ad-container';
-          adContainer.style.display = 'none';
-          document.body.appendChild(adContainer);
-      }
+async function requestAudioAd() {
+    let adContainer = document.getElementById('ad-container');
+    if (!adContainer) {
+        adContainer = document.createElement('div');
+        adContainer.id = 'ad-container';
+        adContainer.style.display = 'none';
+        document.body.appendChild(adContainer);
+    }
 
-      if (typeof google === 'undefined' || !google.ima) {
-          console.warn("Google IMA SDK non chargé ou bloqué. Lancement direct de la radio.");
-          adPlayedThisSession = true;
-          playLiveStreamDirectly();
-          return;
-      }
+    if (typeof google === 'undefined' || !google.ima) {
+        console.warn("Google IMA SDK non chargé. Lancement direct de la radio.");
+        adPlayedThisSession = true;
+        playLiveStreamDirectly();
+        return;
+    }
 
-      try {
-          adDisplayContainer = new google.ima.AdDisplayContainer(adContainer, audio);
-          adDisplayContainer.initialize();
+    // 1. Récupération et vérification TCF v2.2
+    const { tcString, googleConsent } = await getTCFConsent();
 
-          adsLoader = new google.ima.AdsLoader(adDisplayContainer);
+    // Si le consentement pour Google est refusé, on passe directement la radio sans erreur CORS / 400
+    if (!googleConsent) {
+        console.warn("🚫 Consentement Google non accordé via la CMP. Passage au flux direct.");
+        adPlayedThisSession = true;
+        playLiveStreamDirectly();
+        return;
+    }
 
-          adsLoader.addEventListener(
-              google.ima.AdsManagerLoadedEvent.Type.ADS_MANAGER_LOADED,
-              onAdsManagerLoaded,
-              false
-          );
-          adsLoader.addEventListener(
-              google.ima.AdErrorEvent.Type.AD_ERROR,
-              onAdError,
-              false
-          );
+    try {
+        adDisplayContainer = new google.ima.AdDisplayContainer(adContainer, audio);
+        adDisplayContainer.initialize();
 
-          const adsRequest = new google.ima.AdsRequest();
-          adsRequest.adTagUrl = VAST_URL;
-          adsRequest.linearAdSlotWidth = 1;
-          adsRequest.linearAdSlotHeight = 1;
+        adsLoader = new google.ima.AdsLoader(adDisplayContainer);
 
-          adsLoader.requestAds(adsRequest);
-      } catch (err) {
-          console.warn("Erreur initialisation pub IMA :", err);
-          adPlayedThisSession = true;
-          playLiveStreamDirectly();
-      }
-  }
+        adsLoader.addEventListener(
+            google.ima.AdsManagerLoadedEvent.Type.ADS_MANAGER_LOADED,
+            onAdsManagerLoaded,
+            false
+        );
+        adsLoader.addEventListener(
+            google.ima.AdErrorEvent.Type.AD_ERROR,
+            onAdError,
+            false
+        );
+
+        const adsRequest = new google.ima.AdsRequest();
+        
+        // 2. Transmettre l'URL du tag VAST (le SDK IMA transmet automatiquement la chaîne TCF s'il la trouve)
+        adsRequest.adTagUrl = VAST_URL;
+        adsRequest.linearAdSlotWidth = 1;
+        adsRequest.linearAdSlotHeight = 1;
+
+        adsLoader.requestAds(adsRequest);
+    } catch (err) {
+        console.warn("Erreur initialisation pub IMA :", err);
+        adPlayedThisSession = true;
+        playLiveStreamDirectly();
+    }
+}
 
   function onAdsManagerLoaded(adsManagerLoadedEvent) {
       adsManager = adsManagerLoadedEvent.getAdsManager(audio);
