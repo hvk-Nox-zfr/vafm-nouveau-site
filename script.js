@@ -2179,8 +2179,18 @@ function closeModal(id) {
 }
 
 /* ==========================================================================
-12. LECTEUR AUDIO & MÉTADONNÉES
+12. LECTEUR AUDIO & MÉTADONNÉES AVEC INTÉGRATION PUBLICITÉ VAST (GOOGLE IMA)
 ========================================================================== */
+
+// URL du tag VAST Ads Manager
+const VAST_URL = "https://pubads.g.doubleclick.net/gampad/ads?iu=/23378612411/vafm_preroll_audio&description_url=https%3A%2F%2Fvafmlaradio.fr&tfcd=0&npa=0&ad_type=audio&sz=1x1&gdfp_req=1&unviewed_position_start=1&output=vast&env=vp&impl=s&correlator=";
+
+// Variables globales SDK IMA
+let adsLoader = null;
+let adsManager = null;
+let adDisplayContainer = null;
+let adPlayedThisSession = false; // Permet de ne pas rejouer la pub à chaque pause/play
+
 async function saveSongToPocketBase(title, coverUrl) {
     if (!title || title === "VAFM – En Direct") return;
 
@@ -2708,7 +2718,7 @@ function initRadioPlayer() {
 
   let lastTitleSeen = songHistory.length > 0 ? songHistory[0].title : "";
 
-async function fetchServerHistoryDirectly() {
+  async function fetchServerHistoryDirectly() {
     try {
         const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=50`);
         if (!res.ok) return;
@@ -2722,7 +2732,6 @@ async function fetchServerHistoryDirectly() {
         for (const item of data.items) {
             const cleanTitle = (item.title || "").toLowerCase().trim();
             
-            // On vérifie que le titre n'a pas déjà été ajouté dans notre Set
             if (cleanTitle && !seenTitles.has(cleanTitle) && !cleanTitle.includes("vafm – en direct")) {
                 seenTitles.add(cleanTitle);
                 
@@ -2757,7 +2766,7 @@ async function fetchServerHistoryDirectly() {
     } catch (e) {
         console.warn("Erreur chargement PocketBase song_history :", e);
     }
-}
+  }
 
   const playerBar = playBtn.closest('.player, .audio-player, div[style*="background"], footer') || playBtn.parentElement;
   let miniPlayBtn = null;
@@ -2885,25 +2894,121 @@ async function fetchServerHistoryDirectly() {
 
   renderHistoryList();
 
+  /* ==========================================================================
+     LOGIQUE GOOGLE IMA SDK (PUBLICITÉ VAST EN PRÉ-ROLL)
+  ========================================================================== */
+  function playLiveStreamDirectly() {
+    audio.src = STREAM_URL;
+    audio.load();
+    audio.play().then(() => {
+        audio.volume = 1;
+        if (playIcon) playIcon.textContent = "⏸";
+        playBtn.classList.add("playing");
+        updateMiniPlayState();
+    }).catch(e => {
+        console.warn("Erreur lecture flux direct :", e);
+        if (playIcon) playIcon.textContent = "▶";
+        playBtn.classList.remove("playing");
+        updateMiniPlayState();
+    });
+  }
+
+  function requestAudioAd() {
+      let adContainer = document.getElementById('ad-container');
+      if (!adContainer) {
+          adContainer = document.createElement('div');
+          adContainer.id = 'ad-container';
+          adContainer.style.display = 'none';
+          document.body.appendChild(adContainer);
+      }
+
+      if (typeof google === 'undefined' || !google.ima) {
+          console.warn("Google IMA SDK non chargé ou bloqué. Lancement direct de la radio.");
+          adPlayedThisSession = true;
+          playLiveStreamDirectly();
+          return;
+      }
+
+      try {
+          adDisplayContainer = new google.ima.AdDisplayContainer(adContainer, audio);
+          adDisplayContainer.initialize();
+
+          adsLoader = new google.ima.AdsLoader(adDisplayContainer);
+
+          adsLoader.addEventListener(
+              google.ima.AdsManagerLoadedEvent.Type.ADS_MANAGER_LOADED,
+              onAdsManagerLoaded,
+              false
+          );
+          adsLoader.addEventListener(
+              google.ima.AdErrorEvent.Type.AD_ERROR,
+              onAdError,
+              false
+          );
+
+          const adsRequest = new google.ima.AdsRequest();
+          adsRequest.adTagUrl = VAST_URL;
+          adsRequest.linearAdSlotWidth = 1;
+          adsRequest.linearAdSlotHeight = 1;
+
+          adsLoader.requestAds(adsRequest);
+      } catch (err) {
+          console.warn("Erreur initialisation pub IMA :", err);
+          adPlayedThisSession = true;
+          playLiveStreamDirectly();
+      }
+  }
+
+  function onAdsManagerLoaded(adsManagerLoadedEvent) {
+      adsManager = adsManagerLoadedEvent.getAdsManager(audio);
+
+      adsManager.addEventListener(google.ima.AdErrorEvent.Type.AD_ERROR, onAdError);
+      adsManager.addEventListener(google.ima.AdEvent.Type.ALL_ADS_COMPLETED, () => {
+          adPlayedThisSession = true;
+          playLiveStreamDirectly();
+      });
+
+      try {
+          adsManager.init(1, 1, google.ima.ViewMode.NORMAL);
+          adsManager.start();
+          if (playIcon) playIcon.textContent = "⏸";
+          playBtn.classList.add("playing");
+          updateMiniPlayState();
+      } catch (adError) {
+          adPlayedThisSession = true;
+          playLiveStreamDirectly();
+      }
+  }
+
+  function onAdError(adErrorEvent) {
+      console.warn("Publicité VAST indisponible ou bloquée :", adErrorEvent.getError ? adErrorEvent.getError() : adErrorEvent);
+      if (adsManager) {
+          adsManager.destroy();
+      }
+      adPlayedThisSession = true;
+      playLiveStreamDirectly();
+  }
+
+  /* ==========================================================================
+     ÉVÉNEMENT CLIC SUR LE BOUTON PLAY
+  ========================================================================== */
   playBtn.addEventListener("click", async () => {
     try {
       if (audio.paused) {
-        audio.src = STREAM_URL;
-        audio.load();
-
-        await audio.play();
-        audio.volume = 1;
-
-        if (playIcon) playIcon.textContent = "⏸";
-        playBtn.classList.add("playing");
+        // Si la pub n'a pas encore été jouée durant cette session utilisateur
+        if (!adPlayedThisSession) {
+            requestAudioAd();
+        } else {
+            playLiveStreamDirectly();
+        }
       } else {
         audio.pause();
         audio.src = "";
 
         if (playIcon) playIcon.textContent = "▶";
         playBtn.classList.remove("playing");
+        updateMiniPlayState();
       }
-      updateMiniPlayState();
     } catch (e) {
       console.warn("Erreur de lecture gérée :", e.message);
       audio.pause();
@@ -2986,32 +3091,28 @@ async function fetchServerHistoryDirectly() {
       const coverUrl = await fetchTrackCover(formattedTitle);
       if (liveCoverEl) liveCoverEl.src = coverUrl;
 
-      // Remplace ton bloc de détection dans updateCurrentTitle par ceci :
-if (formattedTitle.toLowerCase().trim() !== lastTitleSeen.toLowerCase().trim() && formattedTitle !== "VAFM – En Direct") {
-    lastTitleSeen = formattedTitle;
-    
-    if (!isVafmIdent(formattedTitle)) {
-        // 1. Sauvegarde dans PocketBase
-        saveSongToPocketBase(formattedTitle, coverUrl);
+      if (formattedTitle.toLowerCase().trim() !== lastTitleSeen.toLowerCase().trim() && formattedTitle !== "VAFM – En Direct") {
+          lastTitleSeen = formattedTitle;
+          
+          if (!isVafmIdent(formattedTitle)) {
+              saveSongToPocketBase(formattedTitle, coverUrl);
 
-        // 2. Ajout immédiat en mémoire locale sans doublon
-        const parts = formattedTitle.split(' – ');
-        const currentTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
-        
-        const newSong = {
-            id: Date.now().toString(),
-            title: formattedTitle,
-            time: currentTime,
-            cover: coverUrl
-        };
+              const parts = formattedTitle.split(' – ');
+              const currentTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+              
+              const newSong = {
+                  id: Date.now().toString(),
+                  title: formattedTitle,
+                  time: currentTime,
+                  cover: coverUrl
+              };
 
-        // Filtrer au cas où le titre existe déjà dans le tableau local
-        songHistory = [newSong, ...songHistory.filter(s => s.title.toLowerCase().trim() !== formattedTitle.toLowerCase().trim())].slice(0, 10);
-        
-        localStorage.setItem("vafm_song_history", JSON.stringify(songHistory));
-        renderHistoryList();
-    }
-}
+              songHistory = [newSong, ...songHistory.filter(s => s.title.toLowerCase().trim() !== formattedTitle.toLowerCase().trim())].slice(0, 10);
+              
+              localStorage.setItem("vafm_song_history", JSON.stringify(songHistory));
+              renderHistoryList();
+          }
+      }
 
       if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({

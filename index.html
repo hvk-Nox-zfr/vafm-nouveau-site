@@ -74,6 +74,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <noscript><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
 
+    <!-- Google IMA SDK -->
+    <script src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8497430727637938" crossorigin="anonymous"></script>
     <script async type="application/javascript" src="https://news.google.com/swg/js/v1/swg-basic.js"></script>
     <script>
@@ -163,10 +165,11 @@
     </div>
 
     <!-- LECTEUR AUDIO -->
-    <audio id="radio-audio" preload="none">
-        <source src="https://manager10.streamradio.fr:1555/stream" type="audio/mpeg">
-        Votre navigateur ne supporte pas l'audio.
-    </audio>
+<div id="ad-container" style="display: none;"></div>
+<audio id="radio-audio" preload="none">
+    <source src="https://manager10.streamradio.fr:1555/stream" type="audio/mpeg">
+    Votre navigateur ne supporte pas l'audio.
+</audio>
 
     <!-- MODALE CONNEXION / INSCRIPTION -->
     <div id="auth-modal" class="modal" style="display: none;">
