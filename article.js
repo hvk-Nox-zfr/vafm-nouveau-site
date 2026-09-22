@@ -129,20 +129,38 @@ function safeRenderCanvaContent(rawText, isAdmin) {
         return `<div class="canva-block p" ${isAdmin ? 'contenteditable="true"' : ''}><p>Aucun contenu pour cet article.</p></div>`;
     }
 
+    // 1. Si ce n'est pas un admin, on remplace TOUS les placeholders AdSense par le code ins AdSense
+    let processedText = rawText;
+    if (!isAdmin) {
+        const adHtml = `
+            <div class="canva-block img-full size-full adsense-rendered-block">
+                <ins class="adsbygoogle"
+                    style="display:block; text-align:center;"
+                    data-ad-layout="in-article"
+                    data-ad-format="fluid"
+                    data-ad-client="${ADSENSE_CONFIG.client}"
+                    data-ad-slot="${ADSENSE_CONFIG.slot}"></ins>
+            </div>`;
+        
+        // Remplace les blocs placeholder générés par le studio
+        processedText = processedText.replace(/<div class="vafm-ad-placeholder">[\s\S]*?<\/div>/gi, adHtml);
+        processedText = processedText.replace(/<div class="canva-block[^"]*">\s*<div class="vafm-ad-placeholder">[\s\S]*?<\/div>\s*<\/div>/gi, adHtml);
+    }
+
     if (typeof formatContentToCanvaBlocks === 'function') {
         try {
-            const html = formatContentToCanvaBlocks(rawText, isAdmin);
+            const html = formatContentToCanvaBlocks(processedText, isAdmin);
             if (html && html.trim().length > 0) return html;
         } catch (e) {
             console.warn("[VAFM] Échec de formatContentToCanvaBlocks, bascule sur le rendu HTML standard :", e);
         }
     }
 
-    if (rawText.includes('<p>') || rawText.includes('<div') || rawText.includes('<h')) {
-        return `<div class="canva-block p" ${isAdmin ? 'contenteditable="true"' : ''}>${rawText}</div>`;
+    if (processedText.includes('<p>') || processedText.includes('<div') || processedText.includes('<h')) {
+        return `<div class="canva-block p" ${isAdmin ? 'contenteditable="true"' : ''}>${processedText}</div>`;
     }
 
-    return rawText.split(/\n\s*\n/).map(p => {
+    return processedText.split(/\n\s*\n/).map(p => {
         const clean = p.trim();
         if (!clean) return '';
         return `
@@ -725,35 +743,37 @@ async function openArticleView(category, id) {
         initArticleImageLightbox();
 
         function initArticleAds(attempt = 0) {
-            if (typeof window.adsbygoogle === 'undefined') {
-                if (attempt < 10) setTimeout(() => initArticleAds(attempt + 1), 300);
-                return;
-            }
+    if (typeof window.adsbygoogle === 'undefined') {
+        if (attempt < 20) setTimeout(() => initArticleAds(attempt + 1), 250);
+        return;
+    }
 
-            const ads = document.querySelectorAll('ins.adsbygoogle:not([data-adsbygoogle-status])');
+    const ads = document.querySelectorAll('ins.adsbygoogle:not([data-adsbygoogle-status])');
 
-            ads.forEach(ad => {
-                if (ad.dataset.adsInitialized === 'true') return;
+    ads.forEach(ad => {
+        if (ad.dataset.adsInitialized === 'true') return;
 
-                const width = ad.getBoundingClientRect().width;
-                if (width === 0) {
-                    if (attempt < 10) setTimeout(() => initArticleAds(attempt + 1), 300);
-                    return;
-                }
-
-                try {
-                    ad.dataset.adsInitialized = 'true';
-                    (window.adsbygoogle = window.adsbygoogle || []).push({});
-                } catch (error) {
-                    delete ad.dataset.adsInitialized;
-                    console.error("Erreur AdSense :", error);
-                }
-            });
+        // Attendre que l'élément ait une largeur réelle avant d'appeler push
+        const width = ad.offsetWidth || ad.getBoundingClientRect().width;
+        if (width === 0) {
+            if (attempt < 20) setTimeout(() => initArticleAds(attempt + 1), 250);
+            return;
         }
 
-        setTimeout(() => {
-            initArticleAds();
-        }, 500);
+        try {
+            ad.dataset.adsInitialized = 'true';
+            (window.adsbygoogle = window.adsbygoogle || []).push({});
+        } catch (error) {
+            delete ad.dataset.adsInitialized;
+            console.error("Erreur AdSense :", error);
+        }
+    });
+}
+
+// Lancer après l'affichage complet du modal
+requestAnimationFrame(() => {
+    setTimeout(() => initArticleAds(), 300);
+});
     }
 
     history.pushState({ page: 'article', category, id }, title, cleanUrlPath);
