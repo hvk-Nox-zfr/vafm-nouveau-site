@@ -2724,461 +2724,97 @@ function initRadioPlayer() {
               if (script.parentNode) document.body.removeChild(script);
 
               if (data && data.results && data.results.length > 0) {
-                  const coverUrl = data.results[0].artworkUrl100.replace('100x100bb', '300x300bb');
+                  const coverUrl = data.results[0].artworkUrl100.replace('100x100bb', '600x600bb');
                   resolve(coverUrl);
               } else {
                   resolve('/LOGO - VAFM.png');
               }
           };
 
-          script.onerror = function() {
+          script.src = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1&callback=${callbackName}`;
+          script.onerror = () => {
               delete window[callbackName];
               if (script.parentNode) document.body.removeChild(script);
               resolve('/LOGO - VAFM.png');
           };
 
-          script.src = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1&callback=${callbackName}`;
           document.body.appendChild(script);
       });
   }
 
-  let songHistory = [];
-  try {
-      songHistory = JSON.parse(localStorage.getItem("vafm_song_history") || "[]");
-  } catch (e) {
-      songHistory = [];
-  }
+  let lastTrack = '';
 
-  let lastTitleSeen = songHistory.length > 0 ? songHistory[0].title : "";
-
-  async function fetchServerHistoryDirectly() {
-    try {
-        const res = await fetch(`${POCKETBASE_URL}/api/collections/song_history/records?sort=-created&limit=50`);
-        if (!res.ok) return;
-
-        const data = await res.json();
-        if (!data.items || data.items.length === 0) return;
-
-        const uniqueItems = [];
-        const seenTitles = new Set();
-
-        for (const item of data.items) {
-            const cleanTitle = (item.title || "").toLowerCase().trim();
-            
-            if (cleanTitle && !seenTitles.has(cleanTitle) && !cleanTitle.includes("vafm – en direct")) {
-                seenTitles.add(cleanTitle);
-                
-                let displayTime = item.time;
-                if (item.created) {
-                    const d = new Date(item.created);
-                    displayTime = d.toLocaleTimeString('fr-FR', { 
-                        hour: '2-digit', 
-                        minute: '2-digit', 
-                        timeZone: 'Europe/Paris' 
-                    });
-                }
-
-                uniqueItems.push({
-                    id: item.id,
-                    title: item.title,
-                    time: displayTime || 'En direct',
-                    cover: item.cover || '/LOGO - VAFM.png'
-                });
-            }
-
-            if (uniqueItems.length === 10) break;
-        }
-
-        if (uniqueItems.length > 0) {
-            songHistory = uniqueItems;
-            lastTitleSeen = songHistory[0].title;
-            localStorage.setItem("vafm_song_history", JSON.stringify(songHistory));
-            renderHistoryList();
-        }
-
-    } catch (e) {
-        console.warn("Erreur chargement PocketBase song_history :", e);
-    }
-  }
-
-  const playerBar = playBtn.closest('.player, .audio-player, div[style*="background"], footer') || playBtn.parentElement;
-  let miniPlayBtn = null;
-
-  if (playerBar && !playerBar.classList.contains('vafm-player-transformed')) {
-      playerBar.classList.add('vafm-player-transformed');
-
-      const controlsWrapper = document.createElement('div');
-      controlsWrapper.className = 'vafm-controls-wrapper';
-      while (playerBar.firstChild) {
-          controlsWrapper.appendChild(playerBar.firstChild);
-      }
-      playerBar.appendChild(controlsWrapper);
-
-      const historyPanel = document.createElement('div');
-      historyPanel.className = 'vafm-history-inside-panel';
-      historyPanel.innerHTML = `
-          <div class="vafm-top-nav">
-              <button class="vafm-collapse-btn" id="vafm-collapse-btn" title="Réduire">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-              </button>
-              <span class="vafm-top-nav-title">VAFM • EN DIRECT</span>
-              <div style="width: 32px;"></div>
-          </div>
-
-          <div class="vafm-nowplaying-fixed-bg">
-              <img id="vafm-live-cover" class="vafm-nowplaying-img" src="/LOGO - VAFM.png" alt="Direct Cover" onerror="this.src='/LOGO - VAFM.png'">
-              <div class="vafm-nowplaying-details">
-                  <span id="vafm-live-title" class="vafm-nowplaying-title">VAFM Direct</span>
-                  <span id="vafm-live-artist" class="vafm-nowplaying-artist">Le meilleur du son</span>
-              </div>
-          </div>
-
-          <div class="vafm-scroll-content">
-              <div class="vafm-scroll-spacer"></div>
-              <div class="vafm-history-overlay-sheet">
-                  <div class="vafm-history-header">
-                      <div class="vafm-history-title">
-                          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#E50914" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 16 18 9"/></svg>
-                          HISTORIQUE DE DIFFUSION
-                      </div>
-                      <div class="vafm-live-badge">
-                          <span class="vafm-live-dot"></span> DIRECT
-                      </div>
-                  </div>
-                  <ul id="vafm-history-list" class="vafm-history-list">
-                      <li class="vafm-history-empty">Chargement de l'historique...</li>
-                  </ul>
-              </div>
-          </div>
-      `;
-      playerBar.insertBefore(historyPanel, controlsWrapper);
-
-      document.getElementById("vafm-collapse-btn")?.addEventListener("click", (e) => {
-          e.stopPropagation();
-          playerBar.classList.remove("history-active");
-          document.body.classList.remove("vafm-lock-scroll");
-      });
-
-      const historyBtn = document.createElement('button');
-      historyBtn.className = 'vafm-history-toggle-btn';
-      historyBtn.title = "Historique des titres";
-      historyBtn.innerHTML = `
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
-      `;
-
-      historyBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const isActive = playerBar.classList.toggle('history-active');
-          
-          if (isActive) {
-              document.body.classList.add("vafm-lock-scroll");
-              renderHistoryList();
-          } else {
-              document.body.classList.remove("vafm-lock-scroll");
-          }
-      });
-
-      controlsWrapper.appendChild(historyBtn);
-
-      miniPlayBtn = document.createElement('button');
-      miniPlayBtn.className = 'vafm-mini-play-btn';
-      miniPlayBtn.title = "Lecture / Pause";
-      miniPlayBtn.textContent = audio.paused ? "▶" : "⏸";
-
-      miniPlayBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          playBtn.click();
-      });
-
-      controlsWrapper.appendChild(miniPlayBtn);
-  } else {
-      miniPlayBtn = playerBar?.querySelector('.vafm-mini-play-btn');
-  }
-
-  function renderHistoryList() {
-      const listEl = document.getElementById('vafm-history-list');
-      if (!listEl) return;
-
-      if (songHistory.length === 0) {
-          listEl.innerHTML = `<li class="vafm-history-empty">Aucun titre récent enregistré.</li>`;
-          return;
-      }
-
-      listEl.innerHTML = songHistory.map(song => {
-          const parts = song.title.split(' – ');
-          const trackTitle = parts[1] || parts[0];
-          const artistName = parts[1] ? parts[0] : 'VAFM Direct';
-          const coverImage = isVafmIdent(song.title) ? '/LOGO - VAFM.png' : (song.cover || '/LOGO - VAFM.png');
-
-          return `
-              <li class="vafm-history-item">
-                  <div class="vafm-history-song-left">
-                      <img class="vafm-history-cover" src="${coverImage}" alt="Cover" onerror="this.src='/LOGO - VAFM.png'">
-                      <div class="vafm-history-song-details">
-                          <span class="vafm-history-song-title">${trackTitle}</span>
-                          <span class="vafm-history-song-artist">${artistName}</span>
-                      </div>
-                  </div>
-                  <span class="vafm-history-time">${song.time}</span>
-              </li>
-          `;
-      }).join('');
-  }
-
-  renderHistoryList();
-
-  /* ==========================================================================
-     LOGIQUE GOOGLE IMA SDK (PUBLICITÉ VAST EN PRÉ-ROLL)
-  ========================================================================== */
-  function playLiveStreamDirectly() {
-    audio.src = STREAM_URL;
-    audio.load();
-    audio.play().then(() => {
-        audio.volume = 1;
-        if (playIcon) playIcon.textContent = "⏸";
-        playBtn.classList.add("playing");
-        updateMiniPlayState();
-    }).catch(e => {
-        console.warn("Erreur lecture flux direct :", e);
-        if (playIcon) playIcon.textContent = "▶";
-        playBtn.classList.remove("playing");
-        updateMiniPlayState();
-    });
-  }
-
-async function requestAudioAd() {
-    let adContainer = document.getElementById('ad-container');
-    if (!adContainer) {
-        adContainer = document.createElement('div');
-        adContainer.id = 'ad-container';
-        adContainer.style.display = 'none';
-        document.body.appendChild(adContainer);
-    }
-
-    if (typeof google === 'undefined' || !google.ima) {
-        console.warn("Google IMA SDK non chargé. Lancement direct de la radio.");
-        adPlayedThisSession = true;
-        playLiveStreamDirectly();
-        return;
-    }
-
-    // 1. Récupération et vérification TCF v2.2
-    const { tcString, googleConsent } = await getTCFConsent();
-
-    // Si le consentement pour Google est refusé, on passe directement la radio sans erreur CORS / 400
-    if (!googleConsent) {
-        console.warn("🚫 Consentement Google non accordé via la CMP. Passage au flux direct.");
-        adPlayedThisSession = true;
-        playLiveStreamDirectly();
-        return;
-    }
-
-    try {
-        adDisplayContainer = new google.ima.AdDisplayContainer(adContainer, audio);
-        adDisplayContainer.initialize();
-
-        adsLoader = new google.ima.AdsLoader(adDisplayContainer);
-
-        adsLoader.addEventListener(
-            google.ima.AdsManagerLoadedEvent.Type.ADS_MANAGER_LOADED,
-            onAdsManagerLoaded,
-            false
-        );
-        adsLoader.addEventListener(
-            google.ima.AdErrorEvent.Type.AD_ERROR,
-            onAdError,
-            false
-        );
-
-        const adsRequest = new google.ima.AdsRequest();
-        
-        // 2. Transmettre l'URL du tag VAST (le SDK IMA transmet automatiquement la chaîne TCF s'il la trouve)
-        adsRequest.adTagUrl = VAST_URL;
-        adsRequest.linearAdSlotWidth = 1;
-        adsRequest.linearAdSlotHeight = 1;
-
-        adsLoader.requestAds(adsRequest);
-    } catch (err) {
-        console.warn("Erreur initialisation pub IMA :", err);
-        adPlayedThisSession = true;
-        playLiveStreamDirectly();
-    }
-}
-
-  function onAdsManagerLoaded(adsManagerLoadedEvent) {
-      adsManager = adsManagerLoadedEvent.getAdsManager(audio);
-
-      adsManager.addEventListener(google.ima.AdErrorEvent.Type.AD_ERROR, onAdError);
-      adsManager.addEventListener(google.ima.AdEvent.Type.ALL_ADS_COMPLETED, () => {
-          adPlayedThisSession = true;
-          playLiveStreamDirectly();
-      });
-
+  async function updateStats() {
       try {
-          adsManager.init(1, 1, google.ima.ViewMode.NORMAL);
-          adsManager.start();
-          if (playIcon) playIcon.textContent = "⏸";
-          playBtn.classList.add("playing");
-          updateMiniPlayState();
-      } catch (adError) {
-          adPlayedThisSession = true;
-          playLiveStreamDirectly();
-      }
-  }
+          const res = await fetch(STATS_URL + '?t=' + Date.now());
+          if (!res.ok) return;
 
-  function onAdError(adErrorEvent) {
-      console.warn("Publicité VAST indisponible ou bloquée :", adErrorEvent.getError ? adErrorEvent.getError() : adErrorEvent);
-      if (adsManager) {
-          adsManager.destroy();
-      }
-      adPlayedThisSession = true;
-      playLiveStreamDirectly();
-  }
+          const data = await res.json();
+          const source = data?.icestats?.source;
+          let songTitle = 'VAFM – En Direct';
 
-  /* ==========================================================================
-     ÉVÉNEMENT CLIC SUR LE BOUTON PLAY
-  ========================================================================== */
-  playBtn.addEventListener("click", async () => {
-    try {
-      if (audio.paused) {
-        // Si la pub n'a pas encore été jouée durant cette session utilisateur
-        if (!adPlayedThisSession) {
-            requestAudioAd();
-        } else {
-            playLiveStreamDirectly();
-        }
-      } else {
-        audio.pause();
-        audio.src = "";
-
-        if (playIcon) playIcon.textContent = "▶";
-        playBtn.classList.remove("playing");
-        updateMiniPlayState();
-      }
-    } catch (e) {
-      console.warn("Erreur de lecture gérée :", e.message);
-      audio.pause();
-      audio.src = "";
-      if (playIcon) playIcon.textContent = "▶";
-      playBtn.classList.remove("playing");
-      updateMiniPlayState();
-    }
-  });
-
-  audio.addEventListener("play", updateMiniPlayState);
-  audio.addEventListener("pause", updateMiniPlayState);
-
-  let animTimeout = null;
-
-  function lancerDefilementVoiture(titre) {
-    if (!marquee || !trackSpan) return;
-
-    clearTimeout(animTimeout);
-
-    trackSpan.textContent = titre;
-    trackSpan.style.transition = "none";
-    trackSpan.style.transform = "translateX(0)";
-
-    animTimeout = setTimeout(() => {
-      const containerWidth = marquee.offsetWidth;
-      const textWidth = trackSpan.offsetWidth;
-
-      if (textWidth <= containerWidth) return;
-
-      const distance = textWidth - containerWidth + 20;
-      const duration = distance * 15;
-
-      trackSpan.style.transition = `transform ${duration}ms linear`;
-      trackSpan.style.transform = `translateX(-${distance}px)`;
-
-      animTimeout = setTimeout(() => {
-        trackSpan.style.transition = "none";
-        trackSpan.style.transform = "translateX(0)";
-      }, duration + 1000);
-
-    }, 1000);
-  }
-
-  async function updateCurrentTitle() {
-    try {
-      const response = await fetch(`${STATS_URL}?nocache=${Date.now()}`);
-      if (!response.ok) return;
-
-      const data = await response.json();
-      let rawTitle = "";
-
-      if (data && data.icestats) {
-        let source = data.icestats.source;
-        if (Array.isArray(source)) source = source[0];
-        if (source) {
-          rawTitle = source.title || source.song || "";
-        }
-      }
-
-      if (!rawTitle || typeof rawTitle !== "string") {
-        lancerDefilementVoiture("VAFM – En Direct");
-        return;
-      }
-
-      const formattedTitle = rawTitle.replace(/\s+[\-\–\—]\s+/, " – ");
-      lancerDefilementVoiture(formattedTitle);
-
-      const liveCoverEl = document.getElementById("vafm-live-cover");
-      const liveTitleEl = document.getElementById("vafm-live-title");
-      const liveArtistEl = document.getElementById("vafm-live-artist");
-
-      const parts = formattedTitle.split(' – ');
-      const currentTrackTitle = parts[1] || parts[0];
-      const currentArtistName = parts[1] ? parts[0] : 'VAFM';
-
-      if (liveTitleEl) liveTitleEl.textContent = currentTrackTitle;
-      if (liveArtistEl) liveArtistEl.textContent = currentArtistName;
-
-      const coverUrl = await fetchTrackCover(formattedTitle);
-      if (liveCoverEl) liveCoverEl.src = coverUrl;
-
-      if (formattedTitle.toLowerCase().trim() !== lastTitleSeen.toLowerCase().trim() && formattedTitle !== "VAFM – En Direct") {
-          lastTitleSeen = formattedTitle;
-          
-          if (!isVafmIdent(formattedTitle)) {
-              saveSongToPocketBase(formattedTitle, coverUrl);
-
-              const parts = formattedTitle.split(' – ');
-              const currentTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
-              
-              const newSong = {
-                  id: Date.now().toString(),
-                  title: formattedTitle,
-                  time: currentTime,
-                  cover: coverUrl
-              };
-
-              songHistory = [newSong, ...songHistory.filter(s => s.title.toLowerCase().trim() !== formattedTitle.toLowerCase().trim())].slice(0, 10);
-              
-              localStorage.setItem("vafm_song_history", JSON.stringify(songHistory));
-              renderHistoryList();
+          if (Array.isArray(source)) {
+              songTitle = source[0]?.title || songTitle;
+          } else if (source && source.title) {
+              songTitle = source.title;
           }
-      }
 
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.metadata = new MediaMetadata({
-          title: formattedTitle,
-          artist: 'VAFM',
-          album: 'En Direct',
-          artwork: [
-            { src: coverUrl, sizes: '512x512', type: 'image/png' }
-          ]
-        });
-      }
+          if (songTitle !== lastTrack) {
+              lastTrack = songTitle;
+              if (trackSpan) trackSpan.textContent = songTitle;
 
-    } catch (error) {
-      lancerDefilementVoiture("VAFM – En Direct");
-    }
+              const coverUrl = await fetchTrackCover(songTitle);
+              
+              const nowPlayingImg = document.querySelector('.vafm-nowplaying-img');
+              if (nowPlayingImg) nowPlayingImg.src = coverUrl;
+
+              const nowPlayingTitle = document.querySelector('.vafm-nowplaying-title');
+              const nowPlayingArtist = document.querySelector('.vafm-nowplaying-artist');
+              
+              if (songTitle.includes(' – ')) {
+                  const parts = songTitle.split(' – ');
+                  if (nowPlayingArtist) nowPlayingArtist.textContent = parts[0];
+                  if (nowPlayingTitle) nowPlayingTitle.textContent = parts.slice(1).join(' – ');
+              } else {
+                  if (nowPlayingTitle) nowPlayingTitle.textContent = songTitle;
+                  if (nowPlayingArtist) nowPlayingArtist.textContent = 'VAFM';
+              }
+
+              await saveSongToPocketBase(songTitle, coverUrl);
+          }
+      } catch (err) {
+          console.warn("Erreur mise à jour métadonnées radio:", err);
+      }
   }
 
-  fetchServerHistoryDirectly();
-  updateCurrentTitle();
-  setInterval(updateCurrentTitle, 15000);
+  function startLiveStream() {
+      audio.src = STREAM_URL + '?t=' + Date.now();
+      audio.load();
+      audio.play().then(() => {
+          updateMiniPlayState();
+      }).catch(err => {
+          console.error("Erreur de lecture du flux:", err);
+          updateMiniPlayState();
+      });
+  }
+
+  function togglePlay() {
+      if (audio.paused) {
+          startLiveStream();
+      } else {
+          audio.pause();
+          audio.src = '';
+          updateMiniPlayState();
+      }
+  }
+
+  playBtn.addEventListener('click', togglePlay);
+
+  audio.addEventListener('play', updateMiniPlayState);
+  audio.addEventListener('pause', updateMiniPlayState);
+
+  updateStats();
+  setInterval(updateStats, 10000);
 }
 
 /* ==========================================================================
