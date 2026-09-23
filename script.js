@@ -2031,20 +2031,42 @@ async function handleAccountUpdate(e) {
 
   if (!appState || !appState.currentUser) return;
 
+  // Récupération sécurisée de l'ID utilisateur PocketBase (gestion selon la structure d'appState)
+  const userId = appState.currentUser.id || appState.currentUser.record?.id;
+
+  if (!userId) {
+    alert("Erreur : ID utilisateur introuvable. Veuillez vous recontacter.");
+    return;
+  }
+
   const newName = document.getElementById('settings-name')?.value.trim();
+  const oldPassword = document.getElementById('settings-old-password')?.value;
   const newPassword = document.getElementById('settings-password')?.value;
 
   const updateData = {};
+
   if (newName) {
     updateData.name = newName;
   }
-  if (newPassword && newPassword.length >= 8) {
+
+  if (newPassword) {
+    if (!oldPassword) {
+      alert("Veuillez saisir votre ancien mot de passe pour le modifier.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      alert("Le nouveau mot de passe doit faire au moins 8 caractères.");
+      return;
+    }
+
+    updateData.oldPassword = oldPassword;
     updateData.password = newPassword;
     updateData.passwordConfirm = newPassword;
   }
 
   try {
-    const res = await fetch(`${POCKETBASE_URL}/api/collections/users/records/${appState.currentUser.id}`, {
+    // Utilisation de la variable userId au lieu de appState.currentUser.id
+    const res = await fetch(`${POCKETBASE_URL}/api/collections/users/records/${userId}`, {
       method: 'PATCH',
       headers: getAuthHeaders(true),
       body: JSON.stringify(updateData)
@@ -2052,6 +2074,11 @@ async function handleAccountUpdate(e) {
 
     if (!res.ok) {
       const errJson = await res.json().catch(() => ({}));
+      
+      if (errJson.data?.oldPassword) {
+        throw new Error("L'ancien mot de passe est incorrect.");
+      }
+      
       throw new Error(errJson.message || "Impossible de mettre à jour le profil.");
     }
 

@@ -261,26 +261,30 @@
 </div>
 
     <!-- MODALE PARAMÈTRES DU COMPTE -->
-    <div id="account-settings-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <h3>Paramètres du compte</h3>
-            <form id="account-settings-form" onsubmit="handleAccountUpdate(event)">
-                <div class="input-group">
-                    <label for="settings-name">Nom complet / Pseudo</label>
-                    <input type="text" id="settings-name" placeholder="Votre nom" required>
-                </div>
-                <div class="input-group">
-                    <label for="settings-password">Nouveau mot de passe (laisser vide si inchangé)</label>
-                    <input type="password" id="settings-password" placeholder="••••••••">
-                </div>
-                <div class="modal-actions" style="margin-top: 20px;">
-                    <button type="button" class="btn-secondary" onclick="closeModal('account-settings-modal')">Annuler</button>
-                    <button type="submit" class="btn-submit">Enregistrer</button>
-                </div>
-            </form>
-            <button class="close-btn" onclick="closeModal('account-settings-modal')">✕</button>
-        </div>
+<div id="account-settings-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <h3>Paramètres du compte</h3>
+        <form id="account-settings-form" onsubmit="handleAccountUpdate(event)">
+            <div class="input-group">
+                <label for="settings-name">Nom complet / Pseudo</label>
+                <input type="text" id="settings-name" placeholder="Votre nom" required>
+            </div>
+            <div class="input-group">
+                <label for="settings-old-password">Ancien mot de passe</label>
+                <input type="password" id="settings-old-password" placeholder="••••••••">
+            </div>
+            <div class="input-group">
+                <label for="settings-password">Nouveau mot de passe (laisser vide si inchangé)</label>
+                <input type="password" id="settings-password" placeholder="••••••••">
+            </div>
+            <div class="modal-actions" style="margin-top: 20px;">
+                <button type="button" class="btn-secondary" onclick="closeModal('account-settings-modal')">Annuler</button>
+                <button type="submit" class="btn-submit">Enregistrer</button>
+            </div>
+        </form>
+        <button class="close-btn" onclick="closeModal('account-settings-modal')">✕</button>
     </div>
+</div>
 
     <!-- PANNEAU LATÉRAL (DRAWER) MON COMPTE À DOUBLE NIVEAU -->
     <div class="vafm-user-drawer-overlay" id="vafm-user-drawer-overlay" onclick="closeUserDrawer()"></div>
