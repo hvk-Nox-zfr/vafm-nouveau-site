@@ -2029,19 +2029,29 @@ window.addEventListener('message', async (event) => {
 async function handleAccountUpdate(e) {
   e.preventDefault();
 
-  if (!appState || !appState.currentUser) return;
-
-  // Récupération sécurisée de l'ID utilisateur PocketBase (gestion selon la structure d'appState)
-  const userId = appState.currentUser.id || appState.currentUser.record?.id;
-
-  if (!userId) {
-    alert("Erreur : ID utilisateur introuvable. Veuillez vous recontacter.");
+  if (!appState || !appState.currentUser) {
+    alert("Session invalide. Veuillez vous reconnecter.");
     return;
   }
 
-  const newName = document.getElementById('settings-name')?.value.trim();
-  const oldPassword = document.getElementById('settings-old-password')?.value;
-  const newPassword = document.getElementById('settings-password')?.value;
+  // 1. Récupération de l'ID utilisateur
+  const userObj = appState.currentUser.record || appState.currentUser;
+  const userId = userObj.id;
+
+  if (!userId) {
+    console.error("Structure appState.currentUser :", appState.currentUser);
+    alert("Erreur : Impossible d'obtenir l'ID utilisateur.");
+    return;
+  }
+
+  // 2. Récupération des éléments du DOM
+  const nameInput = document.getElementById('settings-name');
+  const oldPasswordInput = document.getElementById('settings-old-password') || document.getElementById('oldPassword');
+  const newPasswordInput = document.getElementById('settings-password');
+
+  const newName = nameInput?.value.trim();
+  const oldPassword = oldPasswordInput?.value;
+  const newPassword = newPasswordInput?.value;
 
   const updateData = {};
 
@@ -2049,9 +2059,9 @@ async function handleAccountUpdate(e) {
     updateData.name = newName;
   }
 
-  if (newPassword) {
+  if (newPassword && newPassword.trim() !== "") {
     if (!oldPassword) {
-      alert("Veuillez saisir votre ancien mot de passe pour le modifier.");
+      alert("Veuillez saisir votre ancien mot de passe.");
       return;
     }
     if (newPassword.length < 8) {
@@ -2064,37 +2074,78 @@ async function handleAccountUpdate(e) {
     updateData.passwordConfirm = newPassword;
   }
 
+  if (Object.keys(updateData).length === 0) {
+    closeModal('account-settings-modal');
+    return;
+  }
+
+  // 3. Préparation de l'URL et des headers
+  const baseUrl = POCKETBASE_URL.replace(/\/+$/, '');
+  const endpoint = `${baseUrl}/api/collections/users/records/${userId}`;
+
+  // Fusion impérative de Content-Type avec tes headers d'authentification
+  const authHeaders = typeof getAuthHeaders === 'function' ? getAuthHeaders(true) : {};
+  const headers = {
+    'Content-Type': 'application/json',
+    ...authHeaders
+  };
+
   try {
-    // Utilisation de la variable userId au lieu de appState.currentUser.id
-    const res = await fetch(`${POCKETBASE_URL}/api/collections/users/records/${userId}`, {
+    const res = await fetch(endpoint, {
       method: 'PATCH',
-      headers: getAuthHeaders(true),
+      headers: headers,
       body: JSON.stringify(updateData)
     });
 
     if (!res.ok) {
       const errJson = await res.json().catch(() => ({}));
-      
-      if (errJson.data?.oldPassword) {
-        throw new Error("L'ancien mot de passe est incorrect.");
+      console.error("Détail erreur PocketBase :", errJson);
+
+      // Extraction explicite du message d'erreur envoyé par PocketBase
+      if (errJson.data) {
+        if (errJson.data.oldPassword) {
+          throw new Error("L'ancien mot de passe est incorrect.");
+        }
+        if (errJson.data.password) {
+          throw new Error("Nouveau mot de passe invalide : " + errJson.data.password.message);
+        }
+        const firstKey = Object.keys(errJson.data)[0];
+        if (firstKey && errJson.data[firstKey]?.message) {
+          throw new Error(`${firstKey} : ${errJson.data[firstKey].message}`);
+        }
       }
-      
+
       throw new Error(errJson.message || "Impossible de mettre à jour le profil.");
     }
 
     const updatedUser = await res.json();
-    appState.currentUser = updatedUser;
+
+    // 4. Synchronisation de l'état
+    if (appState.currentUser.record) {
+      appState.currentUser.record = updatedUser;
+    } else {
+      appState.currentUser = updatedUser;
+    }
 
     const storedAuth = localStorage.getItem('pocketbase_auth');
     if (storedAuth) {
-      const parsed = JSON.parse(storedAuth);
-      parsed.record = updatedUser;
-      localStorage.setItem('pocketbase_auth', JSON.stringify(parsed));
+      try {
+        const parsed = JSON.parse(storedAuth);
+        if (parsed.record) parsed.record = updatedUser;
+        else parsed.model = updatedUser;
+        localStorage.setItem('pocketbase_auth', JSON.stringify(parsed));
+      } catch (err) {
+        console.error("Erreur parsing localStorage:", err);
+      }
     }
+
+    // Réinitialisation des champs de mot de passe dans la modale
+    if (oldPasswordInput) oldPasswordInput.value = '';
+    if (newPasswordInput) newPasswordInput.value = '';
 
     updateAuthUI();
     closeModal('account-settings-modal');
-    alert("Profil mis à jour avec succès !");
+    alert("Profil et mot de passe mis à jour avec succès !");
 
   } catch (err) {
     console.error("Erreur update profil:", err);
