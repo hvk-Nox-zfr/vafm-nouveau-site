@@ -1,0 +1,307 @@
+/* ==========================================================================
+   VAFM — THÈME "APPLE" v6 — REFONTE STRUCTURELLE
+   --------------------------------------------------------------------------
+   Changement de fond : le site n'est plus "blanc partout avec des
+   sections qui se suivent", il devient un CANVAS GRIS clair sur lequel
+   chaque section flotte comme un module aux grands coins arrondis — la
+   disposition qu'utilise apple.com sur ses pages Support / Apple ID /
+   Apple Music. Le hero abandonne le "sticky" (source de bugs) pour une
+   bannière plein cadre classique, plus sûre.
+   Toujours chargé après style.css / news.css / team.css — vient les
+   surcharger, ne les remplace pas.
+   ========================================================================== */
+
+:root {
+    --apple-font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+    --apple-ease: cubic-bezier(0.16, 1, 0.3, 1);
+    --apple-ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+    --apple-radius-xl: 40px;
+    --apple-radius-lg: 30px;
+    --apple-radius-md: 20px;
+
+    --c-canvas: #f5f5f7;   /* fond de page — gris Apple */
+    --c-module: #ffffff;   /* fond des modules (sections) */
+    --c-tile: #f0f0f2;     /* fond des cartes à l'intérieur d'un module */
+    --c-dark: #000000;     /* module sombre (Émissions) */
+    --c-text: #1d1d1f;
+    --c-text-muted: #6e6e73;
+    --c-accent: #E50914;
+}
+
+body {
+    font-family: var(--apple-font);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    background-color: var(--c-canvas) !important;
+}
+main#content { background: var(--c-canvas); }
+
+/* ==========================================================================
+   1. NAVBAR
+   ========================================================================== */
+.navbar {
+    background: rgba(255, 255, 255, 0.88) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04) !important;
+    transition: background 0.4s var(--apple-ease), box-shadow 0.4s var(--apple-ease) !important;
+}
+.navbar.apple-navbar-scrolled {
+    background: rgba(255, 255, 255, 0.97) !important;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05), 0 12px 30px rgba(0, 0, 0, 0.05) !important;
+}
+.nav-links a { color: var(--c-text) !important; font-weight: 500; letter-spacing: -0.01em; transition: opacity 0.25s var(--apple-ease); }
+.nav-links a:hover { opacity: 0.55; }
+.nav-links a.active { color: var(--c-accent) !important; }
+.nav-links a.active::after { height: 2px !important; border-radius: 2px; }
+
+/* ==========================================================================
+   2. HERO — plein cadre classique, coins bas arrondis qui amorcent le
+      premier module en dessous. Plus de position sticky.
+   ========================================================================== */
+.hero-section {
+    border-radius: 0 0 var(--apple-radius-xl) var(--apple-radius-xl);
+    overflow: hidden;
+}
+
+.slide-content { max-width: 900px; padding-bottom: 90px; }
+
+.slide-content h1 {
+    font-family: var(--apple-font);
+    font-size: clamp(2.4rem, 5.5vw, 4.6rem) !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.035em !important;
+    line-height: 1.04 !important;
+    color: #ffffff !important;
+}
+.slide-content p {
+    font-size: clamp(1.05rem, 1.5vw, 1.35rem) !important;
+    max-width: 620px;
+    letter-spacing: -0.01em;
+    color: #f0f0f0 !important;
+}
+
+.swiper-slide-active .slide-bg { animation: appleHeroDrift 10s var(--apple-ease-soft) infinite alternate; }
+@keyframes appleHeroDrift { from { transform: scale(1.02); } to { transform: scale(1.12); } }
+
+.btn-more, .btn-live, .btn-secondary {
+    border-radius: 100px !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.01em;
+    transition: transform 0.35s var(--apple-ease), background 0.3s ease, box-shadow 0.35s var(--apple-ease) !important;
+}
+.btn-more:hover, .btn-live:hover { transform: translateY(-2px) scale(1.03) !important; }
+
+.slide-content > * {
+    opacity: 0; filter: blur(8px); transform: translateY(26px);
+    transition: opacity 1s var(--apple-ease), transform 1s var(--apple-ease), filter 1s var(--apple-ease);
+}
+.swiper-slide-active .slide-content > *,
+.slide-content.apple-hero-in > * { opacity: 1; filter: blur(0); transform: translateY(0); }
+.slide-content > *:nth-child(1) { transition-delay: 0.05s; }
+.slide-content > *:nth-child(2) { transition-delay: 0.2s; }
+.slide-content > *:nth-child(3) { transition-delay: 0.35s; }
+
+.apple-word-mask { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: 0.08em; margin-bottom: -0.08em; }
+.apple-word-inner { display: inline-block; transform: translateY(115%); transition: transform 0.9s var(--apple-ease); }
+.swiper-slide-active .slide-content .apple-word-inner,
+.slide-content.apple-hero-in .apple-word-inner,
+.apple-revealed .apple-word-inner { transform: translateY(0); }
+
+.apple-scroll-hint {
+    position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 6;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    color: rgba(255, 255, 255, 0.85); font-size: 0.72rem; font-weight: 600;
+    letter-spacing: 0.14em; text-transform: uppercase; pointer-events: none;
+    animation: appleScrollHintFloat 2.2s var(--apple-ease-soft) infinite;
+}
+.apple-scroll-hint svg { width: 16px; height: 16px; }
+@keyframes appleScrollHintFloat {
+    0%, 100% { transform: translate(-50%, 0); opacity: 0.85; }
+    50% { transform: translate(-50%, 8px); opacity: 0.4; }
+}
+
+/* ==========================================================================
+   3. MODULES — CHAQUE SECTION FLOTTE SUR LE CANVAS GRIS
+   ========================================================================== */
+.section {
+    background: var(--c-module);
+    border-radius: var(--apple-radius-xl);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.05);
+    max-width: 1360px;
+    margin: 32px auto !important;
+    padding: 90px 6% !important;
+    position: relative;
+}
+
+.section-header h2 {
+    font-family: var(--apple-font);
+    font-size: clamp(2rem, 3.4vw, 2.9rem) !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.035em !important;
+    color: var(--c-text);
+}
+
+.apple-reveal {
+    opacity: 0; filter: blur(6px); transform: translateY(46px);
+    transition: opacity 1s var(--apple-ease), transform 1s var(--apple-ease), filter 1s var(--apple-ease);
+    will-change: opacity, transform, filter;
+}
+.apple-reveal.apple-revealed { opacity: 1; filter: blur(0); transform: translateY(0); }
+
+/* ==========================================================================
+   4. MODULE ÉMISSIONS — noir, flush avec le motif en dents de scie du bas
+   ========================================================================== */
+.alt-bg {
+    background: var(--c-dark) !important;
+    border-radius: var(--apple-radius-xl) !important;
+    margin: 32px auto 0 auto !important;
+    padding: 90px 5% 60px 5% !important;
+    max-width: 1360px;
+}
+.alt-bg .section-header h2 { color: #ffffff !important; }
+.alt-bg .section-header .add-btn { color: #000 !important; background: #fff !important; }
+.alt-bg .card,
+.alt-bg .card * { color: var(--c-text) !important; }
+.alt-bg .card { background: var(--c-tile) !important; }
+.alt-bg .card-body p { color: var(--c-text-muted) !important; }
+
+/* ==========================================================================
+   5. HALO DÉCORATIF DERRIÈRE JEUX / DÉDICACES
+   ========================================================================== */
+#jeux, #dedicace-form-section { overflow: hidden; }
+#jeux::before, #dedicace-form-section::before {
+    content: ''; position: absolute; top: 50%; left: 50%;
+    width: 700px; height: 700px; transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(229, 9, 20, 0.05), transparent 65%);
+    pointer-events: none; z-index: 0;
+}
+#jeux > *, #dedicace-form-section > * { position: relative; z-index: 1; }
+
+/* ==========================================================================
+   6. CARROUSELS HORIZONTAUX
+   ========================================================================== */
+#recent-news-grid, #shows-grid {
+    display: flex !important;
+    grid-template-columns: unset !important;
+    overflow-x: auto; overflow-y: hidden;
+    scroll-snap-type: x proximity;
+    gap: 22px !important;
+    padding: 6px 6px 26px 6px;
+    margin: 0 -6px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    cursor: grab;
+}
+#recent-news-grid::-webkit-scrollbar, #shows-grid::-webkit-scrollbar { display: none; }
+#recent-news-grid.apple-dragging, #shows-grid.apple-dragging { cursor: grabbing; scroll-snap-type: none; }
+#recent-news-grid > *, #shows-grid > * { flex: 0 0 clamp(230px, 28vw, 310px); scroll-snap-align: start; }
+@media (max-width: 768px) { #recent-news-grid > *, #shows-grid > * { flex-basis: 78vw; } }
+
+/* ==========================================================================
+   7. CARTES — tuiles grises à l'intérieur des modules blancs
+   ========================================================================== */
+.card {
+    background: var(--c-tile) !important;
+    border: none !important;
+    border-radius: var(--apple-radius-md) !important;
+    box-shadow: none !important;
+    transition: transform 0.5s var(--apple-ease), box-shadow 0.5s var(--apple-ease) !important;
+    overflow: hidden;
+}
+.card:hover { transform: translateY(-6px) !important; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1) !important; }
+.card-img { transition: transform 0.7s var(--apple-ease-soft); }
+.card:hover .card-img { transform: scale(1.06); }
+.card-body h3 { letter-spacing: -0.015em; color: var(--c-text); }
+.card-body p { color: var(--c-text-muted); }
+
+.news-card-bento { border-radius: 22px !important; transition: transform 0.5s var(--apple-ease), box-shadow 0.5s var(--apple-ease) !important; }
+.news-card-bento:hover { transform: translateY(-5px) scale(1.01) !important; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2) !important; }
+
+.apple-card-in { animation: appleCardIn 0.8s var(--apple-ease) both; }
+@keyframes appleCardIn {
+    from { opacity: 0; transform: translateY(28px) scale(0.97); filter: blur(6px); }
+    to   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+/* ==========================================================================
+   8. JEUX (roue) & DÉDICACES
+   ========================================================================== */
+.vafm-wheel-card { border-radius: var(--apple-radius-lg) !important; padding: 56px !important; box-shadow: 0 30px 70px rgba(0, 0, 0, 0.35) !important; }
+.vafm-wheel-title { letter-spacing: -0.025em; }
+.vafm-wheel-spin-btn { border-radius: 100px !important; padding: 16px 32px !important; transition: transform 0.35s var(--apple-ease), box-shadow 0.35s var(--apple-ease) !important; }
+.vafm-wheel-spin-btn:hover:not(:disabled) { transform: translateY(-2px) scale(1.04) !important; }
+
+.dedicace-form-card { background: var(--c-tile) !important; border-radius: var(--apple-radius-lg) !important; box-shadow: none !important; }
+.btn-dedicace-submit, .btn-dedicace-login { border-radius: 100px !important; transition: transform 0.3s var(--apple-ease), background 0.3s ease !important; }
+.btn-dedicace-submit:hover:not(:disabled), .btn-dedicace-login:hover { transform: translateY(-2px) scale(1.03) !important; }
+
+/* ==========================================================================
+   9. LECTEUR FLOTTANT
+   ========================================================================== */
+.vafm-player-premium { backdrop-filter: blur(26px) saturate(160%) !important; -webkit-backdrop-filter: blur(26px) saturate(160%) !important; }
+.control-play-btn:active { transform: scale(0.9) !important; }
+
+/* ==========================================================================
+   10. FOOTER — sobre : fond uni, coins discrets, une seule fine ligne de
+       séparation. Pas de vague ni de halos (trop "généré par IA").
+   ========================================================================== */
+footer#main-footer {
+    clip-path: none !important;
+    margin-top: 32px !important;
+    border-radius: var(--apple-radius-lg) var(--apple-radius-lg) 0 0 !important;
+    padding-top: 70px !important;
+    background: #101012 !important;
+}
+footer#main-footer > * { position: relative; z-index: 1; }
+
+.footer-col h3 {
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 0.82rem;
+    font-weight: 700 !important;
+    color: #a1a1a6 !important;
+}
+.footer-list a { transition: opacity 0.25s var(--apple-ease), padding-left 0.25s var(--apple-ease); }
+.footer-list a:hover { opacity: 0.6; padding-left: 4px; }
+.social-icons a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s var(--apple-ease), background 0.3s ease !important;
+}
+.social-icons a:hover { transform: translateY(-3px) scale(1.12) !important; }
+
+/* Séparateur discret avant la ligne de copyright */
+.footer-bottom {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    margin-top: 40px;
+    padding-top: 24px;
+}
+
+@media (max-width: 768px) {
+    footer#main-footer {
+        clip-path: none !important;
+        margin-top: 20px !important;
+        border-radius: var(--apple-radius-md) var(--apple-radius-md) 0 0 !important;
+        padding-top: 50px !important;
+    }
+}
+
+/* ==========================================================================
+   11. RESPONSIVE
+   ========================================================================== */
+@media (max-width: 768px) {
+    .section { padding: 56px 5% !important; margin: 18px auto !important; border-radius: var(--apple-radius-lg); }
+    .alt-bg { padding: 50px 5% 40px 5% !important; margin: 18px auto 0 auto !important; border-radius: var(--apple-radius-lg) var(--apple-radius-lg) 0 0 !important; }
+    .hero-section { border-radius: 0 0 var(--apple-radius-lg) var(--apple-radius-lg); }
+    .vafm-wheel-card { padding: 30px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .apple-reveal, .slide-content > *, .apple-card-in, .swiper-slide-active .slide-bg,
+    .apple-scroll-hint, .apple-word-inner {
+        animation: none !important; transition: none !important;
+        opacity: 1 !important; transform: none !important; filter: none !important;
+    }
+}
