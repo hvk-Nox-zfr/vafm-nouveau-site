@@ -13,6 +13,28 @@ const ADSENSE_CONFIG = {
     slot: '5575140703'
 };
 
+// Libellés affichés pour le badge de catégorie (au lieu d'un texte fixe "news")
+const CATEGORY_LABELS = {
+    hero: 'À la une',
+    news: 'Actu',
+    actus: 'Actu'
+};
+
+/* --------------------------------------------------------------------------
+   ÉTAT DU STUDIO : historique (annuler/rétablir), sauvegarde, brouillon local
+   -------------------------------------------------------------------------- */
+let hasUnsavedChanges = false;
+let undoStack = [];
+let redoStack = [];
+const MAX_UNDO = 40;
+let autosaveInterval = null;
+let _undoDebounceTimer = null;
+let _isSavingArticle = false;
+
+let _miniBlockToolbarEl = null;
+let _miniBlockToolbarTarget = null;
+let _miniToolbarHideTimer = null;
+
 /* --------------------------------------------------------------------------
    UTILITAIRES COMPLÉMENTAIRES
    -------------------------------------------------------------------------- */
@@ -58,6 +80,202 @@ function updateHeadTag(tagName, attrKey, attrVal, contentKey, contentVal) {
 }
 
 /* --------------------------------------------------------------------------
+   NOTIFICATIONS (TOASTS) & FENÊTRES MODALES — remplace alert()/prompt()
+   -------------------------------------------------------------------------- */
+function safeScrollIntoView(el) {
+    try {
+        if (el && typeof el.scrollIntoView === 'function') {
+            el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+    } catch (e) {
+        // Environnement sans support complet du scroll fluide : on ignore, ce n'est pas bloquant.
+    }
+}
+
+function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function showToast(message, type = 'info', options = {}) {
+    let container = document.getElementById('vafm-toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'vafm-toast-container';
+        container.style.cssText = 'position:fixed;top:20px;right:20px;z-index:2147483000;display:flex;flex-direction:column;gap:10px;max-width:360px;pointer-events:none;';
+        document.body.appendChild(container);
+    }
+
+    const colors = {
+        success: '#34c759', error: '#ff3b30', warning: '#ff9500', info: '#64b5f6'
+    };
+    const icon = { success: '✓', error: '⚠', warning: '⚠', info: 'ℹ' }[type] || 'ℹ';
+
+    const toast = document.createElement('div');
+    toast.className = `vafm-toast vafm-toast-${type}`;
+    toast.style.cssText = `display:flex;align-items:center;gap:10px;background:#18181c;color:#ffffff;padding:12px 16px;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,0.35);border:1px solid ${colors[type] || colors.info};font-size:0.88rem;font-weight:600;pointer-events:auto;`;
+
+    const iconEl = document.createElement('span');
+    iconEl.style.cssText = `font-size:1rem;flex-shrink:0;color:${colors[type] || colors.info};`;
+    iconEl.textContent = icon;
+
+    const msgEl = document.createElement('span');
+    msgEl.style.cssText = 'flex:1;line-height:1.35;white-space:pre-line;';
+    msgEl.textContent = message;
+
+    toast.appendChild(iconEl);
+    toast.appendChild(msgEl);
+
+    if (options.actionLabel && typeof options.onAction === 'function') {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'vafm-toast-action';
+        btn.style.cssText = 'background:rgba(255,255,255,0.15);border:none;color:#ffffff;padding:6px 10px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;flex-shrink:0;';
+        btn.textContent = options.actionLabel;
+        btn.addEventListener('click', () => {
+            options.onAction();
+            toast.remove();
+        });
+        toast.appendChild(btn);
+    }
+
+    container.appendChild(toast);
+
+    const duration = options.duration || (type === 'error' ? 6000 : 3500);
+    setTimeout(() => toast.remove(), duration);
+}
+
+// Styles critiques injectés directement en ligne (style="...") plutôt que via
+// des classes CSS externes : ces fenêtres doivent rester utilisables même si
+// article.css n'a pas (encore) été rechargé par le navigateur (cache, CDN...).
+// Les classes restent posées en plus, pour qu'un CSS à jour puisse les enjoliver.
+const VAFM_OVERLAY_STYLE = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:2147483000;padding:20px;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;';
+const VAFM_BOX_STYLE = 'background:#ffffff;border-radius:14px;padding:24px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.3);box-sizing:border-box;';
+const VAFM_BTN_BASE = 'padding:9px 16px;border-radius:8px;border:none;font-weight:700;font-size:0.88rem;cursor:pointer;';
+
+function vafmPrompt({ title = '', label = '', placeholder = '', defaultValue = '' } = {}) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'vafm-modal-overlay';
+        overlay.style.cssText = VAFM_OVERLAY_STYLE;
+
+        const box = document.createElement('div');
+        box.className = 'vafm-modal';
+        box.style.cssText = VAFM_BOX_STYLE;
+
+        const h3 = document.createElement('h3');
+        h3.style.cssText = 'margin:0 0 6px;font-size:1.1rem;color:#111;';
+        h3.textContent = title;
+        box.appendChild(h3);
+
+        if (label) {
+            const labelEl = document.createElement('label');
+            labelEl.style.cssText = 'display:block;font-size:0.8rem;color:#777;margin-bottom:10px;';
+            labelEl.textContent = label;
+            box.appendChild(labelEl);
+        }
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'vafm-modal-input';
+        input.placeholder = placeholder;
+        input.value = defaultValue;
+        input.style.cssText = 'width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid #ddd;font-size:0.95rem;margin-bottom:6px;';
+        box.appendChild(input);
+
+        const actions = document.createElement('div');
+        actions.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:18px;';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.style.cssText = VAFM_BTN_BASE + 'background:#f0f0f5;color:#333;';
+        cancelBtn.textContent = 'Annuler';
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.type = 'button';
+        confirmBtn.style.cssText = VAFM_BTN_BASE + 'background:#E50914;color:#ffffff;';
+        confirmBtn.textContent = 'Valider';
+
+        actions.appendChild(cancelBtn);
+        actions.appendChild(confirmBtn);
+        box.appendChild(actions);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        setTimeout(() => { input.focus(); input.select(); }, 0);
+
+        function cleanup(result) {
+            overlay.remove();
+            document.removeEventListener('keydown', escHandler);
+            resolve(result);
+        }
+
+        function escHandler(e) {
+            if (e.key === 'Escape') cleanup(null);
+        }
+
+        cancelBtn.addEventListener('click', () => cleanup(null));
+        confirmBtn.addEventListener('click', () => cleanup(input.value.trim()));
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); cleanup(input.value.trim()); }
+            if (e.key === 'Escape') { e.preventDefault(); cleanup(null); }
+        });
+        overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) cleanup(null); });
+        document.addEventListener('keydown', escHandler);
+    });
+}
+
+function vafmConfirm(message, { confirmLabel = 'Confirmer', danger = true } = {}) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'vafm-modal-overlay';
+        overlay.style.cssText = VAFM_OVERLAY_STYLE;
+
+        const box = document.createElement('div');
+        box.className = 'vafm-modal vafm-modal-confirm-box';
+        box.style.cssText = VAFM_BOX_STYLE;
+
+        const p = document.createElement('p');
+        p.style.cssText = 'margin:0 0 4px;font-size:0.95rem;color:#333;line-height:1.5;';
+        p.textContent = message;
+        box.appendChild(p);
+
+        const actions = document.createElement('div');
+        actions.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:18px;';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.style.cssText = VAFM_BTN_BASE + 'background:#f0f0f5;color:#333;';
+        cancelBtn.textContent = 'Annuler';
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.type = 'button';
+        confirmBtn.style.cssText = VAFM_BTN_BASE + `background:${danger ? '#ff3b30' : '#E50914'};color:#ffffff;`;
+        confirmBtn.textContent = confirmLabel;
+
+        actions.appendChild(cancelBtn);
+        actions.appendChild(confirmBtn);
+        box.appendChild(actions);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        function cleanup(result) {
+            overlay.remove();
+            document.removeEventListener('keydown', escHandler);
+            resolve(result);
+        }
+
+        function escHandler(e) {
+            if (e.key === 'Escape') cleanup(false);
+        }
+
+        cancelBtn.addEventListener('click', () => cleanup(false));
+        confirmBtn.addEventListener('click', () => cleanup(true));
+        overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) cleanup(false); });
+        document.addEventListener('keydown', escHandler);
+    });
+}
+
+/* --------------------------------------------------------------------------
    ASSISTANT IA GROQ (VIA VERCEL SERVERLESS FUNCTION)
    -------------------------------------------------------------------------- */
 async function runAICorrection() {
@@ -66,20 +284,20 @@ async function runAICorrection() {
         : document.getElementById('canva-doc-content');
 
     if (!targetEl) {
-        alert("Aucun contenu à corriger !");
+        showToast("Aucun contenu à corriger.", 'error');
         return;
     }
 
     const originalHTML = targetEl.innerHTML.trim();
     if (!originalHTML) {
-        alert("Le bloc ou l'article est vide !");
+        showToast("Le bloc ou l'article est vide.", 'error');
         return;
     }
 
     const btnIA = document.getElementById('btn-ai-correct');
     if (btnIA) {
         btnIA.disabled = true;
-        btnIA.style.opacity = '0.5';
+        btnIA.classList.add('is-loading');
     }
 
     try {
@@ -106,17 +324,19 @@ async function runAICorrection() {
                 .trim();
 
             targetEl.innerHTML = correctedContent;
-            alert("✨ Correction orthographique appliquée avec succès !");
+            pushUndoState();
+            if (typeof updateLiveStats === 'function') updateLiveStats();
+            showToast("✨ Correction appliquée. (Ctrl+Z pour annuler)", 'success');
         } else {
             throw new Error("Aucune réponse valide reçue de l'IA.");
         }
     } catch (err) {
         console.error("[VAFM IA] Erreur :", err);
-        alert("Erreur lors de la correction : " + err.message);
+        showToast("Erreur lors de la correction : " + err.message, 'error');
     } finally {
         if (btnIA) {
             btnIA.disabled = false;
-            btnIA.style.opacity = '1';
+            btnIA.classList.remove('is-loading');
         }
     }
 }
@@ -182,6 +402,7 @@ async function openArticleView(category, id) {
 
     const collectionMap = { hero: 'hero', news: 'actus', actus: 'actus' };
     const collectionName = collectionMap[category] || 'actus';
+    const categoryLabel = CATEGORY_LABELS[category] || category;
 
     let data = null;
     try {
@@ -190,7 +411,7 @@ async function openArticleView(category, id) {
         data = await response.json();
     } catch (err) {
         console.error("Erreur de chargement PocketBase:", err);
-        alert("Impossible de charger cet article.");
+        showToast("Impossible de charger cet article.", 'error');
         return;
     }
 
@@ -616,12 +837,13 @@ async function openArticleView(category, id) {
     }
 </style>
 
+        <div id="vafm-reading-progress" class="vafm-reading-progress"><div id="vafm-reading-progress-fill" class="vafm-reading-progress-fill"></div></div>
         <div class="canva-layout ${isAdmin ? 'canva-admin-active' : ''}">
             <main class="canva-workspace">
                 <article class="canva-document">
                     <header class="canva-header-fixed">
-                        <span class="article-category-badge" style="display:inline-block; padding:4px 12px; background:#f0f0f5; border-radius:20px; font-weight:700; font-size:0.75rem; text-transform:uppercase; margin-bottom:15px;">news</span>
-                        <h1 class="article-title" id="canva-doc-title" ${isAdmin ? 'contenteditable="true"' : ''} style="font-size: 2.5rem; font-weight: 800; margin-bottom: 10px; outline: none; word-break: break-word;">${title}</h1>
+                        <span class="article-category-badge" style="display:inline-block; padding:4px 12px; background:#f0f0f5; border-radius:20px; font-weight:700; font-size:0.75rem; text-transform:uppercase; margin-bottom:15px;">${escapeHtml(categoryLabel)}</span>
+                        <h1 class="article-title" id="canva-doc-title" ${isAdmin ? 'contenteditable="true" oninput="scheduleUndoSnapshot()"' : ''} style="font-size: 2.5rem; font-weight: 800; margin-bottom: 10px; outline: none; word-break: break-word;">${title}</h1>
                         <div class="article-meta">
                             <div class="article-meta-details">
                                 <span class="article-date">${publicationText}</span>
@@ -635,15 +857,28 @@ async function openArticleView(category, id) {
                     <div class="article-content" id="canva-doc-content">
                         ${safeRenderCanvaContent(rawText, isAdmin)}
                     </div>
+
+                    ${!isAdmin ? '<div class="vafm-related-articles" id="vafm-related-articles" style="display:none;"></div>' : ''}
                 </article>
             </main>
 
             ${isAdmin ? `
                 <div class="vafm-player-toolbar">
-                    <span class="vafm-tb-label">Studio</span>
+                    <span class="vafm-tb-label" id="vafm-live-stats" title="0 mot · 1 min">Studio</span>
+
+                    <div class="vafm-tb-divider"></div>
 
                     <button class="vafm-tb-btn btn-ai" id="btn-ai-correct" data-label="Correction IA & Orthographe" onclick="runAICorrection()">
                         <svg viewBox="0 0 24 24"><path d="M12 2l2.4 5.2 5.6.8-4 4.1 1 5.6-5-2.8-5 2.8 1-5.6-4-4.1 5.6-.8z"/></svg>
+                    </button>
+
+                    <div class="vafm-tb-divider"></div>
+
+                    <button class="vafm-tb-btn" data-label="Annuler (Ctrl+Z)" onclick="applyUndo()">
+                        <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+                    </button>
+                    <button class="vafm-tb-btn" data-label="Rétablir (Ctrl+Maj+Z)" onclick="applyRedo()">
+                        <svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>
                     </button>
 
                     <div class="vafm-tb-divider"></div>
@@ -679,6 +914,9 @@ async function openArticleView(category, id) {
                         <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 15h10"/><text x="6" y="11" font-size="6" font-weight="bold" fill="currentColor">ADS</text></svg>
                     </button>
                     <input type="file" id="canva-file-input" style="display:none;" accept="image/*" onchange="handleCanvaImageUpload(event)">
+                    <button class="vafm-tb-btn" data-label="Insérer une vidéo (YouTube / Vimeo)" onclick="insertVideoBlock()">
+                        <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><polygon points="10 9 15 12 10 15 10 9"/></svg>
+                    </button>
 
                     <div class="vafm-tb-divider"></div>
 
@@ -710,7 +948,7 @@ async function openArticleView(category, id) {
 
                     <div class="vafm-tb-divider"></div>
 
-                    <button class="vafm-tb-btn btn-save" data-label="Enregistrer (Ctrl+S)" onclick="saveCanvaArticle('${collectionName}', '${id}')">
+                    <button class="vafm-tb-btn btn-save" id="btn-studio-save" data-label="Enregistrer (Ctrl+S)" onclick="saveCanvaArticle('${collectionName}', '${id}')">
                         <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                     </button>
                     <button class="vafm-tb-btn btn-delete" data-label="Supprimer la sélection" onclick="deleteSelectedElement()">
@@ -736,11 +974,16 @@ async function openArticleView(category, id) {
     window.scrollTo({ top: 0, behavior: 'instant' });
 
     if (isAdmin) {
-        if (typeof initCanvaInteractions === 'function') initCanvaInteractions();
-        initDynamicTooltips();
-        initStudioShortcuts(collectionName, id);
+        // Chaque étape est isolée : si l'une échoue, les boutons du studio (déjà
+        // présents dans le HTML ci-dessus) restent cliquables au lieu de tous se figer.
+        try { if (typeof initCanvaInteractions === 'function') initCanvaInteractions(); } catch (e) { console.error('[VAFM] initCanvaInteractions:', e); }
+        try { initDynamicTooltips(); } catch (e) { console.error('[VAFM] initDynamicTooltips:', e); }
+        try { initStudioShortcuts(collectionName, id); } catch (e) { console.error('[VAFM] initStudioShortcuts:', e); }
+        try { initStudioSafetyNet(collectionName, id); } catch (e) { console.error('[VAFM] initStudioSafetyNet:', e); }
     } else {
         initArticleImageLightbox();
+        try { initReadingProgressBar(); } catch (e) { console.error('[VAFM] initReadingProgressBar:', e); }
+        try { loadRelatedArticles(collectionName, category, id); } catch (e) { console.error('[VAFM] loadRelatedArticles:', e); }
 
         function initArticleAds(attempt = 0) {
     if (typeof window.adsbygoogle === 'undefined') {
@@ -749,6 +992,15 @@ async function openArticleView(category, id) {
     }
 
     const ads = document.querySelectorAll('ins.adsbygoogle:not([data-adsbygoogle-status])');
+    // Bug corrigé : auparavant, CHAQUE publicité encore à largeur 0
+    // reprogrammait sa propre relance via setTimeout(initArticleAds). Avec
+    // plusieurs emplacements publicitaires, le nombre d'appels DOUBLAIT à
+    // chaque cycle de 250ms (2 → 4 → 8 → 16... plus d'un million après
+    // seulement 5 secondes), ce qui saturait le processeur — surtout en
+    // environnement local où AdSense ne charge jamais de vraie publicité.
+    // Une seule relance est désormais programmée par passage, quel que soit
+    // le nombre de publicités encore en attente.
+    let needsRetry = false;
 
     ads.forEach(ad => {
         if (ad.dataset.adsInitialized === 'true') return;
@@ -756,7 +1008,7 @@ async function openArticleView(category, id) {
         // Attendre que l'élément ait une largeur réelle avant d'appeler push
         const width = ad.offsetWidth || ad.getBoundingClientRect().width;
         if (width === 0) {
-            if (attempt < 20) setTimeout(() => initArticleAds(attempt + 1), 250);
+            needsRetry = true;
             return;
         }
 
@@ -768,6 +1020,10 @@ async function openArticleView(category, id) {
             console.error("Erreur AdSense :", error);
         }
     });
+
+    if (needsRetry && attempt < 20) {
+        setTimeout(() => initArticleAds(attempt + 1), 250);
+    }
 }
 
 // Lancer après l'affichage complet du modal
@@ -824,6 +1080,11 @@ function initStudioShortcuts(collectionName, id) {
 }
 
 function handleStudioKeydown(e) {
+    if (e.key === 'Escape') {
+        deselectAllBlocks();
+        return;
+    }
+
     const isCmdOrCtrl = e.metaKey || e.ctrlKey;
     if (!isCmdOrCtrl) return;
 
@@ -838,12 +1099,33 @@ function handleStudioKeydown(e) {
     } else if (key === 'u') {
         e.preventDefault();
         if (typeof applyFormat === 'function') applyFormat('underline');
+    } else if (key === 'z' && e.shiftKey) {
+        e.preventDefault();
+        applyRedo();
+    } else if (key === 'z') {
+        e.preventDefault();
+        applyUndo();
+    } else if (key === 'y') {
+        e.preventDefault();
+        applyRedo();
     } else if (key === 's') {
         e.preventDefault();
         if (window._currentStudioContext && typeof saveCanvaArticle === 'function') {
             saveCanvaArticle(window._currentStudioContext.collectionName, window._currentStudioContext.id);
         }
     }
+}
+
+function deselectAllBlocks() {
+    const contentArea = document.getElementById('canva-doc-content');
+    if (!contentArea) return;
+    contentArea.querySelectorAll('.canva-block').forEach(b => {
+        b.classList.remove('selected', 'editing');
+        b.removeAttribute('contenteditable');
+        b.setAttribute('draggable', 'true');
+    });
+    activeBlock = null;
+    if (_miniBlockToolbarEl) { _miniBlockToolbarEl.classList.remove('visible'); _miniBlockToolbarEl.style.display = 'none'; }
 }
 
 /* --------------------------------------------------------------------------
@@ -913,6 +1195,11 @@ function initCanvaInteractions() {
         block.dataset.interactive = "true";
         block.setAttribute('draggable', 'true');
 
+        block.addEventListener('mouseenter', () => {
+            if (!block.classList.contains('editing')) positionMiniBlockToolbar(block);
+        });
+        block.addEventListener('mouseleave', scheduleMiniToolbarHide);
+
         block.addEventListener('click', (e) => {
             e.stopPropagation();
             contentArea.querySelectorAll('.canva-block').forEach(b => {
@@ -920,21 +1207,38 @@ function initCanvaInteractions() {
                 if (!b.contains(e.target)) {
                     b.classList.remove('editing');
                     b.removeAttribute('contenteditable');
+                    b.setAttribute('draggable', 'true');
                 }
             });
 
             block.classList.add('selected');
             activeBlock = block;
+            positionMiniBlockToolbar(block);
         });
 
+        // Bug corrigé : un bloc restait "draggable" même pendant l'édition de texte,
+        // ce qui transformait une sélection de texte à la souris en déplacement de bloc.
         block.addEventListener('dblclick', (e) => {
             e.stopPropagation();
-            if (!block.querySelector('.vafm-ad-placeholder')) {
+            if (!block.querySelector('.vafm-ad-placeholder') && !block.classList.contains('video-embed')) {
                 block.classList.add('editing');
                 block.setAttribute('contenteditable', 'true');
+                block.setAttribute('draggable', 'false');
                 block.focus();
+                scheduleMiniToolbarHide();
             }
         });
+
+        block.addEventListener('blur', () => {
+            if (block.classList.contains('editing')) {
+                block.classList.remove('editing');
+                block.removeAttribute('contenteditable');
+                block.setAttribute('draggable', 'true');
+                pushUndoState();
+            }
+        });
+
+        block.addEventListener('input', scheduleUndoSnapshot);
 
         block.addEventListener('dragstart', (e) => {
             draggedBlock = block;
@@ -952,63 +1256,214 @@ function initCanvaInteractions() {
 
     contentArea.querySelectorAll('.canva-block').forEach(makeBlockInteractive);
 
-    contentArea.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
+    // Ces écouteurs ne doivent être attachés qu'une seule fois par zone de contenu,
+    // sinon chaque appel (ajout de bloc, upload d'image, etc.) en empilait un nouveau.
+    if (!contentArea.dataset.canvaBound) {
+        contentArea.dataset.canvaBound = 'true';
 
-        if (!draggedBlock) return;
+        contentArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
 
-        const blocks = Array.from(contentArea.querySelectorAll('.canva-block:not(.dragging)'));
-        if (blocks.length === 0) return;
+            if (!draggedBlock) return;
 
-        let closestTarget = null;
-        let insertPosition = 'after';
-        let minDistance = Infinity;
+            const blocks = Array.from(contentArea.querySelectorAll('.canva-block:not(.dragging)'));
+            if (blocks.length === 0) return;
 
-        blocks.forEach(child => {
-            const box = child.getBoundingClientRect();
-            const childMiddleY = box.top + (box.height / 2);
-            const distance = e.clientY - childMiddleY;
+            let closestTarget = null;
+            let insertPosition = 'after';
+            let minDistance = Infinity;
 
-            if (Math.abs(distance) < minDistance) {
-                minDistance = Math.abs(distance);
-                closestTarget = child;
-                insertPosition = distance < 0 ? 'before' : 'after';
+            blocks.forEach(child => {
+                const box = child.getBoundingClientRect();
+                const childMiddleY = box.top + (box.height / 2);
+                const distance = e.clientY - childMiddleY;
+
+                if (Math.abs(distance) < minDistance) {
+                    minDistance = Math.abs(distance);
+                    closestTarget = child;
+                    insertPosition = distance < 0 ? 'before' : 'after';
+                }
+            });
+
+            if (closestTarget) {
+                dropIndicator.style.display = 'block';
+                if (insertPosition === 'before') {
+                    closestTarget.parentNode.insertBefore(dropIndicator, closestTarget);
+                } else {
+                    closestTarget.parentNode.insertBefore(dropIndicator, closestTarget.nextSibling);
+                }
             }
         });
 
-        if (closestTarget) {
-            dropIndicator.style.display = 'block';
-            if (insertPosition === 'before') {
-                closestTarget.parentNode.insertBefore(dropIndicator, closestTarget);
-            } else {
-                closestTarget.parentNode.insertBefore(dropIndicator, closestTarget.nextSibling);
+        contentArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (draggedBlock && dropIndicator.style.display !== 'none') {
+                dropIndicator.parentNode.insertBefore(draggedBlock, dropIndicator);
+                dropIndicator.style.display = 'none';
+                pushUndoState();
             }
-        }
-    });
+        });
+    }
 
-    contentArea.addEventListener('drop', (e) => {
-        e.preventDefault();
-        if (draggedBlock && dropIndicator.style.display !== 'none') {
-            dropIndicator.parentNode.insertBefore(draggedBlock, dropIndicator);
-            dropIndicator.style.display = 'none';
-        }
-    });
+    // Écouteur global de désélection : toujours retiré puis réattaché (fonction nommée)
+    // pour ne jamais s'accumuler, même après la réouverture d'un autre article.
+    document.removeEventListener('click', handleCanvaDocumentClick);
+    document.addEventListener('click', handleCanvaDocumentClick);
+}
 
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.canva-block') && !e.target.closest('.vafm-player-toolbar') && !e.target.closest('#canva-doc-title')) {
-            contentArea.querySelectorAll('.canva-block').forEach(b => {
-                b.classList.remove('selected', 'editing');
-                b.removeAttribute('contenteditable');
-            });
-            activeBlock = null;
+function handleCanvaDocumentClick(e) {
+    const contentArea = document.getElementById('canva-doc-content');
+    if (!contentArea) return;
+    if (
+        !e.target.closest('.canva-block') &&
+        !e.target.closest('.vafm-player-toolbar') &&
+        !e.target.closest('#canva-doc-title') &&
+        !e.target.closest('.vafm-modal-overlay') &&
+        !e.target.closest('#vafm-block-mini-toolbar')
+    ) {
+        contentArea.querySelectorAll('.canva-block').forEach(b => {
+            b.classList.remove('selected', 'editing');
+            b.removeAttribute('contenteditable');
+            b.setAttribute('draggable', 'true');
+        });
+        activeBlock = null;
+        scheduleMiniToolbarHide();
+    }
+}
+
+/* --------------------------------------------------------------------------
+   MINI-BARRE D'OUTILS PAR BLOC (monter / descendre / dupliquer / alt / supprimer)
+   Alternative fiable au glisser-déposer natif, qui ne fonctionne pas au toucher.
+   -------------------------------------------------------------------------- */
+function ensureMiniBlockToolbar() {
+    if (_miniBlockToolbarEl) return _miniBlockToolbarEl;
+
+    const bar = document.createElement('div');
+    bar.id = 'vafm-block-mini-toolbar';
+    bar.className = 'canva-block-mini-toolbar';
+    bar.style.cssText = 'position:absolute;display:none;align-items:center;gap:3px;background:#18181c;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:4px;box-shadow:0 8px 20px rgba(0,0,0,0.35);z-index:999998;';
+    const miniBtnStyle = 'width:27px;height:27px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:#dddde3;border-radius:5px;cursor:pointer;font-size:0.82rem;line-height:1;';
+    bar.innerHTML = `
+        <button type="button" class="mini-btn mini-up" title="Monter le bloc" style="${miniBtnStyle}">↑</button>
+        <button type="button" class="mini-btn mini-down" title="Descendre le bloc" style="${miniBtnStyle}">↓</button>
+        <button type="button" class="mini-btn mini-dup" title="Dupliquer le bloc" style="${miniBtnStyle}">⎘</button>
+        <button type="button" class="mini-btn mini-alt" title="Texte alternatif de l'image" style="${miniBtnStyle}">Alt</button>
+        <button type="button" class="mini-btn mini-del" title="Supprimer le bloc" style="${miniBtnStyle}">🗑</button>
+    `;
+    document.body.appendChild(bar);
+
+    bar.querySelector('.mini-up').addEventListener('click', () => { if (_miniBlockToolbarTarget) moveBlock(_miniBlockToolbarTarget, -1); });
+    bar.querySelector('.mini-down').addEventListener('click', () => { if (_miniBlockToolbarTarget) moveBlock(_miniBlockToolbarTarget, 1); });
+    bar.querySelector('.mini-dup').addEventListener('click', () => { if (_miniBlockToolbarTarget) duplicateBlock(_miniBlockToolbarTarget); });
+    bar.querySelector('.mini-alt').addEventListener('click', () => { if (_miniBlockToolbarTarget) editBlockImageAlt(_miniBlockToolbarTarget); });
+    bar.querySelector('.mini-del').addEventListener('click', () => { if (_miniBlockToolbarTarget) removeBlockWithConfirm(_miniBlockToolbarTarget); });
+
+    bar.addEventListener('mouseenter', () => clearTimeout(_miniToolbarHideTimer));
+    bar.addEventListener('mouseleave', scheduleMiniToolbarHide);
+
+    _miniBlockToolbarEl = bar;
+    return bar;
+}
+
+function positionMiniBlockToolbar(block) {
+    const bar = ensureMiniBlockToolbar();
+    _miniBlockToolbarTarget = block;
+    clearTimeout(_miniToolbarHideTimer);
+
+    const rect = block.getBoundingClientRect();
+    bar.style.top = `${window.scrollY + rect.top - 36}px`;
+    bar.style.left = `${window.scrollX + Math.max(0, rect.right - 172)}px`;
+
+    const altBtn = bar.querySelector('.mini-alt');
+    if (altBtn) altBtn.style.display = block.querySelector('img') ? 'flex' : 'none';
+
+    bar.classList.add('visible');
+    bar.style.display = 'flex';
+}
+
+function scheduleMiniToolbarHide() {
+    clearTimeout(_miniToolbarHideTimer);
+    _miniToolbarHideTimer = setTimeout(() => {
+        if (_miniBlockToolbarEl) {
+            _miniBlockToolbarEl.classList.remove('visible');
+            _miniBlockToolbarEl.style.display = 'none';
         }
+        _miniBlockToolbarTarget = null;
+    }, 200);
+}
+
+function sanitizeRestoredContent(contentBox) {
+    contentBox.querySelectorAll('.canva-block').forEach(b => {
+        b.removeAttribute('data-interactive');
+        b.classList.remove('selected', 'editing', 'dragging');
+        b.removeAttribute('contenteditable');
+        b.setAttribute('draggable', 'true');
     });
+}
+
+function moveBlock(block, direction) {
+    if (!block || !block.parentNode) return;
+    if (direction === -1) {
+        const prev = block.previousElementSibling;
+        if (!prev || !prev.classList.contains('canva-block')) return;
+        block.parentNode.insertBefore(block, prev);
+    } else {
+        const next = block.nextElementSibling;
+        if (!next || !next.classList.contains('canva-block')) return;
+        block.parentNode.insertBefore(next, block);
+    }
+    pushUndoState();
+    positionMiniBlockToolbar(block);
+    safeScrollIntoView(block);
+}
+
+function duplicateBlock(block) {
+    const clone = block.cloneNode(true);
+    clone.classList.remove('selected', 'editing', 'dragging');
+    clone.removeAttribute('contenteditable');
+    clone.removeAttribute('data-interactive');
+    clone.setAttribute('draggable', 'true');
+    block.parentNode.insertBefore(clone, block.nextSibling);
+    if (typeof initCanvaInteractions === 'function') initCanvaInteractions();
+    pushUndoState();
+    updateLiveStats();
+    showToast('Bloc dupliqué.', 'success');
+}
+
+async function editBlockImageAlt(block) {
+    const img = block.querySelector('img');
+    if (!img) return;
+    const value = await vafmPrompt({
+        title: "Texte alternatif de l'image",
+        label: "Décrit l'image pour le SEO et les lecteurs d'écran.",
+        placeholder: 'Ex : Studio de la radio VAFM en direct',
+        defaultValue: img.alt || ''
+    });
+    if (value !== null) {
+        img.alt = value;
+        pushUndoState();
+        showToast('Texte alternatif mis à jour.', 'success');
+    }
+}
+
+async function removeBlockWithConfirm(block) {
+    const ok = await vafmConfirm('Supprimer définitivement ce bloc ?', { confirmLabel: 'Supprimer' });
+    if (!ok) return;
+    if (activeBlock === block) activeBlock = null;
+    if (_miniBlockToolbarTarget === block) {
+        _miniBlockToolbarTarget = null;
+        if (_miniBlockToolbarEl) { _miniBlockToolbarEl.classList.remove('visible'); _miniBlockToolbarEl.style.display = 'none'; }
+    }
+    block.remove();
+    pushUndoState();
+    updateLiveStats();
+    showToast('Bloc supprimé.', 'info');
 }
 
 function setBlockPosition(position) {
     if (!activeBlock) {
-        alert("Cliquez d'abord sur une image ou un encadré de pub !");
+        showToast("Cliquez d'abord sur une image ou un encadré.", 'info');
         return;
     }
 
@@ -1023,63 +1478,163 @@ function setBlockPosition(position) {
     } else {
         activeBlock.classList.add('img-full');
     }
+    pushUndoState();
 }
 
 function setBlockSize(size) {
     if (!activeBlock) {
-        alert("Cliquez d'abord sur l'élément à redimensionner !");
+        showToast("Cliquez d'abord sur l'élément à redimensionner.", 'info');
         return;
     }
 
     activeBlock.classList.remove('size-sm', 'size-md', 'size-lg', 'size-full');
     activeBlock.classList.add(`size-${size}`);
+    pushUndoState();
 }
 
 /* --------------------------------------------------------------------------
    OUTILS, LIENS ET SUPPRESSION
    -------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------------
+   FORMATAGE ROBUSTE — n'utilise PAS document.execCommand(), déprécié et de
+   moins en moins fiable selon les navigateurs. On manipule directement la
+   sélection via l'API Range/Selection standard, qui elle ne disparaît pas.
+   -------------------------------------------------------------------------- */
+const VAFM_FORMAT_TAGS = { bold: 'strong', italic: 'em', underline: 'u' };
+
 function applyFormat(command) {
-    document.execCommand(command, false, null);
+    const tagName = VAFM_FORMAT_TAGS[command];
+    if (!tagName) return;
+    toggleInlineTag(tagName);
+    scheduleUndoSnapshot();
 }
 
-function deleteSelectedElement() {
+function toggleInlineTag(tagName) {
+    const contentBox = document.getElementById('canva-doc-content');
     const selection = window.getSelection();
-    if (selection && !selection.isCollapsed) {
-        document.execCommand('delete', false, null);
+    if (!contentBox || !selection || selection.rangeCount === 0 || selection.isCollapsed) {
+        showToast('Sélectionnez du texte à formater.', 'info');
         return;
+    }
+
+    const range = selection.getRangeAt(0);
+    if (!contentBox.contains(range.commonAncestorContainer)) {
+        showToast('Sélectionnez du texte dans le contenu de l\'article.', 'info');
+        return;
+    }
+
+    // Si la sélection est déjà entièrement à l'intérieur d'une balise de ce
+    // type, un second clic retire le formatage au lieu d'en rajouter un.
+    let container = range.commonAncestorContainer;
+    if (container.nodeType === 3) container = container.parentElement;
+    const existingTag = container ? container.closest(tagName) : null;
+
+    if (existingTag && contentBox.contains(existingTag)) {
+        const parent = existingTag.parentNode;
+        while (existingTag.firstChild) parent.insertBefore(existingTag.firstChild, existingTag);
+        parent.removeChild(existingTag);
+        return;
+    }
+
+    const wrapper = document.createElement(tagName);
+    try {
+        // Cas simple : la sélection est entièrement dans un seul nœud.
+        range.surroundContents(wrapper);
+    } catch (e) {
+        // La sélection traverse plusieurs éléments (surroundContents() refuse
+        // ce cas) : on extrait le contenu sélectionné, on l'enveloppe, puis
+        // on le réinsère à la même position.
+        const fragment = range.extractContents();
+        wrapper.appendChild(fragment);
+        range.insertNode(wrapper);
+    }
+
+    selection.removeAllRanges();
+    const newRange = document.createRange();
+    newRange.selectNodeContents(wrapper);
+    selection.addRange(newRange);
+}
+
+async function deleteSelectedElement() {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
+        const range = selection.getRangeAt(0);
+        const contentBox = document.getElementById('canva-doc-content');
+        if (contentBox && contentBox.contains(range.commonAncestorContainer)) {
+            range.deleteContents();
+            pushUndoState();
+            return;
+        }
     }
 
     if (activeBlock) {
-        activeBlock.remove();
-        activeBlock = null;
+        await removeBlockWithConfirm(activeBlock);
         return;
     }
 
-    alert("Sélectionnez d'abord du texte surligné ou cliquez sur un bloc à supprimer.");
+    showToast("Sélectionnez du texte ou cliquez sur un bloc à supprimer.", 'info');
 }
 
-function addLinkToSelection() {
+async function addLinkToSelection() {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed) {
-        alert("Surlignez d'abord le texte !");
+        showToast("Surlignez d'abord le texte à lier.", 'info');
         return;
     }
 
-    const url = prompt("Écrivez le lien (URL avec http/https) :");
-    if (url) {
-        let formattedUrl = url.trim();
-        if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
-            formattedUrl = 'https://' + formattedUrl;
+    const anchorNode = selection.anchorNode;
+    const containerEl = anchorNode ? (anchorNode.nodeType === 1 ? anchorNode : anchorNode.parentElement) : null;
+    const existingLink = containerEl ? containerEl.closest('a') : null;
+
+    const url = await vafmPrompt({
+        title: existingLink ? 'Modifier le lien' : 'Insérer un lien',
+        label: 'URL de destination — laisser vide pour retirer le lien',
+        placeholder: 'https://exemple.fr',
+        defaultValue: existingLink ? (existingLink.getAttribute('href') || '') : ''
+    });
+
+    if (url === null) return;
+
+    const contentBox = document.getElementById('canva-doc-content');
+
+    if (url.trim() === '') {
+        if (existingLink && contentBox && contentBox.contains(existingLink)) {
+            const parent = existingLink.parentNode;
+            while (existingLink.firstChild) parent.insertBefore(existingLink.firstChild, existingLink);
+            parent.removeChild(existingLink);
+            scheduleUndoSnapshot();
+            showToast('Lien retiré.', 'info');
         }
-
-        document.execCommand('createLink', false, formattedUrl);
-
-        const links = document.querySelectorAll('#canva-doc-content a');
-        links.forEach(link => {
-            link.setAttribute('target', '_blank');
-            link.setAttribute('rel', 'noopener noreferrer');
-        });
+        return;
     }
+
+    let formattedUrl = url.trim();
+    if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
+        formattedUrl = 'https://' + formattedUrl;
+    }
+
+    if (existingLink && contentBox && contentBox.contains(existingLink)) {
+        existingLink.setAttribute('href', formattedUrl);
+        existingLink.setAttribute('target', '_blank');
+        existingLink.setAttribute('rel', 'noopener noreferrer');
+    } else if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        if (contentBox && contentBox.contains(range.commonAncestorContainer)) {
+            const a = document.createElement('a');
+            a.setAttribute('href', formattedUrl);
+            a.setAttribute('target', '_blank');
+            a.setAttribute('rel', 'noopener noreferrer');
+            try {
+                range.surroundContents(a);
+            } catch (e) {
+                const fragment = range.extractContents();
+                a.appendChild(fragment);
+                range.insertNode(a);
+            }
+        }
+    }
+
+    scheduleUndoSnapshot();
 }
 
 async function handleTogglePublishInStudio(collectionName, id, currentStatus, category) {
@@ -1106,11 +1661,158 @@ async function handleTogglePublishInStudio(collectionName, id, currentStatus, ca
             }
         }
 
+        showToast(nextStatus ? '✅ Article publié.' : '📝 Article repassé en brouillon.', 'success');
         await openArticleView(category, id);
     } catch (error) {
         console.error("Erreur lors du changement de statut de publication:", error);
-        alert("Impossible de modifier le statut de publication : " + error.message);
+        showToast("Impossible de modifier le statut de publication : " + error.message, 'error');
     }
+}
+
+/* --------------------------------------------------------------------------
+   ARTICLES SIMILAIRES ("À lire aussi") — lecteurs publics uniquement
+   -------------------------------------------------------------------------- */
+function getRelatedArticleImageUrl(collectionName, record) {
+    const rawImg = record.image || record.img;
+    if (!rawImg) return 'https://vafmlaradio.fr/LOGO-VAFM.png';
+    return typeof getPocketBaseImageUrl === 'function'
+        ? getPocketBaseImageUrl(collectionName, record.id, rawImg, '600x400')
+        : (rawImg.startsWith('http') ? rawImg : `https://vafmlaradio.fr${rawImg}`);
+}
+
+async function loadRelatedArticles(collectionName, category, excludeId) {
+    const container = document.getElementById('vafm-related-articles');
+    if (!container) return;
+
+    try {
+        const baseUrl = typeof POCKETBASE_URL !== 'undefined' ? POCKETBASE_URL : (window.POCKETBASE_URL || '');
+        const filterStr = encodeURIComponent(`is_published=true && id!='${excludeId}'`);
+        const url = `${baseUrl}/api/collections/${collectionName}/records?filter=${filterStr}&sort=-created&perPage=3`;
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const items = (data.items || []).slice(0, 3);
+
+        if (items.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+
+        // Styles critiques en ligne : ce bloc reste correctement présenté même
+        // si article.css n'a pas (encore) été rechargé par le navigateur.
+        container.innerHTML = '';
+        container.style.cssText = 'margin-top:55px;padding-top:34px;border-top:1px solid #eee;';
+
+        const titleEl = document.createElement('h2');
+        titleEl.className = 'vafm-related-title';
+        titleEl.style.cssText = 'display:flex;align-items:center;gap:10px;font-size:1.4rem;font-weight:800;margin:0 0 22px;color:#111;letter-spacing:-0.01em;';
+        titleEl.innerHTML = '<span style="display:inline-block;width:6px;height:24px;background:#E50914;border-radius:3px;flex-shrink:0;"></span>À lire aussi';
+        container.appendChild(titleEl);
+
+        const grid = document.createElement('div');
+        grid.className = 'vafm-related-grid';
+        grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit, minmax(230px, 1fr));gap:20px;';
+        container.appendChild(grid);
+
+        items.forEach(record => {
+            const rawTitle = record.titre || record.title || record.nom || 'Sans titre';
+            // Troncature garantie côté JS : même si -webkit-line-clamp est
+            // neutralisé par une règle externe (ex. "overflow: visible !important"
+            // ailleurs sur le site), le texte ne peut plus physiquement déborder.
+            const title = rawTitle.length > 85 ? rawTitle.slice(0, 82).trimEnd() + '…' : rawTitle;
+            const imgUrl = getRelatedArticleImageUrl(collectionName, record);
+
+            const card = document.createElement('div');
+            card.className = 'vafm-related-card';
+            card.setAttribute('role', 'button');
+            card.setAttribute('tabindex', '0');
+            card.style.cssText = 'cursor:pointer;display:flex;flex-direction:column;height:100%;border-radius:16px;overflow:hidden!important;background:#ffffff;border:1px solid #ececf2;box-shadow:0 2px 10px rgba(17,17,17,0.05);transition:transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;';
+
+            const imgDiv = document.createElement('div');
+            imgDiv.className = 'vafm-related-card-img';
+            imgDiv.style.cssText = `width:100%;aspect-ratio:16/10;flex-shrink:0;background-size:cover;background-position:center;background-color:#e5e5ea;background-image:url('${imgUrl}');`;
+
+            const bodyDiv = document.createElement('div');
+            bodyDiv.style.cssText = 'display:flex;flex-direction:column;flex:1;padding:14px 16px 16px;';
+
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'vafm-related-card-title';
+            titleDiv.style.cssText = 'font-size:0.98rem;font-weight:700;color:#141414;line-height:1.4;overflow:hidden!important;flex:1;margin-bottom:10px;';
+            titleDiv.textContent = title;
+
+            const ctaDiv = document.createElement('div');
+            ctaDiv.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:800;color:#E50914;text-transform:uppercase;letter-spacing:0.02em;margin-top:auto;';
+            const ctaArrow = document.createElement('span');
+            ctaArrow.textContent = '→';
+            ctaArrow.style.cssText = 'display:inline-block;transition:transform 0.2s ease;';
+            ctaDiv.appendChild(document.createTextNode('Lire l\'article '));
+            ctaDiv.appendChild(ctaArrow);
+
+            bodyDiv.appendChild(titleDiv);
+            bodyDiv.appendChild(ctaDiv);
+
+            card.appendChild(imgDiv);
+            card.appendChild(bodyDiv);
+
+            // Effet au survol/focus géré en JS pour ne dépendre d'aucune règle :hover externe.
+            const applyHoverState = () => {
+                card.style.transform = 'translateY(-4px)';
+                card.style.boxShadow = '0 14px 30px rgba(17, 17, 17, 0.14)';
+                card.style.borderColor = '#E50914';
+                ctaArrow.style.transform = 'translateX(4px)';
+            };
+            const clearHoverState = () => {
+                card.style.transform = '';
+                card.style.boxShadow = '0 2px 10px rgba(17,17,17,0.05)';
+                card.style.borderColor = '#ececf2';
+                ctaArrow.style.transform = '';
+            };
+            card.addEventListener('mouseenter', applyHoverState);
+            card.addEventListener('mouseleave', clearHoverState);
+            card.addEventListener('focus', applyHoverState);
+            card.addEventListener('blur', clearHoverState);
+
+            const goToArticle = () => openArticleView(category, record.id);
+            card.addEventListener('click', goToArticle);
+            card.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    goToArticle();
+                }
+            });
+
+            grid.appendChild(card);
+        });
+
+        container.style.display = '';
+    } catch (err) {
+        console.error('[VAFM] Chargement des articles similaires impossible :', err);
+        container.style.display = 'none';
+    }
+}
+
+/* --------------------------------------------------------------------------
+   BARRE DE PROGRESSION DE LECTURE (lecteurs publics)
+   -------------------------------------------------------------------------- */
+function initReadingProgressBar() {
+    const fill = document.getElementById('vafm-reading-progress-fill');
+    if (!fill) return;
+
+    const onScroll = () => {
+        const doc = document.documentElement;
+        const scrollTop = window.scrollY || doc.scrollTop || 0;
+        const scrollable = (doc.scrollHeight - doc.clientHeight) || 1;
+        const pct = Math.min(100, Math.max(0, (scrollTop / scrollable) * 100));
+        fill.style.width = pct + '%';
+    };
+
+    if (window._vafmReadingProgressHandler) {
+        window.removeEventListener('scroll', window._vafmReadingProgressHandler);
+    }
+    window._vafmReadingProgressHandler = onScroll;
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
 }
 
 function initArticleImageLightbox() {
@@ -1162,9 +1864,23 @@ function closeImageLightbox() {
     document.body.style.overflow = '';
 }
 
-function closeArticleView(options = {}) {
+async function closeArticleView(options = {}) {
+    const isAdminNow = document.querySelector('.canva-admin-active') !== null;
+
+    if (isAdminNow && hasUnsavedChanges && !options.skipUnsavedCheck) {
+        const ok = await vafmConfirm("Des modifications ne sont pas encore enregistrées. Quitter sans enregistrer ?", { confirmLabel: 'Quitter sans enregistrer' });
+        if (!ok) return false;
+    }
+
     document.removeEventListener('keydown', handleStudioKeydown);
     delete window._currentStudioContext;
+    stopStudioSafetyNet();
+    hasUnsavedChanges = false;
+    if (_miniBlockToolbarEl) { _miniBlockToolbarEl.classList.remove('visible'); _miniBlockToolbarEl.style.display = 'none'; }
+    if (window._vafmReadingProgressHandler) {
+        window.removeEventListener('scroll', window._vafmReadingProgressHandler);
+        window._vafmReadingProgressHandler = null;
+    }
 
     const articleContainer = document.getElementById('article-modal');
     const wasOpen = Boolean(articleContainer && articleContainer.style.display === 'block');
@@ -1262,11 +1978,84 @@ function addCanvaBlock(type = 'p') {
     block.appendChild(inner);
     contentBox.appendChild(block);
     initCanvaInteractions();
+    pushUndoState();
+    updateLiveStats();
+    safeScrollIntoView(block);
+}
+
+/* --------------------------------------------------------------------------
+   BLOC VIDÉO (YouTube / Vimeo)
+   -------------------------------------------------------------------------- */
+function getEmbeddableVideoUrl(rawUrl) {
+    let candidate = rawUrl.trim();
+    if (!/^https?:\/\//i.test(candidate)) candidate = 'https://' + candidate;
+
+    try {
+        const u = new URL(candidate);
+        if (u.hostname.includes('youtube.com')) {
+            const id = u.searchParams.get('v');
+            if (id) return `https://www.youtube.com/embed/${id}`;
+        }
+        if (u.hostname === 'youtu.be') {
+            const id = u.pathname.replace('/', '');
+            if (id) return `https://www.youtube.com/embed/${id}`;
+        }
+        if (u.hostname.includes('vimeo.com')) {
+            const id = u.pathname.split('/').filter(Boolean).pop();
+            if (id) return `https://player.vimeo.com/video/${id}`;
+        }
+    } catch (e) {
+        return null;
+    }
+    return null;
+}
+
+async function insertVideoBlock() {
+    const url = await vafmPrompt({
+        title: 'Insérer une vidéo',
+        label: 'Colle un lien YouTube ou Vimeo',
+        placeholder: 'https://www.youtube.com/watch?v=...'
+    });
+    if (!url) return;
+
+    const embedUrl = getEmbeddableVideoUrl(url);
+    if (!embedUrl) {
+        showToast("Lien vidéo non reconnu (YouTube ou Vimeo uniquement).", 'error');
+        return;
+    }
+
+    const contentBox = document.getElementById('canva-doc-content');
+    if (!contentBox) return;
+
+    const block = document.createElement('div');
+    block.className = 'canva-block video-embed img-full size-full';
+    block.innerHTML = `
+        <div class="vafm-video-frame">
+            <iframe src="${embedUrl}" title="Vidéo intégrée" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe>
+        </div>`;
+    contentBox.appendChild(block);
+    if (typeof initCanvaInteractions === 'function') initCanvaInteractions();
+    pushUndoState();
+    updateLiveStats();
+    showToast('Vidéo ajoutée.', 'success');
+    safeScrollIntoView(block);
 }
 
 async function handleCanvaImageUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        showToast("Le fichier choisi n'est pas une image.", 'error');
+        event.target.value = '';
+        return;
+    }
+    const maxSizeMB = 15;
+    if (file.size > maxSizeMB * 1024 * 1024) {
+        showToast(`Image trop lourde (max ${maxSizeMB} Mo).`, 'error');
+        event.target.value = '';
+        return;
+    }
 
     const contentBox = document.getElementById('canva-doc-content');
     if (!contentBox) return;
@@ -1276,9 +2065,11 @@ async function handleCanvaImageUpload(event) {
         : file;
 
     let targetImg;
+    let isNewBlock = false;
     if (activeBlock && activeBlock.querySelector('img')) {
         targetImg = activeBlock.querySelector('img');
     } else {
+        isNewBlock = true;
         const block = document.createElement('div');
         block.className = 'canva-block img-full size-md';
         targetImg = document.createElement('img');
@@ -1328,17 +2119,264 @@ async function handleCanvaImageUpload(event) {
         targetImg.removeAttribute('data-uploading');
         targetImg.dataset.pbCollection = 'article_images';
         targetImg.dataset.pbId = record.id;
+        showToast(isNewBlock ? 'Image ajoutée.' : 'Image remplacée.', 'success');
     } catch (err) {
         console.warn("⚠️ Upload direct impossible — repli en base64 compressé :", err.message);
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            targetImg.src = e.target.result;
-            targetImg.removeAttribute('data-uploading');
-        };
-        reader.readAsDataURL(compressed);
+        await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                targetImg.src = e.target.result;
+                targetImg.removeAttribute('data-uploading');
+                resolve();
+            };
+            reader.readAsDataURL(compressed);
+        });
+        showToast("Image intégrée directement (mode secours).", 'info');
     } finally {
         URL.revokeObjectURL(previewUrl);
         event.target.value = '';
+        pushUndoState();
+        updateLiveStats();
+    }
+}
+
+/* --------------------------------------------------------------------------
+   HISTORIQUE (ANNULER / RÉTABLIR)
+   -------------------------------------------------------------------------- */
+// Une image qui échoue à s'envoyer vers PocketBase est intégrée directement
+// dans le HTML en base64 (texte très volumineux, parfois plusieurs centaines
+// de Ko par image). Dupliquer ça jusqu'à 40 fois dans l'historique annuler/
+// rétablir pouvait faire exploser la mémoire du navigateur et tout ralentir
+// fortement. Au-delà de ce seuil, on garde beaucoup moins de versions.
+const VAFM_UNDO_HEAVY_CONTENT_THRESHOLD = 400000; // ~400 Ko de HTML
+const VAFM_MAX_UNDO_HEAVY = 6;
+
+function pushUndoState() {
+    const contentBox = document.getElementById('canva-doc-content');
+    const titleEl = document.getElementById('canva-doc-title');
+    if (!contentBox) return;
+
+    const html = contentBox.innerHTML;
+    const isHeavy = html.length > VAFM_UNDO_HEAVY_CONTENT_THRESHOLD;
+    const limit = isHeavy ? VAFM_MAX_UNDO_HEAVY : MAX_UNDO;
+
+    undoStack.push({
+        html,
+        title: titleEl ? titleEl.innerHTML : ''
+    });
+    while (undoStack.length > limit) undoStack.shift();
+    redoStack = [];
+    markUnsavedChanges();
+}
+
+let _statsDebounceTimer = null;
+
+function scheduleUndoSnapshot() {
+    markUnsavedChanges();
+
+    // updateLiveStats() lisait contentBox.innerText, qui force le navigateur à
+    // recalculer toute la mise en page — en l'appelant à chaque frappe, ça
+    // provoquait des ralentissements pendant la frappe. On le limite désormais
+    // à un appel différé, bien après que la personne a arrêté de taper.
+    clearTimeout(_statsDebounceTimer);
+    _statsDebounceTimer = setTimeout(() => {
+        if (typeof updateLiveStats === 'function') updateLiveStats();
+    }, 500);
+
+    clearTimeout(_undoDebounceTimer);
+    _undoDebounceTimer = setTimeout(() => pushUndoState(), 900);
+}
+
+function restoreEditorState(state) {
+    const contentBox = document.getElementById('canva-doc-content');
+    const titleEl = document.getElementById('canva-doc-title');
+    if (contentBox) {
+        contentBox.innerHTML = state.html;
+        sanitizeRestoredContent(contentBox);
+    }
+    if (titleEl) titleEl.innerHTML = state.title;
+    activeBlock = null;
+    if (_miniBlockToolbarEl) { _miniBlockToolbarEl.classList.remove('visible'); _miniBlockToolbarEl.style.display = 'none'; }
+    if (typeof initCanvaInteractions === 'function') initCanvaInteractions();
+    updateLiveStats();
+}
+
+function applyUndo() {
+    if (undoStack.length < 2) {
+        showToast('Rien à annuler.', 'info');
+        return;
+    }
+    const current = undoStack.pop();
+    redoStack.push(current);
+    const previous = undoStack[undoStack.length - 1];
+    restoreEditorState(previous);
+    markUnsavedChanges();
+    showToast('Modification annulée.', 'info');
+}
+
+function applyRedo() {
+    if (redoStack.length === 0) {
+        showToast('Rien à rétablir.', 'info');
+        return;
+    }
+    const next = redoStack.pop();
+    undoStack.push(next);
+    restoreEditorState(next);
+    markUnsavedChanges();
+    showToast('Modification rétablie.', 'info');
+}
+
+/* --------------------------------------------------------------------------
+   SUIVI DES MODIFICATIONS NON ENREGISTRÉES + STATISTIQUES EN DIRECT
+   -------------------------------------------------------------------------- */
+function markUnsavedChanges() {
+    hasUnsavedChanges = true;
+    updateSaveIndicator();
+}
+
+function clearUnsavedChanges() {
+    hasUnsavedChanges = false;
+    updateSaveIndicator();
+}
+
+function updateSaveIndicator() {
+    const btn = document.getElementById('btn-studio-save');
+    if (btn) btn.classList.toggle('has-changes', hasUnsavedChanges);
+}
+
+function updateLiveStats() {
+    const contentBox = document.getElementById('canva-doc-content');
+    const statsEl = document.getElementById('vafm-live-stats');
+    if (!contentBox || !statsEl) return;
+
+    // textContent (au lieu d'innerText) ne force pas de recalcul de mise en
+    // page : bien plus léger, surtout appelé pendant la frappe.
+    const text = contentBox.textContent || '';
+    const words = text.trim().split(/\s+/).filter(Boolean).length;
+    const minutes = typeof calculateReadTime === 'function' ? calculateReadTime(contentBox.innerHTML) : 1;
+
+    // Le libellé "Studio" reste affiché ; les stats passent en infobulle
+    // pour garder la barre compacte comme à l'origine.
+    statsEl.title = `${words} ${words <= 1 ? 'mot' : 'mots'} · ${minutes} min`;
+}
+
+/* --------------------------------------------------------------------------
+   AUTOSAUVEGARDE LOCALE (BROUILLON) + AVERTISSEMENT AVANT DE QUITTER
+   Protège contre une fermeture d'onglet accidentelle ou un plantage.
+   -------------------------------------------------------------------------- */
+function getDraftKey(collectionName, id) {
+    return `vafm_draft_${collectionName}_${id}`;
+}
+
+function saveDraftLocally(collectionName, id) {
+    try {
+        const contentBox = document.getElementById('canva-doc-content');
+        const titleEl = document.getElementById('canva-doc-title');
+        if (!contentBox) return;
+
+        const html = contentBox.innerHTML;
+
+        // localStorage.setItem() est une écriture SYNCHRONE qui bloque le
+        // navigateur pendant son exécution. Avec une image repliée en base64
+        // dans le contenu, cette écriture peut devenir lourde et se répéter
+        // toutes les 20 secondes. Au-delà du seuil, on saute l'autosauvegarde
+        // locale plutôt que de geler l'interface (le bouton "Enregistrer"
+        // reste la méthode fiable pour ce genre de contenu).
+        if (html.length > VAFM_UNDO_HEAVY_CONTENT_THRESHOLD) {
+            return;
+        }
+
+        const draft = {
+            title: titleEl ? titleEl.innerHTML : '',
+            html,
+            savedAt: Date.now()
+        };
+        localStorage.setItem(getDraftKey(collectionName, id), JSON.stringify(draft));
+        flashSaveIndicator('Brouillon enregistré localement');
+    } catch (e) {
+        console.warn('[VAFM] Autosauvegarde locale impossible :', e);
+    }
+}
+
+function clearLocalDraft(collectionName, id) {
+    try {
+        localStorage.removeItem(getDraftKey(collectionName, id));
+    } catch (e) {
+        // silencieux : le nettoyage du brouillon local n'est pas critique
+    }
+}
+
+function checkForLocalDraft(collectionName, id) {
+    try {
+        const raw = localStorage.getItem(getDraftKey(collectionName, id));
+        if (!raw) return;
+        const draft = JSON.parse(raw);
+        if (!draft || !draft.html) return;
+
+        const ageMin = Math.max(1, Math.round((Date.now() - draft.savedAt) / 60000));
+        showToast(`Un brouillon non enregistré existe (il y a ${ageMin} min).`, 'info', {
+            actionLabel: 'Restaurer',
+            duration: 12000,
+            onAction: () => {
+                const contentBox = document.getElementById('canva-doc-content');
+                const titleEl = document.getElementById('canva-doc-title');
+                if (contentBox) {
+                    contentBox.innerHTML = draft.html;
+                    sanitizeRestoredContent(contentBox);
+                }
+                if (titleEl) titleEl.innerHTML = draft.title;
+                if (typeof initCanvaInteractions === 'function') initCanvaInteractions();
+                pushUndoState();
+                updateLiveStats();
+                showToast('Brouillon restauré.', 'success');
+            }
+        });
+    } catch (e) {
+        console.warn('[VAFM] Lecture du brouillon local impossible :', e);
+    }
+}
+
+function flashSaveIndicator(text) {
+    showToast(text, 'info', { duration: 2000 });
+}
+
+function vafmBeforeUnloadHandler(e) {
+    if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+    }
+}
+
+function initStudioSafetyNet(collectionName, id) {
+    undoStack = [];
+    redoStack = [];
+
+    const contentBox = document.getElementById('canva-doc-content');
+    const titleEl = document.getElementById('canva-doc-title');
+    if (contentBox) {
+        undoStack.push({ html: contentBox.innerHTML, title: titleEl ? titleEl.innerHTML : '' });
+    }
+
+    hasUnsavedChanges = false;
+    updateSaveIndicator();
+    updateLiveStats();
+    checkForLocalDraft(collectionName, id);
+
+    window.removeEventListener('beforeunload', vafmBeforeUnloadHandler);
+    window.addEventListener('beforeunload', vafmBeforeUnloadHandler);
+
+    if (autosaveInterval) clearInterval(autosaveInterval);
+    autosaveInterval = setInterval(() => {
+        if (hasUnsavedChanges) saveDraftLocally(collectionName, id);
+    }, 20000);
+}
+
+function stopStudioSafetyNet() {
+    window.removeEventListener('beforeunload', vafmBeforeUnloadHandler);
+    if (autosaveInterval) {
+        clearInterval(autosaveInterval);
+        autosaveInterval = null;
     }
 }
 
@@ -1389,13 +2427,27 @@ async function pingIndexNow(articleUrl) {
 }
 
 async function saveCanvaArticle(collectionName, id) {
+    if (_isSavingArticle) return;
+    _isSavingArticle = true;
+
+    const saveBtn = document.getElementById('btn-studio-save');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.classList.add('is-saving');
+    }
+
     try {
         const titleElement = document.getElementById('canva-doc-title');
-        const title = titleElement ? titleElement.innerText.trim() : '';
+        const title = titleElement ? (titleElement.innerText || titleElement.textContent || '').trim() : '';
 
         const contentBox = document.getElementById('canva-doc-content');
         if (!contentBox) {
-            alert("Erreur : zone de contenu introuvable.");
+            showToast("Erreur : zone de contenu introuvable.", 'error');
+            return;
+        }
+
+        if (!title) {
+            showToast("Le titre de l'article ne peut pas être vide.", 'error');
             return;
         }
 
@@ -1406,6 +2458,7 @@ async function saveCanvaArticle(collectionName, id) {
         tempDiv.innerHTML = contentBox.innerHTML;
 
         tempDiv.querySelectorAll('.canva-drop-indicator').forEach(el => el.remove());
+        tempDiv.querySelectorAll('.canva-block-mini-toolbar').forEach(el => el.remove());
 
         tempDiv.querySelectorAll('.canva-block').forEach(b => {
             b.classList.remove('selected', 'editing', 'dragging');
@@ -1515,7 +2568,9 @@ async function saveCanvaArticle(collectionName, id) {
             window.currentArticleData = updatedRecord;
         }
 
-        alert("✨ Article enregistré avec succès !");
+        clearUnsavedChanges();
+        clearLocalDraft(realCollection, id);
+        showToast("✨ Article enregistré avec succès !", 'success');
         
         // 🚀 Ping du flux RSS et IndexNow si l'article est actuellement publié
         if (updatedRecord.is_published || updatedRecord.published) {
@@ -1535,7 +2590,13 @@ async function saveCanvaArticle(collectionName, id) {
 
     } catch (err) {
         console.error("Erreur durant la sauvegarde PocketBase:", err);
-        alert("Une erreur est survenue lors de la sauvegarde :\n" + err.message);
+        showToast("Erreur lors de la sauvegarde : " + err.message, 'error');
+    } finally {
+        _isSavingArticle = false;
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.classList.remove('is-saving');
+        }
     }
 }
 
