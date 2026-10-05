@@ -1866,6 +1866,20 @@ footer#main-footer {
     color: #a0a0a0 !important;
 }
 
+@media (max-width: 768px) {
+    .footer-container {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr); /* 2 colonnes côte à côte */
+        gap: 20px 15px;
+    }
+
+    /* La première colonne (Logo / À propos) prend toute la largeur en haut */
+    .footer-col:first-child {
+        grid-column: 1 / -1;
+        text-align: center;
+    }
+}
+
 /* ==========================================================================
    8. LECTEUR FLOATING (CENTRÉ DÉROULÉ, ENROULEMENT VERS LE LOGO)
    ========================================================================== */
