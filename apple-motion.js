@@ -308,26 +308,3 @@
         init();
     }
 })();
-
-/* ==========================================================================
-   FORCE MOBILE FOOTER VERTICAL
-   ========================================================================== */
-@media screen and (max-width: 768px) {
-    body #main-footer .footer-container {
-        display: flex !important;
-        flex-direction: column !important;
-        grid-template-columns: none !important;
-        gap: 25px !important;
-        width: 100% !important;
-    }
-
-    body #main-footer .footer-col {
-        width: 100% !important;
-        max-width: 100% !important;
-        text-align: center !important;
-    }
-
-    body #main-footer .social-icons {
-        justify-content: center !important;
-    }
-}

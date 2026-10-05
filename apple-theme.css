@@ -327,3 +327,23 @@ footer#main-footer > * { position: relative; z-index: 1; }
         justify-content: center !important;
     }
 }
+
+.label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.forgot-link {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #6e6e73;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.forgot-link:hover {
+    color: #E50914;
+    text-decoration: underline;
+}

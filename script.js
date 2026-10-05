@@ -3779,3 +3779,151 @@ if (document.readyState === 'loading') {
   initVafmWheel();
   initTimeOnSiteRewards();
 }
+
+// ===== MOT DE PASSE OUBLIÉ =====
+// Le site n'utilise pas le SDK PocketBase (pas de "pb" global) : on appelle
+// directement l'API REST, comme pour la connexion.
+function initForgotPassword() {
+  const link = document.getElementById('forgot-password-link');
+  if (!link || link.dataset.bound === '1') return;
+  link.dataset.bound = '1';
+
+  link.addEventListener('click', async (e) => {
+    e.preventDefault();
+
+    const emailInput = document.getElementById('auth-email');
+    const email = emailInput ? emailInput.value.trim() : '';
+
+    if (!email) {
+      alert("Renseigne d'abord ton adresse email dans le champ ci-dessus.");
+      if (emailInput) emailInput.focus();
+      return;
+    }
+
+    const originalText = link.textContent;
+    link.textContent = 'Envoi en cours...';
+    link.style.pointerEvents = 'none';
+
+    try {
+      const res = await fetch(`${POCKETBASE_URL}/api/collections/users/request-password-reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        console.error('Erreur réinitialisation :', res.status, errJson);
+        throw new Error(errJson.message || 'Erreur ' + res.status);
+      }
+
+      alert(`Si un compte existe pour ${email}, un lien de réinitialisation vient d'être envoyé. Pense à vérifier tes spams.`);
+    } catch (err) {
+      alert("Impossible d'envoyer l'email pour le moment. Vérifie l'adresse saisie et réessaie.");
+    } finally {
+      link.textContent = originalText;
+      link.style.pointerEvents = '';
+    }
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initForgotPassword);
+} else {
+  initForgotPassword();
+}
+
+
+// ===== NOUVEAU MOT DE PASSE (lien reçu par email) =====
+let resetPasswordToken = null;
+
+// Récupère le token PocketBase dans l'URL, quel que soit le format du lien :
+//  - /?reset-token=XXXX            (recommandé)
+//  - /#/auth/confirm-password-reset/XXXX   (modèle par défaut de PocketBase)
+//  - /_/#/auth/confirm-password-reset/XXXX
+function extractResetToken() {
+  const m = window.location.href.match(/(?:confirm-password-reset\/|reset-token=|[?&#]token=)([A-Za-z0-9_\-.]+)/);
+  return m ? m[1] : null;
+}
+
+function initResetPasswordFromUrl() {
+  // 1) token présent dans l'URL → on le mémorise (et on nettoie l'URL)
+  const token = extractResetToken();
+  if (token) {
+    resetPasswordToken = token;
+    try { sessionStorage.setItem('vafm_reset_token', token); } catch (e) {}
+    try { history.replaceState(null, '', window.location.pathname.replace(/^\/_\/?$/, '/')); } catch (e) {}
+  }
+
+  // 2) token mémorisé → on ouvre la fenêtre (idempotent, rappelé plusieurs fois)
+  if (!resetPasswordToken) {
+    try { resetPasswordToken = sessionStorage.getItem('vafm_reset_token'); } catch (e) {}
+  }
+  if (!resetPasswordToken) return;
+
+  const modal = document.getElementById('reset-password-modal');
+  if (modal && modal.style.display !== 'flex') openModal('reset-password-modal');
+}
+
+async function handleResetPasswordSubmit(e) {
+  e.preventDefault();
+
+  const pwd = document.getElementById('reset-password-new').value;
+  const confirm = document.getElementById('reset-password-confirm').value;
+  const btn = document.getElementById('btn-reset-submit');
+
+  if (!resetPasswordToken) {
+    alert("Lien invalide ou expiré. Refais une demande « Mot de passe oublié ».");
+    return;
+  }
+  if (pwd.length < 8) {
+    alert("Le mot de passe doit faire au moins 8 caractères.");
+    return;
+  }
+  if (pwd !== confirm) {
+    alert("Les deux mots de passe ne sont pas identiques.");
+    return;
+  }
+
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Enregistrement...';
+
+  try {
+    const res = await fetch(`${POCKETBASE_URL}/api/collections/users/confirm-password-reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: resetPasswordToken, password: pwd, passwordConfirm: confirm })
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      console.error('Erreur confirmation reset :', res.status, errJson);
+      if (errJson.data && errJson.data.token) {
+        throw new Error("Ce lien a expiré ou a déjà été utilisé. Refais une demande « Mot de passe oublié ».");
+      }
+      if (errJson.data && errJson.data.password) {
+        throw new Error("Mot de passe refusé : " + errJson.data.password.message);
+      }
+      throw new Error(errJson.message || ('Erreur ' + res.status));
+    }
+
+    resetPasswordToken = null;
+    try { sessionStorage.removeItem('vafm_reset_token'); } catch (e) {}
+    document.getElementById('reset-password-form').reset();
+    closeModal('reset-password-modal');
+    alert("Mot de passe modifié avec succès ! Tu peux maintenant te connecter.");
+    openAuthModal();
+  } catch (err) {
+    alert(err.message || "Impossible de modifier le mot de passe. Réessaie.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+initResetPasswordFromUrl();
+document.addEventListener('DOMContentLoaded', initResetPasswordFromUrl);
+window.addEventListener('load', initResetPasswordFromUrl);
+setTimeout(initResetPasswordFromUrl, 1500);
+setTimeout(initResetPasswordFromUrl, 4500);

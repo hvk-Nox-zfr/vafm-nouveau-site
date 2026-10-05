@@ -201,7 +201,10 @@
                     <input type="email" id="auth-email" placeholder="exemple@vafm.fr" required>
                 </div>
                 <div class="input-group">
-                    <label for="auth-password">Mot de passe</label>
+                    <div class="label-row">
+                        <label for="auth-password">Mot de passe</label>
+                        <a href="#" id="forgot-password-link" class="forgot-link">Mot de passe oublié ?</a>
+                    </div>
                     <input type="password" id="auth-password" placeholder="••••••••" required>
                 </div>
 
@@ -249,6 +252,27 @@
             <a href="#" onclick="resendOtpCode(); return false;">Renvoyer un nouveau code</a>
         </div>
         <button class="close-btn" onclick="closeModal('otp-modal')">✕</button>
+    </div>
+</div>
+
+    <!-- MODALE NOUVEAU MOT DE PASSE (arrivée depuis l'email de réinitialisation) -->
+<div id="reset-password-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <h2>Nouveau mot de passe</h2>
+        <p>Choisis ton nouveau mot de passe (8 caractères minimum).</p>
+
+        <form id="reset-password-form" onsubmit="handleResetPasswordSubmit(event)">
+            <div class="input-group">
+                <label for="reset-password-new">Nouveau mot de passe</label>
+                <input type="password" id="reset-password-new" placeholder="••••••••" minlength="8" required autocomplete="new-password">
+            </div>
+            <div class="input-group">
+                <label for="reset-password-confirm">Confirmer le mot de passe</label>
+                <input type="password" id="reset-password-confirm" placeholder="••••••••" minlength="8" required autocomplete="new-password">
+            </div>
+            <button type="submit" class="btn-submit" id="btn-reset-submit">Enregistrer le mot de passe</button>
+        </form>
+        <button class="close-btn" onclick="closeModal('reset-password-modal')">✕</button>
     </div>
 </div>
 
@@ -861,7 +885,7 @@
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script defer src="/article.js?v=2"></script>
-    <script defer src="/script.js?v=2"></script>
+    <script defer src="/script.js?v=4"></script>
     <script defer src="/news.js?v=2"></script>
     <script defer src="/team.js?v=1"></script>
     <script defer src="/dedicaces.js?v=1"></script>
