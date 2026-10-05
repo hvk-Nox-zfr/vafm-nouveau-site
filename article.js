@@ -883,16 +883,17 @@ async function openArticleView(category, id) {
 
                     <div class="vafm-tb-divider"></div>
 
-                    <button class="vafm-tb-btn" data-label="Gras (Ctrl+B)" onclick="applyFormat('bold')">
+                    <!-- Boutons avec protection de la sélection (onmousedown) -->
+                    <button class="vafm-tb-btn" data-label="Gras (Ctrl+B)" onmousedown="event.preventDefault()" onclick="applyFormat('bold')">
                         <svg viewBox="0 0 24 24"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg>
                     </button>
-                    <button class="vafm-tb-btn" data-label="Italique (Ctrl+I)" onclick="applyFormat('italic')">
+                    <button class="vafm-tb-btn" data-label="Italique (Ctrl+I)" onmousedown="event.preventDefault()" onclick="applyFormat('italic')">
                         <svg viewBox="0 0 24 24"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg>
                     </button>
-                    <button class="vafm-tb-btn" data-label="Souligné (Ctrl+U)" onclick="applyFormat('underline')">
+                    <button class="vafm-tb-btn" data-label="Souligné (Ctrl+U)" onmousedown="event.preventDefault()" onclick="applyFormat('underline')">
                         <svg viewBox="0 0 24 24"><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"/><line x1="4" y1="21" x2="20" y2="21"/></svg>
                     </button>
-                    <button class="vafm-tb-btn" data-label="Insérer un lien" onclick="addLinkToSelection()">
+                    <button class="vafm-tb-btn" data-label="Insérer un lien" onmousedown="event.preventDefault()" onclick="addLinkToSelection()">
                         <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                     </button>
 
@@ -1575,66 +1576,82 @@ async function deleteSelectedElement() {
     showToast("Sélectionnez du texte ou cliquez sur un bloc à supprimer.", 'info');
 }
 
-async function addLinkToSelection() {
+function addLinkToSelection() {
     const selection = window.getSelection();
-    if (!selection || selection.isCollapsed) {
-        showToast("Surlignez d'abord le texte à lier.", 'info');
+
+    // 1. Vérifier si une sélection existe
+    if (!selection || selection.rangeCount === 0) {
+        if (typeof showToast === 'function') showToast("Place ton curseur ou sélectionne du texte dans l'article.", 'error');
         return;
     }
 
-    const anchorNode = selection.anchorNode;
-    const containerEl = anchorNode ? (anchorNode.nodeType === 1 ? anchorNode : anchorNode.parentElement) : null;
-    const existingLink = containerEl ? containerEl.closest('a') : null;
+    // 2. Sauvegarder la position exacte/sélection AVANT l'ouverture du prompt
+    const range = selection.getRangeAt(0);
 
-    const url = await vafmPrompt({
-        title: existingLink ? 'Modifier le lien' : 'Insérer un lien',
-        label: 'URL de destination — laisser vide pour retirer le lien',
-        placeholder: 'https://exemple.fr',
-        defaultValue: existingLink ? (existingLink.getAttribute('href') || '') : ''
-    });
-
-    if (url === null) return;
-
+    // S'assurer qu'on est bien à l'intérieur du conteneur d'édition
     const contentBox = document.getElementById('canva-doc-content');
-
-    if (url.trim() === '') {
-        if (existingLink && contentBox && contentBox.contains(existingLink)) {
-            const parent = existingLink.parentNode;
-            while (existingLink.firstChild) parent.insertBefore(existingLink.firstChild, existingLink);
-            parent.removeChild(existingLink);
-            scheduleUndoSnapshot();
-            showToast('Lien retiré.', 'info');
-        }
+    if (contentBox && !contentBox.contains(range.commonAncestorContainer)) {
+        if (typeof showToast === 'function') showToast("Sélectionne du texte à l'intérieur de l'article.", 'error');
         return;
     }
 
-    let formattedUrl = url.trim();
-    if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
-        formattedUrl = 'https://' + formattedUrl;
+    // 3. Demander l'URL
+    let url = prompt("Entre l'URL du lien (ex: https://exemple.com) :");
+    if (!url || !url.trim()) return;
+
+    url = url.trim();
+    // Ajouter automatiquement https:// si manquant
+    if (!/^https?:\/\//i.test(url) && !url.startsWith('mailto:') && !url.startsWith('#')) {
+        url = 'https://' + url;
     }
 
-    if (existingLink && contentBox && contentBox.contains(existingLink)) {
-        existingLink.setAttribute('href', formattedUrl);
-        existingLink.setAttribute('target', '_blank');
-        existingLink.setAttribute('rel', 'noopener noreferrer');
-    } else if (selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        if (contentBox && contentBox.contains(range.commonAncestorContainer)) {
-            const a = document.createElement('a');
-            a.setAttribute('href', formattedUrl);
-            a.setAttribute('target', '_blank');
-            a.setAttribute('rel', 'noopener noreferrer');
-            try {
-                range.surroundContents(a);
-            } catch (e) {
-                const fragment = range.extractContents();
-                a.appendChild(fragment);
-                range.insertNode(a);
-            }
+    // 4. Redonner le focus à l'élément éditable
+    let containerNode = range.commonAncestorContainer;
+    if (containerNode.nodeType === Node.TEXT_NODE) {
+        containerNode = containerNode.parentElement;
+    }
+    const editableEl = containerNode.closest('[contenteditable="true"]');
+    if (editableEl) {
+        editableEl.focus();
+    }
+
+    // 5. Restaurer la sélection sauvegardée
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    // 6. Insérer le lien
+    if (!range.collapsed) {
+        // CAS A : Du texte était sélectionné -> Transformer la sélection en lien
+        document.execCommand('createLink', false, url);
+
+        // Appliquer target="_blank" sur le lien créé
+        const parent = selection.anchorNode ? selection.anchorNode.parentElement : null;
+        const linkEl = parent ? parent.closest('a') : null;
+        if (linkEl) {
+            linkEl.target = '_blank';
+            linkEl.rel = 'noopener noreferrer';
         }
+    } else {
+        // CAS B : Simple curseur (aucun texte sélectionné) -> Créer un lien texte cliquable
+        const link = document.createElement('a');
+        link.href = url;
+        link.textContent = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+
+        range.insertNode(link);
+
+        // Placer le curseur juste après le lien créé
+        range.setStartAfter(link);
+        range.setEndAfter(link);
+        selection.removeAllRanges();
+        selection.addRange(range);
     }
 
-    scheduleUndoSnapshot();
+    // 7. Mettre à jour l'état de l'éditeur
+    if (typeof pushUndoState === 'function') pushUndoState();
+    if (typeof updateLiveStats === 'function') updateLiveStats();
+    if (typeof showToast === 'function') showToast("Lien inséré !", "success");
 }
 
 async function handleTogglePublishInStudio(collectionName, id, currentStatus, category) {
