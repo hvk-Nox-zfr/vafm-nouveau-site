@@ -1,0 +1,284 @@
+/* ==========================================================================
+   VAFM — THÈMES SAISONNIERS : HALLOWEEN 🎃 & NOËL 🎄
+   Les décors (.deco) sont posés dans la page, sous la navbar, sans clic.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&display=swap');
+
+/* ---------- Conteneurs ---------- */
+
+#seasonal-decor-container {
+    position: absolute; left: 0; top: 0; width: 100%;
+    overflow: hidden; z-index: 50; pointer-events: none;
+}
+#seasonal-decor-container .deco { position: absolute; pointer-events: none; }
+#seasonal-decor-container .deco svg { display: block; width: 100%; height: auto; overflow: visible; }
+.hw-flip { transform: scaleX(-1); }
+
+/* La navbar et le lecteur passent toujours AU-DESSUS des décors */
+body.theme-halloween .navbar, body.theme-noel .navbar { z-index: 9000; }
+
+/* Effets plein écran (neige / feuilles) */
+#seasonal-fx-container {
+    position: fixed; inset: 0; z-index: 40; overflow: hidden; pointer-events: none;
+}
+
+/* ---------- Sélecteur admin ---------- */
+
+.theme-selector-container { display: flex; align-items: center; gap: 8px; margin-right: 12px; }
+.theme-select-label { font-size: .75rem; font-weight: 700; color: #a1a1aa; text-transform: uppercase; }
+.theme-select {
+    background: #18181b; color: #f4f4f5; border: 1px solid #3f3f46;
+    border-radius: 6px; padding: 4px 10px; font-size: .8rem; font-weight: 600;
+    cursor: pointer; outline: none;
+}
+
+/* ==========================================================================
+   🎃 HALLOWEEN
+   ========================================================================== */
+
+body.theme-halloween {
+    color: #f3e8ff !important;
+    background-color: #130924 !important;
+    background-image:
+        radial-gradient(ellipse at 15% 100%, rgba(168, 85, 247, .22), transparent 55%),
+        radial-gradient(ellipse at 90% 100%, rgba(255, 153, 0, .14), transparent 50%) !important;
+    background-attachment: fixed !important;
+}
+
+body.theme-halloween h1,
+body.theme-halloween h2,
+body.theme-halloween .category-title,
+body.theme-halloween .section-header h2 {
+    font-family: 'Fredoka', cursive, sans-serif !important;
+    color: #ff9900 !important;
+    position: relative;
+    display: inline-block;
+    text-shadow: 2px 2px 0 #000;
+}
+
+body.theme-halloween .section-header h2::before,
+body.theme-halloween .category-title::before {
+    content: ""; position: absolute; top: -45px; right: -25px;
+    width: 2px; height: 25px; background: rgba(120, 120, 140, .6);
+}
+body.theme-halloween .section-header h2::after,
+body.theme-halloween .category-title::after {
+    content: ""; position: absolute; top: -22px; right: -38px; width: 32px; height: 32px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M20 30 Q10 15 5 25 M20 45 Q5 35 2 45 M20 60 Q5 65 5 75 M80 30 Q90 15 95 25 M80 45 Q95 35 98 45 M80 60 Q95 65 95 75' stroke='%23ff9900' stroke-width='7' stroke-linecap='round' fill='none'/%3E%3Ccircle cx='50' cy='48' r='26' fill='%232a1845' stroke='%23ff9900' stroke-width='6'/%3E%3Ccircle cx='42' cy='42' r='7' fill='%23ffffff'/%3E%3Ccircle cx='58' cy='42' r='7' fill='%23ffffff'/%3E%3Ccircle cx='43' cy='42' r='3.5' fill='%23000000'/%3E%3Ccircle cx='57' cy='42' r='3.5' fill='%23000000'/%3E%3Cpath d='M42 58 Q50 64 58 58' stroke='%23ff9900' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-size: contain; background-repeat: no-repeat;
+    animation: hwTitleSpider 3.2s ease-in-out infinite alternate;
+    transform-origin: top center;
+}
+@keyframes hwTitleSpider {
+    0%   { transform: rotate(-14deg) translateY(0); }
+    100% { transform: rotate(14deg) translateY(6px); }
+}
+
+/* --- Décors Halloween --- */
+.hw-moon svg { filter: drop-shadow(0 0 18px rgba(255, 214, 120, .85)); }
+.hw-moon { animation: hwGlow 5s ease-in-out infinite alternate; }
+@keyframes hwGlow { from { opacity: .85; } to { opacity: 1; } }
+
+.hw-web { opacity: .95; }
+
+.hw-spider { transform-origin: 50% 0; animation: hwSwing 3.6s ease-in-out infinite alternate; }
+.hw-spider .thread, .xm-bauble .thread { display: block; width: 2px; height: var(--len); margin: 0 auto; }
+.hw-spider .thread { background: rgba(160, 160, 180, .75); animation: hwThread 5s ease-in-out infinite alternate; }
+@keyframes hwSwing  { from { transform: rotate(-7deg); } to { transform: rotate(7deg); } }
+@keyframes hwThread { from { height: var(--len); } to { height: calc(var(--len) + 34px); } }
+
+.hw-bat { animation: hwBatFly linear infinite; }
+.hw-bat svg { filter: drop-shadow(0 0 6px rgba(168, 85, 247, .8)); animation: hwFlap .32s ease-in-out infinite alternate; transform-origin: 50% 55%; }
+@keyframes hwFlap { from { transform: scaleY(1); } to { transform: scaleY(.45); } }
+@keyframes hwBatFly {
+    0%   { transform: translate(0, 0); }
+    25%  { transform: translate(calc(var(--travel) * .25), 34px); }
+    50%  { transform: translate(calc(var(--travel) * .5), -14px); }
+    75%  { transform: translate(calc(var(--travel) * .75), 30px); }
+    100% { transform: translate(var(--travel), 0); }
+}
+
+.hw-ghost { animation: hwGhost 4s ease-in-out infinite; }
+.hw-ghost svg { filter: drop-shadow(0 0 12px rgba(167, 139, 250, .8)); }
+@keyframes hwGhost { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-16px) rotate(3deg); } }
+.hw-eyes { transform-box: fill-box; transform-origin: center; animation: hwBlink 4.5s infinite; }
+@keyframes hwBlink { 0%, 92%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+
+.hw-pumpkin { transform-origin: 50% 100%; animation: hwSway 3.2s ease-in-out infinite alternate; }
+.hw-pumpkin svg { filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .35)); }
+.hw-face { animation: hwFlicker 2.6s infinite; filter: drop-shadow(0 0 6px #ffd60a); }
+@keyframes hwSway { from { transform: rotate(-2.5deg); } to { transform: rotate(2.5deg) scale(1.03); } }
+@keyframes hwFlicker { 0%, 100% { opacity: 1; } 10% { opacity: .65; } 20% { opacity: 1; } 55% { opacity: .8; } 60% { opacity: 1; } }
+
+.hw-cauldron svg { filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .35)); }
+.hw-flames { transform-box: fill-box; transform-origin: 50% 100%; animation: hwFire .5s ease-in-out infinite alternate; }
+@keyframes hwFire { from { transform: scale(1, .9); } to { transform: scale(1.06, 1.14); } }
+.hw-bubbles circle { transform-box: fill-box; transform-origin: center; animation: hwBubble 2.2s ease-in infinite; }
+.hw-bubbles .b2 { animation-delay: -.8s; }
+.hw-bubbles .b3 { animation-delay: -1.5s; }
+@keyframes hwBubble {
+    0%   { transform: translateY(8px) scale(.4); opacity: 0; }
+    30%  { opacity: 1; }
+    100% { transform: translateY(-34px) scale(1.15); opacity: 0; }
+}
+
+.hw-hat { transform-origin: 50% 100%; animation: hwSway 4s ease-in-out infinite alternate; }
+.hw-candy { animation: hwBob 2.8s ease-in-out infinite alternate; }
+@keyframes hwBob { from { transform: translateY(0) rotate(-4deg); } to { transform: translateY(-6px) rotate(4deg); } }
+.hw-tomb svg, .hw-tree svg { filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .3)); }
+
+/* Feuilles qui tombent */
+.fx-leaves .leaf { position: absolute; top: -40px; animation-name: fxFall, fxSway; animation-timing-function: linear, ease-in-out; animation-iteration-count: infinite, infinite; animation-direction: normal, alternate; opacity: .9; }
+.fx-leaves .leaf svg { display: block; width: 100%; height: 100%; animation: fxSpin 6s linear infinite; }
+@keyframes fxFall { to { top: 104%; } }
+@keyframes fxSway { from { margin-left: -26px; } to { margin-left: 26px; } }
+@keyframes fxSpin { to { transform: rotate(360deg); } }
+
+/* --- Interface Halloween --- */
+body.theme-halloween .navbar {
+    background: rgba(25, 14, 48, .95) !important;
+    border-bottom: 3px solid #ff9900 !important;
+    box-shadow: 0 4px 20px rgba(255, 153, 0, .3);
+}
+body.theme-halloween .vafm-player-premium {
+    background: linear-gradient(135deg, #2b134d, #120726) !important;
+    border-top: 3px solid #ff9900 !important;
+    box-shadow: 0 -4px 25px rgba(255, 153, 0, .35) !important;
+}
+body.theme-halloween .control-play-btn {
+    background: #ff9900 !important; color: #130924 !important;
+    box-shadow: 0 0 20px rgba(255, 153, 0, .8) !important;
+}
+body.theme-halloween .dedicaces-ticker { background: #251044 !important; color: #ffcc00 !important; border-bottom: 1px solid #ff9900; }
+body.theme-halloween .nav-links a { color: #f3e8ff !important; font-weight: 600; transition: color .2s, text-shadow .2s; }
+body.theme-halloween .nav-links a:hover { color: #ff9900 !important; text-shadow: 0 0 8px rgba(255, 153, 0, .6); }
+body.theme-halloween .btn-search-trigger,
+body.theme-halloween .btn-user-avatar {
+    color: #f3e8ff !important; background: rgba(255, 255, 255, .1) !important;
+    border: 1px solid rgba(255, 153, 0, .4) !important;
+}
+body.theme-halloween .btn-search-trigger:hover,
+body.theme-halloween .btn-user-avatar:hover { background: rgba(255, 153, 0, .2) !important; border-color: #ff9900 !important; }
+body.theme-halloween .admin-top-bar { background: #0e051b !important; border-bottom: 1px solid #ff9900 !important; }
+body.theme-halloween .admin-status { color: #ff9900 !important; font-weight: 700; }
+
+/* ==========================================================================
+   🎄 NOËL
+   ========================================================================== */
+
+body.theme-noel {
+    color: #e0f2fe !important;
+    background-color: #08141e !important;
+    background-image:
+        radial-gradient(1.5px 1.5px at 12% 18%, #fff 50%, transparent 51%),
+        radial-gradient(1.5px 1.5px at 34% 8%,  #fff 50%, transparent 51%),
+        radial-gradient(2px 2px at 58% 22%,     #fde68a 50%, transparent 51%),
+        radial-gradient(1.5px 1.5px at 77% 12%, #fff 50%, transparent 51%),
+        radial-gradient(2px 2px at 91% 30%,     #fff 50%, transparent 51%),
+        radial-gradient(ellipse at 50% 0%, rgba(34, 197, 94, .14), transparent 55%),
+        radial-gradient(ellipse at 100% 100%, rgba(220, 38, 38, .12), transparent 50%) !important;
+    background-attachment: fixed !important;
+}
+
+body.theme-noel h1,
+body.theme-noel h2,
+body.theme-noel .category-title,
+body.theme-noel .section-header h2 {
+    font-family: 'Fredoka', cursive, sans-serif !important;
+    color: #ffd166 !important;
+    text-shadow: 2px 2px 0 #7f1d1d, 0 0 14px rgba(255, 209, 102, .35);
+    position: relative;
+    display: inline-block;
+}
+body.theme-noel .section-header h2::after,
+body.theme-noel .category-title::after {
+    content: "❄"; position: absolute; top: -12px; right: -26px;
+    font-size: 20px; color: #7dd3fc; text-shadow: 0 0 8px #bae6fd;
+    animation: xmSpin 6s linear infinite;
+}
+@keyframes xmSpin { to { transform: rotate(360deg); } }
+
+/* --- Décors Noël --- */
+.xm-twinkle { animation: xmTwinkle 3s ease-in-out infinite; }
+@keyframes xmTwinkle { 0%, 100% { transform: scale(.5) rotate(0); opacity: .35; } 50% { transform: scale(1.1) rotate(25deg); opacity: 1; } }
+
+.xm-sleigh { animation: xmSleigh 42s linear infinite; filter: drop-shadow(0 0 10px rgba(253, 224, 71, .45)); }
+@keyframes xmSleigh {
+    0%   { transform: translate(0, 8px) rotate(-3deg); }
+    50%  { transform: translate(calc(var(--travel) * .5), -22px) rotate(2deg); }
+    100% { transform: translate(var(--travel), 8px) rotate(-3deg); }
+}
+.xm-nose { animation: xmNose 1s ease-in-out infinite alternate; filter: drop-shadow(0 0 5px #ef4444); }
+@keyframes xmNose { from { opacity: .6; } to { opacity: 1; } }
+
+.xm-drift svg { filter: drop-shadow(0 -2px 6px rgba(147, 197, 253, .35)); }
+
+.xm-bulb { animation: xmBlink 2s ease-in-out infinite; }
+.xm-bulb ellipse:nth-of-type(1) { filter: drop-shadow(0 0 5px currentColor) drop-shadow(0 0 10px currentColor); }
+@keyframes xmBlink { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+.xm-bauble { transform-origin: 50% 0; animation: xmSwing 3.4s ease-in-out infinite alternate; }
+.xm-bauble .thread { background: rgba(217, 169, 20, .85); }
+.xm-bauble svg { filter: drop-shadow(0 4px 5px rgba(0, 0, 0, .35)); }
+@keyframes xmSwing { from { transform: rotate(-8deg); } to { transform: rotate(8deg); } }
+
+.xm-snowman { transform-origin: 50% 100%; animation: xmWobble 4s ease-in-out infinite alternate; }
+@keyframes xmWobble { from { transform: rotate(-2.5deg); } to { transform: rotate(2.5deg); } }
+
+.xm-tree svg, .xm-snowman svg, .xm-gifts svg, .xm-cane svg, .xm-holly svg, .xm-wreath svg { filter: drop-shadow(0 4px 5px rgba(0, 0, 0, .3)); }
+.xm-star { transform-box: fill-box; transform-origin: center; animation: xmStar 1.6s ease-in-out infinite alternate; filter: drop-shadow(0 0 6px #fde047); }
+@keyframes xmStar { from { transform: scale(.9) rotate(-8deg); } to { transform: scale(1.15) rotate(8deg); } }
+.xm-tree-lights circle { animation: xmBlink 1.4s ease-in-out infinite; filter: drop-shadow(0 0 3px currentColor); }
+.xm-tree-lights circle:nth-child(2n) { animation-delay: -.4s; }
+.xm-tree-lights circle:nth-child(3n) { animation-delay: -.8s; }
+.xm-tree-lights circle:nth-child(5n) { animation-delay: -1.1s; }
+.xm-wreath { animation: xmSwing 5s ease-in-out infinite alternate; transform-origin: 50% 0; }
+
+/* Neige qui tombe : visible sur fond clair ET sombre */
+.fx-snow .flake {
+    position: absolute; top: -12px; border-radius: 50%; background: #fff;
+    box-shadow: 0 0 0 1px rgba(125, 180, 240, .55), 0 0 5px rgba(125, 180, 240, .8);
+    animation-name: fxFall, fxSway;
+    animation-timing-function: linear, ease-in-out;
+    animation-iteration-count: infinite, infinite;
+    animation-direction: normal, alternate;
+}
+
+/* --- Interface Noël --- */
+body.theme-noel .navbar {
+    background: rgba(10, 28, 22, .95) !important;
+    border-bottom: 4px solid transparent !important;
+    border-image: repeating-linear-gradient(45deg, #dc2626 0 14px, #fff 14px 28px) 1 !important;
+    box-shadow: 0 4px 20px rgba(220, 38, 38, .3);
+}
+body.theme-noel .vafm-player-premium {
+    background: linear-gradient(135deg, #0f2a1f, #0a1620) !important;
+    border-top: 3px solid #dc2626 !important;
+    box-shadow: 0 -4px 25px rgba(34, 197, 94, .3) !important;
+}
+body.theme-noel .control-play-btn {
+    background: #dc2626 !important; color: #fff !important;
+    box-shadow: 0 0 20px rgba(220, 38, 38, .75) !important;
+}
+body.theme-noel .dedicaces-ticker { background: #12301f !important; color: #ffd166 !important; border-bottom: 1px solid #dc2626; }
+body.theme-noel .nav-links a { color: #e0f2fe !important; font-weight: 600; transition: color .2s, text-shadow .2s; }
+body.theme-noel .nav-links a:hover { color: #ffd166 !important; text-shadow: 0 0 8px rgba(255, 209, 102, .6); }
+body.theme-noel .btn-search-trigger,
+body.theme-noel .btn-user-avatar {
+    color: #e0f2fe !important; background: rgba(255, 255, 255, .1) !important;
+    border: 1px solid rgba(220, 38, 38, .5) !important;
+}
+body.theme-noel .btn-search-trigger:hover,
+body.theme-noel .btn-user-avatar:hover { background: rgba(220, 38, 38, .25) !important; border-color: #dc2626 !important; }
+body.theme-noel .admin-top-bar { background: #08141e !important; border-bottom: 1px solid #dc2626 !important; }
+body.theme-noel .admin-status { color: #ffd166 !important; font-weight: 700; }
+
+/* ==========================================================================
+   ACCESSIBILITÉ
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    #seasonal-decor-container *, #seasonal-fx-container * { animation: none !important; }
+    #seasonal-fx-container { display: none; }
+}

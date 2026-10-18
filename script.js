@@ -3417,15 +3417,6 @@ function toggleMobileMenu() {
     }
 }
 
-// Configuration des gains et des probabilités
-const WHEEL_REWARDS = [
-  { label: "50 pts", points: 50, weight: 40, color: "#27272a" },
-  { label: "100 pts", points: 100, weight: 30, color: "#E50914" },
-  { label: "200 pts", points: 200, weight: 20, color: "#18181b" },
-  { label: "500 pts", points: 500, weight: 9, color: "#E50914" },
-  { label: "JACKPOT 1000", points: 1000, weight: 1, color: "#ffd700", textColor: "#000000" }
-];
-
 let wheelCurrentAngle = 0;
 let isWheelSpinning = false;
 
