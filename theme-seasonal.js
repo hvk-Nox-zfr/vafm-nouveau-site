@@ -605,6 +605,42 @@ window.addEventListener('load', () => scheduleLayout(false));
 
 /* ---------- Démarrage + synchro PocketBase ---------- */
 
+const API_BASE = 'https://api.vafmlaradio.fr';
+
+// Session admin lue directement là où le SDK PocketBase la range
+function getStoredAuth() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem('pocketbase_auth') || 'null');
+        if (parsed && parsed.token) return { token: parsed.token, user: parsed.record || parsed.model || {} };
+    } catch (e) {}
+    return null;
+}
+
+async function saveThemeRest(theme) {
+    const auth = getStoredAuth();
+    if (!auth) throw new Error('Pas de session admin dans ce navigateur (reconnecte-toi).');
+    try {
+        const exp = JSON.parse(atob(auth.token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp * 1000;
+        if (exp < Date.now()) {
+            const e = new Error('Ta session admin a expiré : déconnecte-toi puis reconnecte-toi, et réessaie.');
+            e.status = 401;
+            throw e;
+        }
+    } catch (e) { if (e && e.status === 401) throw e; }
+    const headers = { 'Content-Type': 'application/json', Authorization: auth.token };
+    const list = await fetch(`${API_BASE}/api/collections/settings/records?perPage=1`, { headers });
+    const data = await list.json();
+    if (!list.ok) { const e = new Error(data.message || 'Lecture impossible'); e.status = list.status; throw e; }
+    const exists = data.items && data.items[0];
+    const res = await fetch(
+        exists ? `${API_BASE}/api/collections/settings/records/${exists.id}` : `${API_BASE}/api/collections/settings/records`,
+        { method: exists ? 'PATCH' : 'POST', headers, body: JSON.stringify({ theme }) }
+    );
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) { const e = new Error(out.message || 'Écriture refusée'); e.status = res.status; e.response = out; throw e; }
+    return out;
+}
+
 function getPb() {
     try { if (typeof pb !== 'undefined' && pb) return pb; } catch (e) {}
     return window.pb || null;
@@ -622,15 +658,44 @@ function getPb() {
 async function loadRemoteTheme() {
     for (let i = 0; i < 20 && !getPb(); i++) await new Promise((r) => setTimeout(r, 250));
     const client = getPb();
-    if (!client) return;
-    try {
-        const res = await client.collection('settings').getList(1, 1);
-        const remote = res.items[0] && res.items[0].theme;
-        if (remote && VALID_THEMES.includes(remote)) {
-            try { localStorage.setItem(THEME_STORAGE_KEY, remote); } catch (e) {}
-            if (remote !== currentTheme) applyThemeUI(remote);
+    const base = (client && client.baseUrl) || 'https://api.vafmlaradio.fr';
+    let remote = null;
+
+    // 1) via le client PocketBase du site
+    if (client) {
+        try {
+            const res = await client.collection('settings').getList(1, 1);
+            remote = res.items[0] && res.items[0].theme;
+            console.log('[VAFM thème] lu via pb :', res.items.length, 'enregistrement(s), theme =', remote);
+        } catch (err) {
+            console.warn('[VAFM thème] Lecture pb refusée :', err && (err.status || err.message), err);
         }
-    } catch (err) { /* lecture non autorisée : on garde le thème local */ }
+    }
+
+    // 2) secours : appel direct à l'API (sans session, comme un visiteur)
+    if (!remote) {
+        try {
+            const r = await fetch(`${base}/api/collections/settings/records?perPage=1`, { cache: 'no-store' });
+            const data = await r.json();
+            if (!r.ok) {
+                console.warn('[VAFM thème] API settings :', r.status, data && data.message,
+                    r.status === 403 ? '→ la règle de lecture (List/View) de "settings" n\'est pas publique' :
+                    r.status === 404 ? '→ la collection "settings" n\'existe pas' : '');
+            } else {
+                remote = data.items && data.items[0] && data.items[0].theme;
+                console.log('[VAFM thème] lu via API :', (data.items || []).length, 'enregistrement(s), theme =', remote);
+                if (data.items && data.items.length && remote === undefined)
+                    console.warn('[VAFM thème] le champ "theme" n\'existe pas dans la collection "settings"');
+            }
+        } catch (err) {
+            console.warn('[VAFM thème] API injoignable :', err);
+        }
+    }
+
+    if (remote && VALID_THEMES.includes(remote)) {
+        try { localStorage.setItem(THEME_STORAGE_KEY, remote); } catch (e) {}
+        if (remote !== currentTheme) applyThemeUI(remote);
+    }
 }
 
 async function handleThemeChange(event) {
@@ -638,20 +703,41 @@ async function handleThemeChange(event) {
     applyThemeUI(newTheme);
     try { localStorage.setItem(THEME_STORAGE_KEY, newTheme); } catch (e) {}
 
-    const client = getPb();
-    if (client && client.authStore && client.authStore.isValid) {
-        try {
+    try {
+        const client = getPb();
+        if (client && client.authStore && client.authStore.isValid) {
             const records = await client.collection('settings').getList(1, 1);
             if (records.items.length > 0) {
                 await client.collection('settings').update(records.items[0].id, { theme: newTheme });
             } else {
                 await client.collection('settings').create({ theme: newTheme });
             }
-        } catch (err) {
-            console.warn('[VAFM thème] Non enregistré dans PocketBase (champ "theme" manquant ou droits ?) :', err);
+        } else {
+            await saveThemeRest(newTheme);   // plan B : appel direct à l'API
         }
+        console.log('[VAFM thème] ✔ enregistré dans PocketBase :', newTheme);
+        if (typeof showToast === 'function') showToast(`Thème appliqué pour tous : ${newTheme.toUpperCase()}`);
+        return;
+    } catch (err) {
+        const st = err && err.status;
+        try {
+            const a = getStoredAuth();
+            let exp = null;
+            if (a) { try { exp = new Date(JSON.parse(atob(a.token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp * 1000); } catch (e) {} }
+            console.warn('[VAFM thème] diagnostic session →',
+                'connecté:', !!a,
+                '| collection:', a && a.user.collectionName,
+                '| rôle vu par le site:', a && JSON.stringify(a.user.role),
+                '| token expire le:', exp ? exp.toLocaleString() : '?',
+                exp && exp < new Date() ? '(EXPIRÉ → reconnecte-toi)' : '');
+        } catch (e) {}
+        console.warn('[VAFM thème] ✘ Non enregistré (code ' + st + ') :', err && err.message,
+            st === 400 ? '→ la règle Create/Update refuse ce compte (rôle différent de "admin" ou session expirée), ou un champ est refusé' :
+            st === 401 || st === 403 ? '→ vérifie les règles Create/Update de "settings" (ton rôle admin doit être autorisé)' : '',
+            err && err.response);
+        if (typeof showToast === 'function') showToast(`Thème appliqué ici seulement (non enregistré : ${err && err.message})`);
+        return;
     }
-    if (typeof showToast === 'function') showToast(`Thème appliqué : ${newTheme.toUpperCase()}`);
 }
 
 window.applyThemeUI = applyThemeUI;
