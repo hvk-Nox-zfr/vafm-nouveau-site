@@ -842,6 +842,10 @@ async function openArticleView(category, id) {
     /* La barre est fixée sur toute la hauteur de l'écran ; le reste de la page
        (en-tête, bandeau, lecteur, barre du Studio, article) est décalé pour que
        rien ne passe dessous. La largeur décalée est dans --vafm-sb-w. */
+    /* Pas de décors saisonniers (Halloween, Noël…) par-dessus le texte d'un article */
+    body.vafm-article-open #seasonal-decor-container,
+    body.vafm-article-open #seasonal-fx-container { display: none !important; }
+
     .vafm-sb {
         position: fixed; top: 0; bottom: 0; left: 0; height: 100vh; height: 100dvh;
         display: flex; flex-direction: row; box-sizing: border-box; margin: 0;
@@ -1073,6 +1077,7 @@ async function openArticleView(category, id) {
     }
     
     articleContainer.style.display = 'block';
+    document.body.classList.add('vafm-article-open');
     window.scrollTo({ top: 0, behavior: 'instant' });
 
     if (isAdmin) {
@@ -2006,6 +2011,8 @@ async function closeArticleView(options = {}) {
 
     const articleContainer = document.getElementById('article-modal');
     const wasOpen = Boolean(articleContainer && articleContainer.style.display === 'block');
+
+    document.body.classList.remove('vafm-article-open');
 
     if (articleContainer) {
         articleContainer.style.display = 'none';
