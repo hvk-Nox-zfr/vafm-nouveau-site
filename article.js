@@ -835,6 +835,107 @@ async function openArticleView(category, id) {
         padding: 15px; text-align: center; color: #555; font-weight: 600; font-size: 0.85rem;
         user-select: none;
     }
+
+    /* ==========================================================================
+       BARRE LATÉRALE DU STUDIO — style Canva (rail d'icônes + panneau coulissant)
+       ========================================================================== */
+    /* La barre est fixée sur toute la hauteur de l'écran ; le reste de la page
+       (en-tête, bandeau, lecteur, barre du Studio, article) est décalé pour que
+       rien ne passe dessous. La largeur décalée est dans --vafm-sb-w. */
+    .vafm-sb {
+        position: fixed; top: 0; bottom: 0; left: 0; height: 100vh; height: 100dvh;
+        display: flex; flex-direction: row; box-sizing: border-box; margin: 0;
+        background: #ffffff; border: none; border-right: 1px solid #e0e0e8; border-radius: 0;
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
+        z-index: 2147482999; color: #1a1a1a;
+    }
+    @media screen and (min-width: 1001px) {
+        body.vafm-studio-sb #article-modal { padding-left: var(--vafm-sb-w, 0px) !important; box-sizing: border-box !important; transition: padding-left 0.25s ease; }
+        body.vafm-studio-sb .vafm-shift-fixed { left: var(--vafm-sb-w, 0px) !important; width: calc(100% - var(--vafm-sb-w, 0px)) !important; transition: left 0.25s ease, width 0.25s ease; }
+        body.vafm-studio-sb .vafm-shift-flow { margin-left: var(--vafm-sb-w, 0px) !important; width: calc(100% - var(--vafm-sb-w, 0px)) !important; box-sizing: border-box !important; }
+        @media screen and (min-width: 1001px) {
+            /* Lecteur : taille d'origine conservée, simplement recentré dans l'espace restant */
+            body.vafm-studio-sb .vafm-player-premium:not(.player-collapsed) { left: calc(50% + var(--vafm-sb-w, 0px) / 2) !important; max-width: min(1050px, calc(100vw - var(--vafm-sb-w, 0px) - 40px)) !important; }
+            body.vafm-studio-sb .vafm-player-premium.player-collapsed { left: calc(50% - 525px + var(--vafm-sb-w, 0px) / 2) !important; }
+        }
+        @media screen and (min-width: 1001px) and (max-width: 1090px) {
+            body.vafm-studio-sb .vafm-player-premium.player-collapsed { left: calc(20px + var(--vafm-sb-w, 0px)) !important; }
+        }
+        body.vafm-studio-sb .vafm-player-toolbar { left: calc(50% + var(--vafm-sb-w, 0px) / 2) !important; right: auto !important; width: auto !important; margin: 0 !important; transform: translateX(-50%) !important; max-width: calc(100vw - var(--vafm-sb-w, 0px) - 24px) !important; }
+    }
+    .vafm-sb svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+
+    /* --- Rail d'icônes --- */
+    .vafm-sb-rail { width: 84px; flex: 0 0 84px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 0; border-right: 1px solid #eee; overflow-y: auto; }
+    .vafm-sb-rail-btn { width: 70px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 8px 0; background: none; border: none; border-radius: 12px; cursor: pointer; color: #555; font-family: inherit; }
+    .vafm-sb-rail-btn .lbl { font-size: 0.72rem; font-weight: 700; line-height: 1.1; text-align: center; }
+    .vafm-sb-rail-btn:hover { background: #f3f3f7; color: #111; }
+    .vafm-sb-rail-btn.active { background: rgba(229, 9, 20, 0.09); color: #E50914; }
+
+    /* --- Panneau --- */
+    .vafm-sb-panel { width: 330px; flex: 0 0 330px; display: none; flex-direction: column; min-height: 0; padding: 16px 14px 0; box-sizing: border-box; }
+    .vafm-sb-panel.active { display: flex; }
+    .vafm-sb.panel-closed .vafm-sb-panel { display: none; }
+
+    .vafm-sb-mobile-top { display: none; align-items: center; justify-content: space-between; margin-bottom: 12px; font-weight: 800; }
+    .vafm-sb-close { width: 32px; height: 32px; border-radius: 50%; border: none; background: #f0f0f5; cursor: pointer; font-size: 0.95rem; }
+
+    .vafm-sb-search { position: relative; flex-shrink: 0; }
+    .vafm-sb-search svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: #666; pointer-events: none; }
+    .vafm-sb-search input { width: 100%; box-sizing: border-box; padding: 12px 14px 12px 42px; border: 1px solid #d9d9e3; border-radius: 12px; font-size: 0.9rem; font-family: inherit; background: #fff; color: #222; }
+    .vafm-sb-search input:focus { outline: none; border-color: #E50914; box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.12); }
+
+    .vafm-sb-import { flex-shrink: 0; width: 100%; margin-top: 10px; padding: 12px; border: none; border-radius: 12px; background: #E50914; color: #fff; font-size: 0.92rem; font-weight: 800; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .vafm-sb-import:hover { background: #c8060f; }
+    .vafm-sb-import svg { width: 18px; height: 18px; }
+
+    .vafm-sb-tabs { flex-shrink: 0; display: flex; gap: 20px; margin-top: 14px; border-bottom: 1px solid #eee; }
+    .vafm-sb-tab { background: none; border: none; padding: 8px 0 10px; font-size: 0.92rem; font-weight: 700; color: #666; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -1px; font-family: inherit; }
+    .vafm-sb-tab:hover { color: #111; }
+    .vafm-sb-tab.active { color: #111; border-bottom-color: #E50914; }
+
+    .vafm-sb-chips { flex-shrink: 0; display: flex; gap: 6px; margin: 12px 0 4px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: none; }
+    .vafm-sb-chips::-webkit-scrollbar { display: none; }
+    .vafm-sb-chip { flex-shrink: 0; padding: 6px 12px; border: 1px solid #e0e0e8; border-radius: 999px; background: #fff; font-size: 0.76rem; font-weight: 700; color: #555; cursor: pointer; font-family: inherit; white-space: nowrap; }
+    .vafm-sb-chip:hover { background: #f3f3f7; }
+    .vafm-sb-chip.active { background: #111; border-color: #111; color: #fff; }
+
+    .vafm-sb-check { flex-shrink: 0; display: flex; align-items: center; gap: 7px; font-size: 0.76rem; color: #666; margin: 4px 0 8px; cursor: pointer; }
+
+    .vafm-sb-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 2px 24px 0; }
+
+    /* Grille façon Canva : colonnes, proportions d'origine conservées */
+    .vafm-drive-grid { column-count: 2; column-gap: 8px; }
+    .vafm-drive-item { position: relative; display: block; width: 100%; margin: 0 0 8px; padding: 0; border: none; border-radius: 10px; overflow: hidden; background: #ececf1; cursor: pointer; break-inside: avoid; min-height: 70px; }
+    .vafm-drive-item img { display: block; width: 100%; height: auto; cursor: pointer; }
+    .vafm-drive-item::after { content: ""; position: absolute; inset: 0; background: rgba(0, 0, 0, 0); transition: background 0.15s ease; pointer-events: none; }
+    .vafm-drive-item:hover::after, .vafm-drive-item:focus-visible::after { background: rgba(0, 0, 0, 0.22); }
+    .vafm-drive-item:focus-visible { outline: 2px solid #E50914; outline-offset: 1px; }
+    .vafm-drive-item .vafm-drive-play { display: flex; align-items: center; justify-content: center; aspect-ratio: 16 / 9; background: #18181c; color: #fff; font-size: 1.6rem; }
+    .vafm-drive-item .vafm-drive-name { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; padding: 16px 8px 6px; background: linear-gradient(transparent, rgba(0, 0, 0, 0.7)); color: #fff; font-size: 0.7rem; font-weight: 600; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0; transition: opacity 0.15s ease; }
+    .vafm-drive-item:hover .vafm-drive-name, .vafm-drive-item:focus-visible .vafm-drive-name { opacity: 1; }
+    .vafm-drive-status { font-size: 0.82rem; color: #888; text-align: center; padding: 14px 4px; line-height: 1.5; }
+    .vafm-drive-status button { margin-top: 8px; padding: 8px 14px; border: 1px solid #e0e0e8; border-radius: 8px; background: #f7f7fa; font-weight: 700; cursor: pointer; font-family: inherit; }
+
+    /* Poignée pour replier / afficher le panneau */
+    .vafm-sb-handle { position: absolute; top: 50%; right: -14px; transform: translateY(-50%); width: 28px; height: 56px; display: flex; align-items: center; justify-content: center; padding: 0; background: #fff; border: 1px solid #e0e0e8; border-radius: 14px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12); cursor: pointer; color: #333; z-index: 2; }
+    .vafm-sb-handle svg { width: 16px; height: 16px; stroke-width: 2.4; transition: transform 0.2s ease; }
+    .vafm-sb-handle:hover { background: #f3f3f7; }
+    .vafm-sb.panel-closed .vafm-sb-handle svg { transform: rotate(180deg); }
+
+    .vafm-sb-fab { display: none; }
+    .canva-block video { width: 100%; border-radius: 8px; display: block; background: #000; }
+    .vafm-img-credit { display: block; margin-top: 6px; font-size: 0.78rem; color: #888; font-style: italic; }
+
+    @media screen and (max-width: 1000px) {
+        .vafm-sb { width: min(360px, 92vw); border-radius: 0 16px 16px 0; transform: translateX(-105%); transition: transform 0.25s ease; z-index: 10000001; }
+        .vafm-sb.mobile-open { transform: translateX(0); box-shadow: 0 0 60px rgba(0, 0, 0, 0.5); }
+        .vafm-sb-rail, .vafm-sb-handle { display: none; }
+        .vafm-sb-panel, .vafm-sb.panel-closed .vafm-sb-panel { display: flex; width: 100%; flex: 1 1 auto; padding-top: 14px; }
+        .vafm-sb .vafm-sb-panel:not(.active) { display: none; }
+        .vafm-sb-mobile-top { display: flex; }
+        .vafm-sb-fab { display: flex; position: fixed; left: 14px; bottom: 130px; width: 48px; height: 48px; align-items: center; justify-content: center; border-radius: 50%; border: none; background: #E50914; color: #fff; box-shadow: 0 6px 20px rgba(229, 9, 20, 0.45); z-index: 9999998; cursor: pointer; }
+    }
 </style>
 
         <div id="vafm-reading-progress" class="vafm-reading-progress"><div id="vafm-reading-progress-fill" class="vafm-reading-progress-fill"></div></div>
@@ -981,6 +1082,7 @@ async function openArticleView(category, id) {
         try { initDynamicTooltips(); } catch (e) { console.error('[VAFM] initDynamicTooltips:', e); }
         try { initStudioShortcuts(collectionName, id); } catch (e) { console.error('[VAFM] initStudioShortcuts:', e); }
         try { initStudioSafetyNet(collectionName, id); } catch (e) { console.error('[VAFM] initStudioSafetyNet:', e); }
+        try { initStudioSidebar(); } catch (e) { console.error('[VAFM] initStudioSidebar:', e); }
     } else {
         initArticleImageLightbox();
         try { initReadingProgressBar(); } catch (e) { console.error('[VAFM] initReadingProgressBar:', e); }
@@ -1319,6 +1421,8 @@ function handleCanvaDocumentClick(e) {
     if (
         !e.target.closest('.canva-block') &&
         !e.target.closest('.vafm-player-toolbar') &&
+        !e.target.closest('#vafm-studio-sidebar') &&
+        !e.target.closest('#vafm-sb-fab') &&
         !e.target.closest('#canva-doc-title') &&
         !e.target.closest('.vafm-modal-overlay') &&
         !e.target.closest('#vafm-block-mini-toolbar')
@@ -1892,6 +1996,7 @@ async function closeArticleView(options = {}) {
     document.removeEventListener('keydown', handleStudioKeydown);
     delete window._currentStudioContext;
     stopStudioSafetyNet();
+    teardownStudioSidebar();
     hasUnsavedChanges = false;
     if (_miniBlockToolbarEl) { _miniBlockToolbarEl.classList.remove('visible'); _miniBlockToolbarEl.style.display = 'none'; }
     if (window._vafmReadingProgressHandler) {
@@ -2615,6 +2720,584 @@ async function saveCanvaArticle(collectionName, id) {
             saveBtn.classList.remove('is-saving');
         }
     }
+}
+
+
+/* ==========================================================================
+   BARRE LATÉRALE DU STUDIO (style Canva) + LIAISON AVEC LE MEDIA DRIVE
+   - Rail d'icônes à gauche ; un clic ouvre le panneau de la section.
+   - Pour l'instant : une seule section, "Drive" (collection PocketBase "photos").
+   - Pour ajouter une section plus tard : ajouter une entrée dans
+     VAFM_SB_SECTIONS (key, label, icon, panelHtml) et gérer son init.
+   ========================================================================== */
+const VAFM_DRIVE = {
+    collection: 'photos',
+    perPage: 60,
+    thumb: '400x0',          // miniatures de la grille (largeur 400, hauteur auto)
+    insertThumb: '1400x0',   // taille de l'image insérée dans l'article
+    categories: ['Actu', 'Sport', 'Culture', 'Portrait', 'Événement'],
+    videoExt: ['.mp4', '.webm', '.mov', '.m4v'],
+    maxPages: 20
+};
+
+let _driveState = null;
+
+const VAFM_SB_ICONS = {
+    drive: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="9" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>',
+    search: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+    upload: '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
+    chevron: '<svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>',
+    panel: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="9" y1="3" x2="9" y2="21"/></svg>'
+};
+
+function _sbGetPref(key, fallback) {
+    try {
+        const v = localStorage.getItem('vafm_sb_' + key);
+        return v === null ? fallback : v;
+    } catch (e) { return fallback; }
+}
+
+function _sbSetPref(key, value) {
+    try { localStorage.setItem('vafm_sb_' + key, value); } catch (e) { /* non bloquant */ }
+}
+
+function getStudioAuthorName() {
+    const u = window.appState && window.appState.currentUser;
+    return (u && (u.name || u.username)) || 'VAFM';
+}
+
+function buildStudioSidebarHtml() {
+    const I = VAFM_SB_ICONS;
+    const chips = ['<button type="button" class="vafm-sb-chip active" data-action="drive-cat" data-cat="">Tout</button>']
+        .concat(VAFM_DRIVE.categories.map(c =>
+            `<button type="button" class="vafm-sb-chip" data-action="drive-cat" data-cat="${escapeHtml(c)}">${escapeHtml(c)}</button>`))
+        .join('');
+
+    const sections = [
+        {
+            key: 'drive',
+            label: 'Drive',
+            icon: I.drive,
+            panelHtml: `
+                <div class="vafm-sb-mobile-top"><span>Drive VAFM</span><button type="button" class="vafm-sb-close" data-action="sb-close" aria-label="Fermer">✕</button></div>
+                <div class="vafm-sb-search">${I.search}<input type="search" id="vafm-drive-search" placeholder="Rechercher un titre, un mot-clé…" autocomplete="off"></div>
+                <button type="button" class="vafm-sb-import" data-action="drive-upload">${I.upload} Importer des fichiers</button>
+                <input type="file" id="vafm-drive-upload-input" accept="image/*,video/*" hidden>
+                <div class="vafm-sb-tabs">
+                    <button type="button" class="vafm-sb-tab active" data-action="drive-type" data-type="photo">Images</button>
+                    <button type="button" class="vafm-sb-tab" data-action="drive-type" data-type="video">Vidéos</button>
+                </div>
+                <div class="vafm-sb-chips">${chips}</div>
+                <label class="vafm-sb-check"><input type="checkbox" id="vafm-drive-credit" checked> Ajouter le crédit sous la photo</label>
+                <div class="vafm-sb-scroll" id="vafm-drive-scroll">
+                    <div class="vafm-drive-grid" id="vafm-drive-grid"></div>
+                    <div class="vafm-drive-status" id="vafm-drive-status"></div>
+                </div>
+            `
+        }
+    ];
+
+    const openKey = sections[0].key;
+    const closed = _sbGetPref('panel', 'open') === 'closed';
+
+    const rail = sections.map(s => `
+        <button type="button" class="vafm-sb-rail-btn${s.key === openKey ? ' active' : ''}" data-action="sb-section" data-section="${s.key}" title="${escapeHtml(s.label)}">
+            ${s.icon}<span class="lbl">${escapeHtml(s.label)}</span>
+        </button>`).join('');
+
+    const panels = sections.map(s => `
+        <div class="vafm-sb-panel${s.key === openKey ? ' active' : ''}" data-panel="${s.key}">${s.panelHtml}</div>`).join('');
+
+    return `
+        <aside class="vafm-sb${closed ? ' panel-closed' : ''}" id="vafm-studio-sidebar">
+            <nav class="vafm-sb-rail">${rail}</nav>
+            ${panels}
+            <button type="button" class="vafm-sb-handle" data-action="sb-panel-toggle" title="Replier / afficher le panneau" aria-label="Replier ou afficher le panneau">${I.chevron}</button>
+        </aside>
+        <button type="button" class="vafm-sb-fab" id="vafm-sb-fab" aria-label="Ouvrir le Drive">${I.drive}</button>
+    `;
+}
+
+/* ---------------------------- Drive : utilitaires ---------------------------- */
+function _pbBase() {
+    return typeof POCKETBASE_URL !== 'undefined' ? POCKETBASE_URL : (window.POCKETBASE_URL || 'https://api.vafmlaradio.fr');
+}
+
+function _pbAuthHeaders() {
+    return typeof getAuthHeaders === 'function' ? getAuthHeaders() : {};
+}
+
+function _normalizeText(str) {
+    return String(str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function driveIsVideo(rec) {
+    const name = (rec.image || '').toLowerCase();
+    return String(rec.type || '').toLowerCase() === 'video' || VAFM_DRIVE.videoExt.some(ext => name.endsWith(ext));
+}
+
+function driveFileUrl(rec, thumb) {
+    const col = rec.collectionName || VAFM_DRIVE.collection;
+    const base = `${_pbBase()}/api/files/${col}/${rec.id}/${encodeURIComponent(rec.image)}`;
+    return thumb ? `${base}?thumb=${thumb}` : base;
+}
+
+function driveMatches(rec) {
+    const st = _driveState;
+    if (!rec.image) return false;
+    if (driveIsVideo(rec) !== (st.type === 'video')) return false;
+    if (st.category && rec.categorie !== st.category) return false;
+    if (st.search) {
+        const hay = _normalizeText([rec.titre, rec.tags, rec.credit, rec.categorie].join(' '));
+        if (!hay.includes(_normalizeText(st.search))) return false;
+    }
+    return true;
+}
+
+function setDriveStatus(html) {
+    const el = document.getElementById('vafm-drive-status');
+    if (el) el.innerHTML = html;
+}
+
+function createDriveCard(rec) {
+    const isVideo = driveIsVideo(rec);
+    const label = rec.titre || 'Sans titre';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'vafm-drive-item' + (isVideo ? ' is-video' : '');
+    btn.dataset.id = rec.id;
+    btn.title = `${label} — cliquer pour insérer`;
+
+    if (isVideo) {
+        const play = document.createElement('div');
+        play.className = 'vafm-drive-play';
+        play.textContent = '▶';
+        btn.appendChild(play);
+    } else {
+        const img = document.createElement('img');
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.alt = label;
+        img.src = driveFileUrl(rec, VAFM_DRIVE.thumb);
+        // Si la miniature n'existe pas côté PocketBase, on retombe sur l'original.
+        img.onerror = () => {
+            if (!img.dataset.fallback) {
+                img.dataset.fallback = '1';
+                img.src = driveFileUrl(rec);
+            } else {
+                img.style.display = 'none';
+            }
+        };
+        btn.appendChild(img);
+    }
+
+    const name = document.createElement('span');
+    name.className = 'vafm-drive-name';
+    name.textContent = label;
+    btn.appendChild(name);
+
+    return btn;
+}
+
+/* ------------------------- Drive : chargement et rendu ------------------------- */
+function driveHasMore() {
+    return _driveState.page < _driveState.totalPages && _driveState.page < VAFM_DRIVE.maxPages;
+}
+
+function driveRender() {
+    const st = _driveState;
+    const grid = document.getElementById('vafm-drive-grid');
+    if (!st || !grid) return;
+
+    const visible = st.all.filter(driveMatches);
+    const nodes = visible.map(rec => {
+        let card = st.cards.get(rec.id);
+        if (!card) {
+            card = createDriveCard(rec);
+            st.cards.set(rec.id, card);
+        }
+        return card;
+    });
+    grid.replaceChildren(...nodes);
+
+    if (st.error) return;
+    if (visible.length === 0 && !driveHasMore() && !st.loading) {
+        const filtered = st.search || st.category;
+        setDriveStatus(filtered ? 'Aucun média ne correspond à votre recherche.' : 'Aucun média dans le Drive pour le moment.');
+    } else if (st.loading) {
+        setDriveStatus('Chargement…');
+    } else {
+        setDriveStatus('');
+    }
+}
+
+async function driveFetchNextPage() {
+    const st = _driveState;
+    if (!st || st.loading || (st.loaded && !driveHasMore())) return;
+
+    const myReq = st.reqId;
+    const nextPage = st.page + 1;
+    st.loading = true;
+    st.error = null;
+    setDriveStatus('Chargement…');
+
+    try {
+        // Pas de filtre côté serveur : le tri/filtrage se fait ici, comme dans le Drive.
+        const url = `${_pbBase()}/api/collections/${VAFM_DRIVE.collection}/records?page=${nextPage}&perPage=${VAFM_DRIVE.perPage}&sort=-created`;
+        const res = await fetch(url, { headers: _pbAuthHeaders() });
+
+        if (myReq !== st.reqId) return;
+
+        if (!res.ok) {
+            const errJson = await res.json().catch(() => ({}));
+            const detail = errJson.message ? ` — ${errJson.message}` : '';
+            const err = new Error(`HTTP ${res.status}${detail}`);
+            err.status = res.status;
+            throw err;
+        }
+
+        const data = await res.json();
+        const known = new Set(st.all.map(r => r.id));
+        (data.items || []).forEach(rec => { if (!known.has(rec.id)) st.all.push(rec); });
+        st.page = data.page || nextPage;
+        st.totalPages = data.totalPages || 1;
+        st.loaded = true;
+    } catch (err) {
+        if (myReq !== st.reqId) return;
+        console.error('[VAFM Drive] Chargement impossible :', err);
+        st.error = err;
+        const msg = (err.status === 401 || err.status === 403)
+            ? "Accès au Drive refusé. Votre compte doit avoir le rôle admin ou journaliste."
+            : "Impossible de charger le Drive.";
+        setDriveStatus(`${escapeHtml(msg)}<br><small>${escapeHtml(err.message)}</small><br><button type="button" data-action="drive-retry">Réessayer</button>`);
+    } finally {
+        if (myReq === st.reqId) st.loading = false;
+    }
+
+    if (myReq === st.reqId && !st.error) driveRender();
+}
+
+// Charge d'autres pages tant que : une recherche/catégorie est active et ne trouve rien
+// de plus, ou que la zone visible n'est pas encore remplie.
+async function driveFill() {
+    const st = _driveState;
+    const scroll = document.getElementById('vafm-drive-scroll');
+    if (!st || !scroll) return;
+
+    let guard = 0;
+    while (!st.loading && !st.error && driveHasMore() && guard++ < VAFM_DRIVE.maxPages) {
+        const filtering = Boolean(st.search || st.category);
+        const underfilled = scroll.scrollHeight <= scroll.clientHeight + 120;
+        if (!filtering && !underfilled) break;
+        await driveFetchNextPage();
+    }
+}
+
+async function driveReload() {
+    const st = _driveState;
+    if (!st) return;
+    st.reqId++;
+    st.all = [];
+    st.cards.clear();
+    st.page = 0;
+    st.totalPages = 1;
+    st.loaded = false;
+    st.loading = false;
+    st.error = null;
+    driveRender();
+    await driveFetchNextPage();
+    driveFill();
+}
+
+/* ---------------------- Drive : insertion dans l'article ---------------------- */
+function insertDriveMedia(rec) {
+    if (!rec) return;
+    const contentBox = document.getElementById('canva-doc-content');
+    if (!contentBox) return;
+
+    const isVideo = driveIsVideo(rec);
+    const block = document.createElement('div');
+
+    if (isVideo) {
+        block.className = 'canva-block video-embed img-full size-full';
+        const video = document.createElement('video');
+        video.controls = true;
+        video.preload = 'metadata';
+        video.setAttribute('playsinline', '');
+        video.src = driveFileUrl(rec);
+        block.appendChild(video);
+    } else {
+        block.className = 'canva-block img-full size-md';
+        const img = document.createElement('img');
+        img.src = driveFileUrl(rec, VAFM_DRIVE.insertThumb);
+        img.alt = rec.titre || '';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.dataset.driveId = rec.id;
+        block.appendChild(img);
+
+        const creditChk = document.getElementById('vafm-drive-credit');
+        if (rec.credit && creditChk && creditChk.checked) {
+            const cap = document.createElement('small');
+            cap.className = 'vafm-img-credit';
+            cap.textContent = `Crédit : ${rec.credit}`;
+            block.appendChild(cap);
+        }
+    }
+
+    // Insertion après le bloc sélectionné, sinon à la fin de l'article.
+    if (activeBlock && activeBlock.parentNode === contentBox) {
+        activeBlock.after(block);
+    } else {
+        contentBox.appendChild(block);
+    }
+
+    contentBox.querySelectorAll('.canva-block.selected').forEach(b => b.classList.remove('selected'));
+    initCanvaInteractions();
+    block.classList.add('selected');
+    activeBlock = block;
+
+    pushUndoState();
+    updateLiveStats();
+    showToast(isVideo ? 'Vidéo du Drive ajoutée.' : 'Image du Drive ajoutée.', 'success');
+    safeScrollIntoView(block);
+}
+
+/* ------------------------ Drive : import depuis l'éditeur ------------------------ */
+async function uploadFileToDrive(file) {
+    if (!file) return;
+    const isVideo = file.type.startsWith('video/');
+    if (!isVideo && !file.type.startsWith('image/')) {
+        showToast('Le fichier doit être une image ou une vidéo.', 'error');
+        return;
+    }
+
+    const defaultTitle = (file.name.replace(/\.[^.]+$/, '') || file.name).replace(/[-_]/g, ' ');
+    const title = await vafmPrompt({
+        title: 'Importer dans le Drive',
+        label: 'Titre du média (visible dans le Drive)',
+        defaultValue: defaultTitle
+    });
+    if (!title) return;
+
+    const fd = new FormData();
+    fd.append('image', file);
+    fd.append('titre', title);
+    fd.append('type', isVideo ? 'video' : 'photo');
+    fd.append('categorie', (_driveState && _driveState.category) || 'Actu');
+    fd.append('tags', '');
+    fd.append('credit', getStudioAuthorName());
+    const u = window.appState && window.appState.currentUser;
+    if (u && u.id) fd.append('user', u.id);
+
+    showToast('Envoi vers le Drive…', 'info', { duration: 2500 });
+
+    try {
+        const res = await fetch(`${_pbBase()}/api/collections/${VAFM_DRIVE.collection}/records`, {
+            method: 'POST',
+            headers: _pbAuthHeaders(),
+            body: fd
+        });
+        if (!res.ok) {
+            const errJson = await res.json().catch(() => ({}));
+            throw new Error(errJson.message || `HTTP ${res.status}`);
+        }
+        showToast('Média ajouté au Drive.', 'success');
+        if (_driveState) {
+            _driveState.search = '';
+            _driveState.type = isVideo ? 'video' : 'photo';
+            const searchEl = document.getElementById('vafm-drive-search');
+            if (searchEl) searchEl.value = '';
+            document.querySelectorAll('#vafm-studio-sidebar [data-action="drive-type"]').forEach(b => {
+                b.classList.toggle('active', b.dataset.type === _driveState.type);
+            });
+        }
+        driveReload();
+    } catch (err) {
+        console.error('[VAFM Drive] Import impossible :', err);
+        showToast("Import impossible : " + err.message, 'error');
+    }
+}
+
+/* ------------------------------ Barre latérale : init ------------------------------ */
+const VAFM_SB_RAIL_W = 84;
+const VAFM_SB_PANEL_W = 331;
+let _sbObserver = null;
+
+// Éléments fixes du site à décaler pour qu'ils ne passent pas sous la barre.
+function markStudioShiftTargets() {
+    document.querySelectorAll('.admin-top-bar, header.navbar, .dedicaces-ticker').forEach(el => {
+        const pos = getComputedStyle(el).position;
+        const fixed = pos === 'fixed' || pos === 'absolute';
+        el.classList.toggle('vafm-shift-fixed', fixed);
+        el.classList.toggle('vafm-shift-flow', !fixed);
+    });
+}
+
+function syncStudioSidebarOffset() {
+    const sb = document.getElementById('vafm-studio-sidebar');
+    const desktop = !window.matchMedia('(max-width: 1000px)').matches;
+    let w = 0;
+    if (sb && desktop) w = sb.classList.contains('panel-closed') ? VAFM_SB_RAIL_W : VAFM_SB_RAIL_W + VAFM_SB_PANEL_W;
+    document.documentElement.style.setProperty('--vafm-sb-w', w + 'px');
+    document.body.classList.toggle('vafm-studio-sb', Boolean(sb));
+}
+
+function teardownStudioSidebar() {
+    if (_sbObserver) { _sbObserver.disconnect(); _sbObserver = null; }
+    const sb = document.getElementById('vafm-studio-sidebar');
+    const fab = document.getElementById('vafm-sb-fab');
+    if (sb) sb.remove();
+    if (fab) fab.remove();
+    document.body.classList.remove('vafm-studio-sb');
+    document.documentElement.style.removeProperty('--vafm-sb-w');
+    document.querySelectorAll('.vafm-shift-fixed, .vafm-shift-flow').forEach(el => el.classList.remove('vafm-shift-fixed', 'vafm-shift-flow'));
+    if (_driveState) { _driveState.reqId++; _driveState = null; }
+}
+
+function initStudioSidebar() {
+    // La barre vit directement dans <body> (et non dans l'article) pour rester
+    // au-dessus de tout et sur toute la hauteur de l'écran.
+    teardownStudioSidebar();
+    document.body.insertAdjacentHTML('beforeend', buildStudioSidebarHtml());
+
+    const sb = document.getElementById('vafm-studio-sidebar');
+    if (!sb) return;
+
+    const fab = document.getElementById('vafm-sb-fab');
+    const mq = window.matchMedia('(max-width: 1000px)');
+
+    _driveState = {
+        all: [], cards: new Map(), page: 0, totalPages: 1, loaded: false,
+        search: '', type: 'photo', category: '', loading: false, error: null,
+        reqId: 0, searchTimer: null
+    };
+
+    markStudioShiftTargets();
+    syncStudioSidebarOffset();
+    mq.addEventListener('change', syncStudioSidebarOffset);
+
+    const modal = document.getElementById('article-modal');
+    if (modal) {
+        _sbObserver = new MutationObserver(() => {
+            if (!document.getElementById('canva-doc-content') || modal.style.display === 'none') teardownStudioSidebar();
+        });
+        _sbObserver.observe(modal, { attributes: true, attributeFilter: ['style', 'class'], childList: true });
+    }
+
+    const panelVisible = () => (mq.matches ? sb.classList.contains('mobile-open') : !sb.classList.contains('panel-closed'));
+
+    const loadDriveIfNeeded = () => {
+        if (_driveState.loaded || _driveState.loading || _driveState.error) return;
+        if (panelVisible()) driveReload();
+    };
+
+    sb.addEventListener('click', (e) => {
+        // Clic sur un média du Drive
+        const item = e.target.closest('.vafm-drive-item');
+        if (item) {
+            insertDriveMedia(_driveState.all.find(r => r.id === item.dataset.id));
+            if (mq.matches) sb.classList.remove('mobile-open');
+            return;
+        }
+
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+
+        switch (btn.dataset.action) {
+            case 'sb-section': {
+                // Comme Canva : recliquer sur la section active replie le panneau.
+                const isActive = btn.classList.contains('active');
+                if (isActive && !sb.classList.contains('panel-closed')) {
+                    sb.classList.add('panel-closed');
+                    _sbSetPref('panel', 'closed');
+                    syncStudioSidebarOffset();
+                } else {
+                    sb.querySelectorAll('.vafm-sb-rail-btn').forEach(b => b.classList.toggle('active', b === btn));
+                    sb.querySelectorAll('.vafm-sb-panel').forEach(p => p.classList.toggle('active', p.dataset.panel === btn.dataset.section));
+                    sb.classList.remove('panel-closed');
+                    _sbSetPref('panel', 'open');
+                    syncStudioSidebarOffset();
+                    loadDriveIfNeeded();
+                }
+                break;
+            }
+            case 'sb-panel-toggle': {
+                const nowClosed = sb.classList.toggle('panel-closed');
+                _sbSetPref('panel', nowClosed ? 'closed' : 'open');
+                syncStudioSidebarOffset();
+                loadDriveIfNeeded();
+                break;
+            }
+            case 'sb-close':
+                sb.classList.remove('mobile-open');
+                break;
+            case 'drive-type':
+                if (_driveState.type !== btn.dataset.type) {
+                    _driveState.type = btn.dataset.type;
+                    sb.querySelectorAll('[data-action="drive-type"]').forEach(b => b.classList.toggle('active', b === btn));
+                    driveRender();
+                    driveFill();
+                }
+                break;
+            case 'drive-cat':
+                _driveState.category = btn.dataset.cat || '';
+                sb.querySelectorAll('[data-action="drive-cat"]').forEach(b => b.classList.toggle('active', b === btn));
+                driveRender();
+                driveFill();
+                break;
+            case 'drive-retry':
+                driveReload();
+                break;
+            case 'drive-upload': {
+                const input = document.getElementById('vafm-drive-upload-input');
+                if (input) input.click();
+                break;
+            }
+        }
+    });
+
+    // Recherche (avec un court délai pour ne pas recalculer à chaque touche)
+    sb.addEventListener('input', (e) => {
+        if (e.target.id !== 'vafm-drive-search') return;
+        clearTimeout(_driveState.searchTimer);
+        const value = e.target.value.trim();
+        _driveState.searchTimer = setTimeout(() => {
+            _driveState.search = value;
+            driveRender();
+            driveFill();
+        }, 250);
+    });
+
+    sb.addEventListener('change', (e) => {
+        if (e.target.id === 'vafm-drive-upload-input') {
+            const file = e.target.files && e.target.files[0];
+            e.target.value = '';
+            uploadFileToDrive(file);
+        }
+    });
+
+    // Défilement infini : on charge la suite quand on approche du bas de la grille.
+    const scrollEl = document.getElementById('vafm-drive-scroll');
+    if (scrollEl) {
+        scrollEl.addEventListener('scroll', () => {
+            if (scrollEl.scrollTop + scrollEl.clientHeight >= scrollEl.scrollHeight - 250) {
+                if (!_driveState.loading && !_driveState.error && driveHasMore()) {
+                    driveFetchNextPage().then(driveFill);
+                }
+            }
+        }, { passive: true });
+    }
+
+    if (fab) {
+        fab.addEventListener('click', () => {
+            sb.classList.toggle('mobile-open');
+            loadDriveIfNeeded();
+        });
+    }
+
+    loadDriveIfNeeded();
 }
 
 /* --------------------------------------------------------------------------
