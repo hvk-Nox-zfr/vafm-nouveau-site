@@ -148,7 +148,7 @@ function showToast(message, type = 'info', options = {}) {
 // des classes CSS externes : ces fenêtres doivent rester utilisables même si
 // article.css n'a pas (encore) été rechargé par le navigateur (cache, CDN...).
 // Les classes restent posées en plus, pour qu'un CSS à jour puisse les enjoliver.
-const VAFM_OVERLAY_STYLE = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:2147483000;padding:20px;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;';
+const VAFM_OVERLAY_STYLE = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:2147483000;opacity:1;visibility:visible;pointer-events:auto;padding:20px;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;';
 const VAFM_BOX_STYLE = 'background:#ffffff;border-radius:14px;padding:24px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.3);box-sizing:border-box;';
 const VAFM_BTN_BASE = 'padding:9px 16px;border-radius:8px;border:none;font-weight:700;font-size:0.88rem;cursor:pointer;';
 
@@ -842,6 +842,76 @@ async function openArticleView(category, id) {
     /* La barre est fixée sur toute la hauteur de l'écran ; le reste de la page
        (en-tête, bandeau, lecteur, barre du Studio, article) est décalé pour que
        rien ne passe dessous. La largeur décalée est dans --vafm-sb-w. */
+    /* ==========================================================================
+       MODÈLES DE MISE EN PAGE (texte + images), façon Canva
+       ========================================================================== */
+    .canva-block.vafm-tpl { margin: 26px 0 !important; }
+    .vafm-tpl .vafm-slot-img { position: relative; overflow: hidden; border-radius: 10px; aspect-ratio: 4 / 3; background: #ececf1; min-width: 0; }
+    .vafm-tpl .vafm-slot-img img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 0; margin: 0; }
+    .vafm-tpl .vafm-slot-img .vafm-img-credit { position: absolute; left: 8px; bottom: 6px; margin: 0; padding: 2px 7px; border-radius: 5px; background: rgba(0, 0, 0, 0.5); color: #fff; font-size: 0.68rem; font-style: normal; }
+    .vafm-tpl .vafm-slot-text { min-width: 0; outline: none; }
+    .vafm-tpl .vafm-slot-text > :first-child { margin-top: 0; }
+    .vafm-tpl .vafm-slot-text > :last-child { margin-bottom: 0; }
+    .vafm-tpl .vafm-slot-text h2, .vafm-tpl .vafm-slot-text h3 { margin: 0 0 10px; line-height: 1.2; }
+    .vafm-tpl .vafm-slot-text p { margin: 0 0 12px; }
+
+    .vafm-tpl-split, .vafm-tpl-quote { display: grid; gap: 26px; align-items: center; }
+    .vafm-tpl-split { grid-template-columns: 1fr 1fr; }
+    .vafm-tpl-quote { grid-template-columns: 0.85fr 1.15fr; }
+    .vafm-tpl-quote .vafm-slot-img { aspect-ratio: 3 / 4; }
+    .vafm-tpl-quote .vafm-slot-text blockquote { margin: 0 0 12px; padding-left: 16px; border-left: 4px solid #E50914; font-size: 1.35rem; font-weight: 700; line-height: 1.4; font-style: italic; color: #1a1a1a; }
+    .vafm-tpl-quote .vafm-slot-text p { color: #666; font-size: 0.95rem; }
+
+    .vafm-tpl-hero, .vafm-tpl-callout { display: flex; flex-direction: column; gap: 14px; }
+    .vafm-tpl-hero .vafm-slot-img { aspect-ratio: 16 / 9; }
+    .vafm-tpl-callout .vafm-slot-img { aspect-ratio: 21 / 9; }
+    .vafm-tpl-callout .vafm-slot-text { background: #fff4f4; border-left: 5px solid #E50914; border-radius: 10px; padding: 18px 20px; }
+
+    .vafm-tpl-duo { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    .vafm-tpl-trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .vafm-tpl-trio .vafm-slot-img { aspect-ratio: 1 / 1; }
+    .vafm-tpl-duo .vafm-slot-text, .vafm-tpl-trio .vafm-slot-text, .vafm-tpl-mosaic .vafm-slot-text { grid-column: 1 / -1; }
+
+    .vafm-tpl-mosaic { display: grid; grid-template-columns: 2fr 1fr; grid-template-rows: repeat(2, 190px); gap: 10px; }
+    .vafm-tpl-mosaic .vafm-slot-img { aspect-ratio: auto; height: 100%; }
+    .vafm-tpl-mosaic .vafm-slot-img:first-child { grid-row: 1 / span 2; }
+
+    .vafm-tpl-cols { display: grid; grid-template-columns: repeat(2, 1fr); gap: 30px; }
+    .vafm-tpl-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; text-align: center; }
+    .vafm-tpl-stats .vafm-slot-text { background: #f7f7fa; border-radius: 12px; padding: 20px 12px; }
+    .vafm-tpl-stats .vafm-stat-num { font-size: 2.4rem; font-weight: 800; color: #E50914; line-height: 1.1; }
+
+    /* Cadre image vide : visible dans l'éditeur seulement */
+    .canva-admin-active .vafm-slot-img.is-empty { display: flex; align-items: center; justify-content: center; box-sizing: border-box; background: #f1f1f6; border: 2px dashed #c4c4d2; color: #8b8b9d; font-size: 0.82rem; font-weight: 700; text-align: center; cursor: pointer; }
+    .canva-admin-active .vafm-slot-img.is-empty::before { content: "🖼  Glissez une image ici"; padding: 0 10px; }
+    .canva-layout:not(.canva-admin-active) .vafm-slot-img.is-empty { display: none; }
+    .canva-layout:not(.canva-admin-active) .vafm-tpl-split:has(.vafm-slot-img.is-empty),
+    .canva-layout:not(.canva-admin-active) .vafm-tpl-quote:has(.vafm-slot-img.is-empty) { grid-template-columns: 1fr; }
+    .vafm-slot-img.drop-hover { outline: 3px solid #E50914; outline-offset: -3px; background-color: rgba(229, 9, 20, 0.12); }
+    .vafm-slot-img.is-armed { outline: 3px solid #E50914; outline-offset: -3px; animation: vafmSlotPulse 1.1s ease-in-out infinite alternate; }
+    .vafm-slot-img.is-uploading { opacity: 0.55; }
+    @keyframes vafmSlotPulse { from { box-shadow: 0 0 0 0 rgba(229, 9, 20, 0.35); } to { box-shadow: 0 0 0 8px rgba(229, 9, 20, 0); } }
+    .canva-admin-active .vafm-slot-text:hover { outline: 2px dashed rgba(229, 9, 20, 0.35); outline-offset: 4px; cursor: text; }
+    .canva-admin-active .vafm-slot-text[contenteditable="true"] { outline: 2px solid #34c759 !important; outline-offset: 4px; cursor: text; }
+
+    @media screen and (max-width: 768px) {
+        .vafm-tpl-split, .vafm-tpl-quote, .vafm-tpl-cols, .vafm-tpl-duo, .vafm-tpl-stats { grid-template-columns: 1fr; }
+        .vafm-tpl-quote .vafm-slot-img { aspect-ratio: 4 / 3; }
+        .vafm-tpl-mosaic { grid-template-rows: repeat(2, 120px); }
+    }
+
+    /* Panneau « Modèles » de la barre latérale */
+    .vafm-sb-note { flex-shrink: 0; margin: 2px 0 10px; font-size: 0.76rem; line-height: 1.45; color: #777; }
+    .vafm-tpl-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 10px; }
+    .vafm-tpl-card { display: flex; flex-direction: column; gap: 6px; padding: 0; border: none; background: none; cursor: pointer; text-align: left; font-family: inherit; }
+    .vafm-tpl-card.is-hidden { display: none; }
+    .vafm-tpl-thumb { background: #fff; border: 1px solid #e0e0e8; border-radius: 10px; padding: 6px; transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease; }
+    .vafm-tpl-thumb svg { display: block; width: 100%; height: auto; stroke: none !important; }
+    .vafm-tpl-card:hover .vafm-tpl-thumb, .vafm-tpl-card:focus-visible .vafm-tpl-thumb { border-color: #E50914; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1); }
+    .vafm-tpl-card:focus-visible { outline: none; }
+    .vafm-tpl-name { padding: 0 2px; font-size: 0.76rem; font-weight: 700; color: #444; }
+    .vafm-drive-item { cursor: grab; }
+
     /* Pas de décors saisonniers (Halloween, Noël…) par-dessus le texte d'un article */
     body.vafm-article-open #seasonal-decor-container,
     body.vafm-article-open #seasonal-fx-container { display: none !important; }
@@ -1232,6 +1302,8 @@ function deselectAllBlocks() {
         b.removeAttribute('contenteditable');
         b.setAttribute('draggable', 'true');
     });
+    contentArea.querySelectorAll('.vafm-slot-text[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+    disarmImageSlot();
     activeBlock = null;
     if (_miniBlockToolbarEl) { _miniBlockToolbarEl.classList.remove('visible'); _miniBlockToolbarEl.style.display = 'none'; }
 }
@@ -1328,6 +1400,10 @@ function initCanvaInteractions() {
         // ce qui transformait une sélection de texte à la souris en déplacement de bloc.
         block.addEventListener('dblclick', (e) => {
             e.stopPropagation();
+            if (block.classList.contains('vafm-tpl')) {
+                handleTemplateDblClick(block, e);
+                return;
+            }
             if (!block.querySelector('.vafm-ad-placeholder') && !block.classList.contains('video-embed')) {
                 block.classList.add('editing');
                 block.setAttribute('contenteditable', 'true');
@@ -1348,6 +1424,23 @@ function initCanvaInteractions() {
 
         block.addEventListener('input', scheduleUndoSnapshot);
 
+        // Modèles : fin de l'édition d'une zone de texte + collage en texte brut.
+        block.addEventListener('focusout', (e) => {
+            const slot = e.target.closest ? e.target.closest('.vafm-slot-text') : null;
+            if (!slot || !slot.hasAttribute('contenteditable')) return;
+            slot.removeAttribute('contenteditable');
+            block.classList.remove('editing');
+            block.setAttribute('draggable', 'true');
+            pushUndoState();
+        });
+
+        block.addEventListener('paste', (e) => {
+            if (!e.target.closest || !e.target.closest('.vafm-slot-text')) return;
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+            document.execCommand('insertText', false, text);
+        });
+
         block.addEventListener('dragstart', (e) => {
             draggedBlock = block;
             block.classList.add('dragging');
@@ -1363,6 +1456,7 @@ function initCanvaInteractions() {
     }
 
     contentArea.querySelectorAll('.canva-block').forEach(makeBlockInteractive);
+    initTemplateSlotInteractions(contentArea);
 
     // Ces écouteurs ne doivent être attachés qu'une seule fois par zone de contenu,
     // sinon chaque appel (ajout de bloc, upload d'image, etc.) en empilait un nouveau.
@@ -1437,6 +1531,8 @@ function handleCanvaDocumentClick(e) {
             b.removeAttribute('contenteditable');
             b.setAttribute('draggable', 'true');
         });
+        contentArea.querySelectorAll('.vafm-slot-text[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+        disarmImageSlot();
         activeBlock = null;
         scheduleMiniToolbarHide();
     }
@@ -1510,6 +1606,8 @@ function sanitizeRestoredContent(contentBox) {
         b.removeAttribute('contenteditable');
         b.setAttribute('draggable', 'true');
     });
+    contentBox.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+    contentBox.querySelectorAll('.is-armed, .drop-hover, .is-uploading').forEach(el => el.classList.remove('is-armed', 'drop-hover', 'is-uploading'));
 }
 
 function moveBlock(block, direction) {
@@ -2289,15 +2387,25 @@ function pushUndoState() {
     const isHeavy = html.length > VAFM_UNDO_HEAVY_CONTENT_THRESHOLD;
     const limit = isHeavy ? VAFM_MAX_UNDO_HEAVY : MAX_UNDO;
 
-    undoStack.push({
-        html,
-        title: titleEl ? titleEl.innerHTML : ''
-    });
+    clearTimeout(_undoDebounceTimer);
+    _undoPending = false;
+
+    const title = titleEl ? titleEl.innerHTML : '';
+
+    // Pas de doublon : deux états identiques d'affilée feraient croire que « Annuler » ne fait rien.
+    const last = undoStack[undoStack.length - 1];
+    if (last && last.html === html && last.title === title) {
+        markUnsavedChanges();
+        return;
+    }
+
+    undoStack.push({ html, title });
     while (undoStack.length > limit) undoStack.shift();
     redoStack = [];
     markUnsavedChanges();
 }
 
+let _undoPending = false;
 let _statsDebounceTimer = null;
 
 function scheduleUndoSnapshot() {
@@ -2313,6 +2421,7 @@ function scheduleUndoSnapshot() {
     }, 500);
 
     clearTimeout(_undoDebounceTimer);
+    _undoPending = true;
     _undoDebounceTimer = setTimeout(() => pushUndoState(), 900);
 }
 
@@ -2331,6 +2440,8 @@ function restoreEditorState(state) {
 }
 
 function applyUndo() {
+    // Enregistre d'abord la frappe en attente, pour qu'« Annuler » la retire bien.
+    if (_undoPending) pushUndoState();
     if (undoStack.length < 2) {
         showToast('Rien à annuler.', 'info');
         return;
@@ -2344,6 +2455,7 @@ function applyUndo() {
 }
 
 function applyRedo() {
+    if (_undoPending) pushUndoState();
     if (redoStack.length === 0) {
         showToast('Rien à rétablir.', 'info');
         return;
@@ -2594,6 +2706,10 @@ async function saveCanvaArticle(collectionName, id) {
             b.removeAttribute('data-interactive');
         });
 
+        tempDiv.querySelectorAll('.is-armed, .drop-hover, .is-uploading').forEach(el => {
+            el.classList.remove('is-armed', 'drop-hover', 'is-uploading');
+        });
+
         tempDiv.querySelectorAll('[contenteditable], [draggable]').forEach(el => {
             el.removeAttribute('contenteditable');
             el.removeAttribute('draggable');
@@ -2754,6 +2870,7 @@ const VAFM_SB_ICONS = {
     search: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
     upload: '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
     chevron: '<svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>',
+    templates: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="10" rx="1.5"/><rect x="13" y="3" width="8" height="6" rx="1.5"/><rect x="13" y="11" width="8" height="10" rx="1.5"/><rect x="3" y="15" width="8" height="6" rx="1.5"/></svg>',
     panel: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="9" y1="3" x2="9" y2="21"/></svg>'
 };
 
@@ -2801,6 +2918,12 @@ function buildStudioSidebarHtml() {
                     <div class="vafm-drive-status" id="vafm-drive-status"></div>
                 </div>
             `
+        },
+        {
+            key: 'templates',
+            label: 'Modèles',
+            icon: I.templates,
+            panelHtml: buildTemplatesPanelHtml()
         }
     ];
 
@@ -2874,7 +2997,17 @@ function createDriveCard(rec) {
     btn.type = 'button';
     btn.className = 'vafm-drive-item' + (isVideo ? ' is-video' : '');
     btn.dataset.id = rec.id;
-    btn.title = `${label} — cliquer pour insérer`;
+    btn.title = `${label} — cliquer pour insérer, ou glisser sur un cadre`;
+
+    // Glisser-déposer : l'image peut être déposée sur un cadre d'un modèle.
+    btn.draggable = true;
+    btn.addEventListener('dragstart', (e) => {
+        e.dataTransfer.effectAllowed = 'copy';
+        e.dataTransfer.setData('application/x-vafm-drive', rec.id);
+        e.dataTransfer.setData('text/plain', label);
+        const im = btn.querySelector('img');
+        if (im) { try { e.dataTransfer.setDragImage(im, 40, 30); } catch (_) { /* non bloquant */ } }
+    });
 
     if (isVideo) {
         const play = document.createElement('div');
@@ -2886,6 +3019,7 @@ function createDriveCard(rec) {
         img.loading = 'lazy';
         img.decoding = 'async';
         img.alt = label;
+        img.draggable = false;
         img.src = driveFileUrl(rec, VAFM_DRIVE.thumb);
         // Si la miniature n'existe pas côté PocketBase, on retombe sur l'original.
         img.onerror = () => {
@@ -3127,6 +3261,380 @@ async function uploadFileToDrive(file) {
     }
 }
 
+/* ==========================================================================
+   MODÈLES DE MISE EN PAGE (texte + images) — façon Canva
+   - Un modèle = un bloc "vafm-tpl" avec des cadres image (.vafm-slot-img) et des
+     zones de texte (.vafm-slot-text).
+   - Images : glisser-déposer depuis le Drive (ou un fichier de l'ordinateur) sur
+     un cadre. Sur mobile : toucher un cadre vide, puis toucher une image du Drive.
+   - Texte : double-clic sur la zone pour la modifier.
+   ========================================================================== */
+const _tplImg = () => '<div class="vafm-slot vafm-slot-img is-empty" data-slot="img"></div>';
+const _tplTxt = (html) => `<div class="vafm-slot vafm-slot-text" data-slot="text">${html}</div>`;
+
+const VAFM_TEMPLATES = [
+    {
+        id: 'split-left', name: 'Image à gauche', cat: 'Image + texte', cls: 'vafm-tpl-split',
+        html: () => _tplImg() + _tplTxt("<h2>Votre titre ici</h2><p>Double-cliquez pour modifier ce texte. Présentez l'info, donnez le contexte et les chiffres clés.</p>"),
+        thumb: [['i', 4, 6, 44, 52], ['t', 54, 10, 42, 44]]
+    },
+    {
+        id: 'split-right', name: 'Image à droite', cat: 'Image + texte', cls: 'vafm-tpl-split',
+        html: () => _tplTxt("<h2>Votre titre ici</h2><p>Double-cliquez pour modifier ce texte. Présentez l'info, donnez le contexte et les chiffres clés.</p>") + _tplImg(),
+        thumb: [['t', 4, 10, 42, 44], ['i', 52, 6, 44, 52]]
+    },
+    {
+        id: 'hero', name: 'Grande image + titre', cat: 'Image + texte', cls: 'vafm-tpl-hero',
+        html: () => _tplImg() + _tplTxt("<h2>Titre de la photo</h2><p>Ajoutez une légende ou un court texte d'introduction.</p>"),
+        thumb: [['i', 4, 4, 92, 34], ['t', 4, 43, 92, 18]]
+    },
+    {
+        id: 'quote-image', name: 'Citation + portrait', cat: 'Image + texte', cls: 'vafm-tpl-quote',
+        html: () => _tplImg() + _tplTxt('<blockquote>« Une citation forte : double-cliquez pour la remplacer. »</blockquote><p>— Nom de la personne, fonction</p>'),
+        thumb: [['i', 4, 6, 34, 52], ['q', 44, 14, 52, 36]]
+    },
+    {
+        id: 'callout', name: 'Image + encadré', cat: 'Image + texte', cls: 'vafm-tpl-callout',
+        html: () => _tplImg() + _tplTxt("<h3>À retenir</h3><p>L'information essentielle en deux phrases, mise en valeur.</p>"),
+        thumb: [['i', 4, 4, 92, 30], ['b', 4, 38, 92, 22]]
+    },
+    {
+        id: 'duo', name: 'Deux images', cat: 'Galerie', cls: 'vafm-tpl-duo',
+        html: () => _tplImg() + _tplImg() + _tplTxt('<p>Légende des deux photos : double-cliquez pour la modifier.</p>'),
+        thumb: [['i', 4, 4, 44, 34], ['i', 52, 4, 44, 34], ['t', 4, 44, 92, 16]]
+    },
+    {
+        id: 'trio', name: 'Trois images', cat: 'Galerie', cls: 'vafm-tpl-trio',
+        html: () => _tplImg() + _tplImg() + _tplImg() + _tplTxt('<p>Légende de la galerie : double-cliquez pour la modifier.</p>'),
+        thumb: [['i', 4, 4, 29, 29], ['i', 35, 4, 29, 29], ['i', 66, 4, 30, 29], ['t', 4, 38, 92, 22]]
+    },
+    {
+        id: 'mosaic', name: 'Mosaïque', cat: 'Galerie', cls: 'vafm-tpl-mosaic',
+        html: () => _tplImg() + _tplImg() + _tplImg() + _tplTxt('<p>Légende de la mosaïque : double-cliquez pour la modifier.</p>'),
+        thumb: [['i', 4, 4, 58, 42], ['i', 66, 4, 30, 20], ['i', 66, 26, 30, 20], ['t', 4, 50, 92, 12]]
+    },
+    {
+        id: 'cols', name: 'Deux colonnes', cat: 'Texte', cls: 'vafm-tpl-cols',
+        html: () => _tplTxt('<h3>Première colonne</h3><p>Double-cliquez pour écrire votre texte ici.</p>') + _tplTxt('<h3>Deuxième colonne</h3><p>Double-cliquez pour écrire votre texte ici.</p>'),
+        thumb: [['t', 4, 8, 44, 48], ['t', 52, 8, 44, 48]]
+    },
+    {
+        id: 'stats', name: 'Chiffres clés', cat: 'Texte', cls: 'vafm-tpl-stats',
+        html: () => _tplTxt('<p class="vafm-stat-num">120</p><p>auditeurs connectés</p>') + _tplTxt('<p class="vafm-stat-num">45</p><p>minutes de direct</p>') + _tplTxt('<p class="vafm-stat-num">3</p><p>invités</p>'),
+        thumb: [['b', 4, 14, 28, 36], ['b', 36, 14, 28, 36], ['b', 68, 14, 28, 36]]
+    }
+];
+
+const VAFM_TEMPLATE_CATS = ['Image + texte', 'Galerie', 'Texte'];
+
+// Miniature "plan filaire" d'un modèle (SVG 100 x 64)
+function vafmTemplateThumbSvg(spec) {
+    const lines = (x, y, w, h, color) => {
+        let out = '';
+        for (let ly = y; ly + 3 <= y + h; ly += 6) {
+            const lw = (ly + 9 > y + h) ? w * 0.6 : w;
+            out += `<rect x="${x}" y="${ly}" width="${lw}" height="2.6" rx="1.3" fill="${color}"/>`;
+        }
+        return out;
+    };
+
+    let out = '';
+    spec.forEach(([type, x, y, w, h]) => {
+        if (type === 'i') {
+            out += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="#d9dbe6"/>` +
+                `<polygon points="${x + w * 0.15},${y + h * 0.85} ${x + w * 0.4},${y + h * 0.45} ${x + w * 0.6},${y + h * 0.7} ${x + w * 0.75},${y + h * 0.55} ${x + w * 0.9},${y + h * 0.85}" fill="#ffffff" opacity="0.75"/>`;
+        } else if (type === 't') {
+            out += `<rect x="${x}" y="${y}" width="${w * 0.7}" height="4" rx="2" fill="#3a3a4a"/>` + lines(x, y + 9, w, h - 9, '#b9bbc9');
+        } else if (type === 'q') {
+            out += `<rect x="${x}" y="${y}" width="2" height="${h}" fill="#E50914"/>` + lines(x + 6, y, w - 6, h, '#8a8c9c');
+        } else if (type === 'b') {
+            out += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="#fdecee"/>` + lines(x + 5, y + 6, w - 10, h - 10, '#e59aa0');
+        }
+    });
+    return `<svg viewBox="0 0 100 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${out}</svg>`;
+}
+
+function buildTemplatesPanelHtml() {
+    const I = VAFM_SB_ICONS;
+    const chips = ['<button type="button" class="vafm-sb-chip active" data-action="tpl-cat" data-cat="">Tous</button>']
+        .concat(VAFM_TEMPLATE_CATS.map(c =>
+            `<button type="button" class="vafm-sb-chip" data-action="tpl-cat" data-cat="${escapeHtml(c)}">${escapeHtml(c)}</button>`))
+        .join('');
+
+    const cards = VAFM_TEMPLATES.map(t => `
+        <button type="button" class="vafm-tpl-card" data-action="tpl-insert" data-id="${t.id}" data-cat="${escapeHtml(t.cat)}" data-name="${escapeHtml(t.name)}" title="Ajouter ce modèle à l'article">
+            <div class="vafm-tpl-thumb">${vafmTemplateThumbSvg(t.thumb)}</div>
+            <span class="vafm-tpl-name">${escapeHtml(t.name)}</span>
+        </button>`).join('');
+
+    return `
+        <div class="vafm-sb-mobile-top"><span>Modèles</span><button type="button" class="vafm-sb-close" data-action="sb-close" aria-label="Fermer">✕</button></div>
+        <div class="vafm-sb-search">${I.search}<input type="search" id="vafm-tpl-search" placeholder="Rechercher un modèle…" autocomplete="off"></div>
+        <div class="vafm-sb-chips" style="margin-top:12px;">${chips}</div>
+        <p class="vafm-sb-note">Cliquez sur un modèle pour l'ajouter. Glissez ensuite une image du Drive sur un cadre, et double-cliquez sur un texte pour le modifier.</p>
+        <div class="vafm-sb-scroll">
+            <div class="vafm-tpl-grid" id="vafm-tpl-grid">${cards}</div>
+            <div class="vafm-drive-status" id="vafm-tpl-empty" style="display:none;">Aucun modèle trouvé.</div>
+        </div>
+    `;
+}
+
+function filterTemplateCards() {
+    const grid = document.getElementById('vafm-tpl-grid');
+    if (!grid) return;
+    const query = _normalizeText((document.getElementById('vafm-tpl-search') || {}).value || '');
+    const activeChip = document.querySelector('#vafm-studio-sidebar .vafm-sb-chip.active[data-action="tpl-cat"]');
+    const cat = activeChip ? activeChip.dataset.cat : '';
+
+    let shown = 0;
+    grid.querySelectorAll('.vafm-tpl-card').forEach(card => {
+        const okCat = !cat || card.dataset.cat === cat;
+        const okText = !query || _normalizeText(card.dataset.name + ' ' + card.dataset.cat).includes(query);
+        const show = okCat && okText;
+        card.classList.toggle('is-hidden', !show);
+        if (show) shown++;
+    });
+
+    const empty = document.getElementById('vafm-tpl-empty');
+    if (empty) empty.style.display = shown === 0 ? 'block' : 'none';
+}
+
+function insertTemplate(id) {
+    const tpl = VAFM_TEMPLATES.find(t => t.id === id);
+    const contentBox = document.getElementById('canva-doc-content');
+    if (!tpl || !contentBox) return;
+
+    const block = document.createElement('div');
+    block.className = `canva-block img-full size-full vafm-tpl ${tpl.cls}`;
+    block.dataset.tpl = tpl.id;
+    block.innerHTML = tpl.html();
+
+    // Insertion après le bloc sélectionné, sinon à la fin de l'article.
+    if (activeBlock && activeBlock.parentNode === contentBox) {
+        activeBlock.after(block);
+    } else {
+        contentBox.appendChild(block);
+    }
+
+    contentBox.querySelectorAll('.canva-block.selected').forEach(b => b.classList.remove('selected'));
+    initCanvaInteractions();
+    block.classList.add('selected');
+    activeBlock = block;
+
+    pushUndoState();
+    updateLiveStats();
+    showToast('Modèle ajouté : glissez vos images, double-cliquez sur le texte pour le modifier.', 'success', { duration: 5000 });
+    safeScrollIntoView(block);
+}
+
+/* ------------------------------ Cadres image ------------------------------ */
+let _armedSlot = null;
+
+function disarmImageSlot() {
+    if (_armedSlot) _armedSlot.classList.remove('is-armed');
+    _armedSlot = null;
+}
+
+function armImageSlot(slot) {
+    disarmImageSlot();
+    _armedSlot = slot;
+    slot.classList.add('is-armed');
+    vafmOpenSidebarSection('drive');
+    showToast('Choisissez une image dans le Drive (ou glissez-la sur le cadre).', 'info', { duration: 3500 });
+}
+
+function vafmOpenSidebarSection(key) {
+    const sb = document.getElementById('vafm-studio-sidebar');
+    if (!sb) return;
+    const btn = sb.querySelector(`.vafm-sb-rail-btn[data-section="${key}"]`);
+    if (!btn) return;
+    if (window.matchMedia('(max-width: 1000px)').matches) sb.classList.add('mobile-open');
+    const alreadyOpen = btn.classList.contains('active') && !sb.classList.contains('panel-closed');
+    if (!alreadyOpen) btn.click();
+}
+
+function fillImageSlot(slot, { src, alt = '', credit = '' }) {
+    if (!slot) return;
+    slot.classList.remove('is-empty', 'is-armed', 'drop-hover', 'is-uploading');
+    slot.innerHTML = '';
+
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = alt;
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    slot.appendChild(img);
+
+    const creditChk = document.getElementById('vafm-drive-credit');
+    if (credit && creditChk && creditChk.checked) {
+        const cap = document.createElement('small');
+        cap.className = 'vafm-img-credit';
+        cap.textContent = `Crédit : ${credit}`;
+        slot.appendChild(cap);
+    }
+
+    if (_armedSlot === slot) _armedSlot = null;
+    pushUndoState();
+    updateLiveStats();
+}
+
+// Utilisé quand un cadre vide est "armé" et qu'on touche une image du Drive.
+function useDriveRecForArmedSlot(rec) {
+    if (!rec || !_armedSlot || !document.body.contains(_armedSlot)) return false;
+    if (driveIsVideo(rec)) return false;
+    fillImageSlot(_armedSlot, {
+        src: driveFileUrl(rec, VAFM_DRIVE.insertThumb),
+        alt: rec.titre || '',
+        credit: rec.credit || ''
+    });
+    showToast('Image ajoutée au modèle.', 'success');
+    return true;
+}
+
+async function uploadArticleImage(file) {
+    const compressed = (typeof compressImage === 'function') ? await compressImage(file, 1400, 0.82) : file;
+    try {
+        const articleId = (typeof currentArticleData !== 'undefined' && currentArticleData) ? currentArticleData.id : null;
+        const token = typeof getAuthToken === 'function' ? getAuthToken() : null;
+        const fd = new FormData();
+        fd.append('image', compressed);
+        if (articleId) fd.append('article', articleId);
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch(`${POCKETBASE_URL}/api/collections/article_images/records`, { method: 'POST', headers, body: fd });
+        if (!res.ok) throw new Error(`upload échoué (HTTP ${res.status})`);
+        const record = await res.json();
+        return (typeof getPocketBaseImageUrl === 'function')
+            ? getPocketBaseImageUrl('article_images', record.id, record.image, '1000x0')
+            : `${POCKETBASE_URL}/api/files/article_images/${record.id}/${record.image}?thumb=1000x0`;
+    } catch (err) {
+        console.warn('⚠️ Upload direct impossible — repli en base64 compressé :', err.message);
+        return await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(compressed);
+        });
+    }
+}
+
+async function fillImageSlotFromFile(slot, file) {
+    if (!file.type.startsWith('image/')) {
+        showToast("Déposez une image (photo) sur ce cadre.", 'error');
+        return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+        showToast('Image trop lourde (max 15 Mo).', 'error');
+        return;
+    }
+    slot.classList.add('is-uploading');
+    try {
+        const url = await uploadArticleImage(file);
+        fillImageSlot(slot, { src: url, alt: file.name.replace(/\.[^.]+$/, '') });
+        showToast('Image ajoutée au modèle.', 'success');
+    } catch (err) {
+        console.error(err);
+        slot.classList.remove('is-uploading');
+        showToast("Impossible d'ajouter cette image.", 'error');
+    }
+}
+
+// Écouteurs de zone (une seule fois par zone de contenu)
+function initTemplateSlotInteractions(contentArea) {
+    if (contentArea.dataset.tplBound) return;
+    contentArea.dataset.tplBound = 'true';
+
+    const hasPayload = (e) => {
+        const types = e.dataTransfer ? Array.from(e.dataTransfer.types || []) : [];
+        return types.includes('application/x-vafm-drive') || types.includes('Files');
+    };
+    let hoverSlot = null;
+
+    contentArea.addEventListener('dragover', (e) => {
+        if (!hasPayload(e)) return;
+        const slot = e.target.closest ? e.target.closest('.vafm-slot-img') : null;
+        if (hoverSlot && hoverSlot !== slot) hoverSlot.classList.remove('drop-hover');
+        hoverSlot = slot;
+        if (!slot) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        slot.classList.add('drop-hover');
+    });
+
+    contentArea.addEventListener('dragleave', (e) => {
+        if (hoverSlot && !hoverSlot.contains(e.relatedTarget)) {
+            hoverSlot.classList.remove('drop-hover');
+            hoverSlot = null;
+        }
+    });
+
+    contentArea.addEventListener('drop', (e) => {
+        if (!hasPayload(e)) return;
+        const slot = e.target.closest ? e.target.closest('.vafm-slot-img') : null;
+        if (!slot) return;
+        e.preventDefault();
+        slot.classList.remove('drop-hover');
+        hoverSlot = null;
+
+        const driveId = e.dataTransfer.getData('application/x-vafm-drive');
+        if (driveId) {
+            const rec = _driveState && _driveState.all.find(r => r.id === driveId);
+            if (!rec) return;
+            if (driveIsVideo(rec)) {
+                showToast("Déposez une image : les cadres n'acceptent pas les vidéos.", 'info');
+                return;
+            }
+            fillImageSlot(slot, {
+                src: driveFileUrl(rec, VAFM_DRIVE.insertThumb),
+                alt: rec.titre || '',
+                credit: rec.credit || ''
+            });
+            showToast('Image remplacée.', 'success');
+            return;
+        }
+
+        const file = Array.from(e.dataTransfer.files || []).find(f => f.type.startsWith('image/'));
+        if (file) fillImageSlotFromFile(slot, file);
+        else showToast('Déposez une image sur ce cadre.', 'info');
+    });
+
+    // En capture : les blocs arrêtent la propagation des clics.
+    contentArea.addEventListener('click', (e) => {
+        const slot = e.target.closest ? e.target.closest('.vafm-slot-img') : null;
+        if (slot && slot.classList.contains('is-empty')) {
+            armImageSlot(slot);
+        } else if (!slot) {
+            disarmImageSlot();
+        }
+    }, true);
+}
+
+// Double-clic dans un modèle : texte → édition de la zone ; image → remplacer.
+function handleTemplateDblClick(block, e) {
+    const imgSlot = e.target.closest('.vafm-slot-img');
+    if (imgSlot) {
+        armImageSlot(imgSlot);
+        return;
+    }
+
+    const textSlot = e.target.closest('.vafm-slot-text');
+    if (!textSlot) return;
+
+    const sel = window.getSelection();
+    const saved = sel && sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
+
+    textSlot.setAttribute('contenteditable', 'true');
+    block.classList.add('editing');
+    block.setAttribute('draggable', 'false');
+    textSlot.focus();
+
+    if (saved && sel) {
+        try { sel.removeAllRanges(); sel.addRange(saved); } catch (_) { /* non bloquant */ }
+    }
+    scheduleMiniToolbarHide();
+}
+
 /* ------------------------------ Barre latérale : init ------------------------------ */
 const VAFM_SB_RAIL_W = 84;
 const VAFM_SB_PANEL_W = 331;
@@ -3161,6 +3669,7 @@ function teardownStudioSidebar() {
     document.documentElement.style.removeProperty('--vafm-sb-w');
     document.querySelectorAll('.vafm-shift-fixed, .vafm-shift-flow').forEach(el => el.classList.remove('vafm-shift-fixed', 'vafm-shift-flow'));
     if (_driveState) { _driveState.reqId++; _driveState = null; }
+    disarmImageSlot();
 }
 
 function initStudioSidebar() {
@@ -3197,6 +3706,8 @@ function initStudioSidebar() {
 
     const loadDriveIfNeeded = () => {
         if (_driveState.loaded || _driveState.loading || _driveState.error) return;
+        const drivePanel = sb.querySelector('.vafm-sb-panel[data-panel="drive"]');
+        if (!drivePanel || !drivePanel.classList.contains('active')) return;
         if (panelVisible()) driveReload();
     };
 
@@ -3204,7 +3715,8 @@ function initStudioSidebar() {
         // Clic sur un média du Drive
         const item = e.target.closest('.vafm-drive-item');
         if (item) {
-            insertDriveMedia(_driveState.all.find(r => r.id === item.dataset.id));
+            const rec = _driveState.all.find(r => r.id === item.dataset.id);
+            if (!useDriveRecForArmedSlot(rec)) insertDriveMedia(rec);
             if (mq.matches) sb.classList.remove('mobile-open');
             return;
         }
@@ -3254,6 +3766,14 @@ function initStudioSidebar() {
                 driveRender();
                 driveFill();
                 break;
+            case 'tpl-insert':
+                insertTemplate(btn.dataset.id);
+                if (mq.matches) sb.classList.remove('mobile-open');
+                break;
+            case 'tpl-cat':
+                sb.querySelectorAll('[data-action="tpl-cat"]').forEach(b => b.classList.toggle('active', b === btn));
+                filterTemplateCards();
+                break;
             case 'drive-retry':
                 driveReload();
                 break;
@@ -3267,6 +3787,7 @@ function initStudioSidebar() {
 
     // Recherche (avec un court délai pour ne pas recalculer à chaque touche)
     sb.addEventListener('input', (e) => {
+        if (e.target.id === 'vafm-tpl-search') { filterTemplateCards(); return; }
         if (e.target.id !== 'vafm-drive-search') return;
         clearTimeout(_driveState.searchTimer);
         const value = e.target.value.trim();
