@@ -906,11 +906,38 @@ async function openArticleView(category, id) {
     .vafm-tpl-card { display: flex; flex-direction: column; gap: 6px; padding: 0; border: none; background: none; cursor: pointer; text-align: left; font-family: inherit; }
     .vafm-tpl-card.is-hidden { display: none; }
     .vafm-tpl-thumb { background: #fff; border: 1px solid #e0e0e8; border-radius: 10px; padding: 6px; transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease; }
-    .vafm-tpl-thumb svg { display: block; width: 100%; height: auto; stroke: none !important; }
+    .vafm-sb .vafm-tpl-thumb svg { display: block; width: 100% !important; height: auto !important; stroke: none !important; }
     .vafm-tpl-card:hover .vafm-tpl-thumb, .vafm-tpl-card:focus-visible .vafm-tpl-thumb { border-color: #E50914; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1); }
     .vafm-tpl-card:focus-visible { outline: none; }
     .vafm-tpl-name { padding: 0 2px; font-size: 0.76rem; font-weight: 700; color: #444; }
     .vafm-drive-item { cursor: grab; }
+
+    /* Carrousel d'images : défilement tactile + pastilles (pilule blanche = diapo active) */
+    .vafm-carousel { position: relative; }
+    .vafm-carousel-track { position: relative; display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none; border-radius: 12px; -webkit-overflow-scrolling: touch; }
+    .vafm-carousel-track::-webkit-scrollbar { display: none; }
+    .vafm-tpl .vafm-carousel-track .vafm-slot-img { flex: 0 0 100%; scroll-snap-align: start; border-radius: 0; aspect-ratio: 16 / 9; }
+    .vafm-car-arrow { position: absolute; top: calc(50% - 30px); z-index: 2; width: 40px; height: 40px; padding: 0; display: flex; align-items: center; justify-content: center; border: none; border-radius: 50%; background: rgba(13, 13, 15, 0.7); color: #fff; cursor: pointer; transition: background 0.15s ease; }
+    .vafm-car-arrow:hover { background: rgba(13, 13, 15, 0.92); }
+    .vafm-car-prev { left: 12px; }
+    .vafm-car-next { right: 12px; }
+    .vafm-car-arrow svg, .vafm-car-admin svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+    .vafm-car-bar { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 12px; }
+    .vafm-car-dots { display: inline-flex; align-items: center; gap: 10px; padding: 9px 16px; border-radius: 999px; background: #0d0d0f; }
+    .vafm-car-dot { width: 14px; height: 14px; padding: 0; border: none; border-radius: 999px; background: #7b7b82; cursor: pointer; transition: width 0.3s ease, background 0.3s ease; }
+    .vafm-car-dot.active { width: 46px; background: #ffffff; }
+    .vafm-car-admin { width: 34px; height: 34px; padding: 0; display: flex; align-items: center; justify-content: center; border: 1px solid #d9d9e3; border-radius: 50%; background: #fff; color: #333; cursor: pointer; }
+    .vafm-car-admin:hover { background: #f0f0f5; }
+    .vafm-car-admin.vafm-car-del:hover { background: #ff3b30; border-color: #ff3b30; color: #fff; }
+    .vafm-car-admin svg { width: 16px; height: 16px; stroke-width: 2.2; }
+    .vafm-carousel.is-single .vafm-car-arrow { display: none; }
+    .canva-layout:not(.canva-admin-active) .vafm-carousel.is-single .vafm-car-bar { display: none; }
+    @media screen and (max-width: 768px) {
+        .vafm-car-arrow { width: 34px; height: 34px; }
+        .vafm-car-dot { width: 11px; height: 11px; }
+        .vafm-car-dot.active { width: 34px; }
+        .vafm-car-dots { gap: 8px; padding: 8px 12px; }
+    }
 
     /* Pas de décors saisonniers (Halloween, Noël…) par-dessus le texte d'un article */
     body.vafm-article-open #seasonal-decor-container,
@@ -1159,6 +1186,7 @@ async function openArticleView(category, id) {
         try { initStudioSafetyNet(collectionName, id); } catch (e) { console.error('[VAFM] initStudioSafetyNet:', e); }
         try { initStudioSidebar(); } catch (e) { console.error('[VAFM] initStudioSidebar:', e); }
     } else {
+        try { initVafmCarousels(document.getElementById('canva-doc-content')); } catch (e) { console.error('[VAFM] carrousel:', e); }
         initArticleImageLightbox();
         try { initReadingProgressBar(); } catch (e) { console.error('[VAFM] initReadingProgressBar:', e); }
         try { loadRelatedArticles(collectionName, category, id); } catch (e) { console.error('[VAFM] loadRelatedArticles:', e); }
@@ -1359,6 +1387,8 @@ function formatContentToCanvaBlocks(htmlContent, isAdmin = false) {
 function initCanvaInteractions() {
     const contentArea = document.getElementById('canva-doc-content');
     if (!contentArea) return;
+
+    try { initVafmCarousels(contentArea); } catch (e) { console.error('[VAFM] carrousel:', e); }
 
     let draggedBlock = null;
 
@@ -2706,6 +2736,8 @@ async function saveCanvaArticle(collectionName, id) {
             b.removeAttribute('data-interactive');
         });
 
+        tempDiv.querySelectorAll('.vafm-car-ui').forEach(el => el.remove());
+        tempDiv.querySelectorAll('.vafm-carousel').forEach(el => el.classList.remove('is-single'));
         tempDiv.querySelectorAll('.is-armed, .drop-hover, .is-uploading').forEach(el => {
             el.classList.remove('is-armed', 'drop-hover', 'is-uploading');
         });
@@ -3299,6 +3331,11 @@ const VAFM_TEMPLATES = [
         thumb: [['i', 4, 4, 92, 30], ['b', 4, 38, 92, 22]]
     },
     {
+        id: 'carousel', name: 'Carrousel', cat: 'Galerie', cls: 'vafm-tpl-carousel',
+        html: () => '<div class="vafm-carousel"><div class="vafm-carousel-track">' + _tplImg() + _tplImg() + _tplImg() + '</div></div>' + _tplTxt('<p>Légende du carrousel : double-cliquez pour la modifier.</p>'),
+        thumb: [['i', 4, 4, 92, 36], ['d', 30, 44, 40, 9], ['t', 4, 57, 92, 6]]
+    },
+    {
         id: 'duo', name: 'Deux images', cat: 'Galerie', cls: 'vafm-tpl-duo',
         html: () => _tplImg() + _tplImg() + _tplTxt('<p>Légende des deux photos : double-cliquez pour la modifier.</p>'),
         thumb: [['i', 4, 4, 44, 34], ['i', 52, 4, 44, 34], ['t', 4, 44, 92, 16]]
@@ -3345,6 +3382,11 @@ function vafmTemplateThumbSvg(spec) {
                 `<polygon points="${x + w * 0.15},${y + h * 0.85} ${x + w * 0.4},${y + h * 0.45} ${x + w * 0.6},${y + h * 0.7} ${x + w * 0.75},${y + h * 0.55} ${x + w * 0.9},${y + h * 0.85}" fill="#ffffff" opacity="0.75"/>`;
         } else if (type === 't') {
             out += `<rect x="${x}" y="${y}" width="${w * 0.7}" height="4" rx="2" fill="#3a3a4a"/>` + lines(x, y + 9, w, h - 9, '#b9bbc9');
+        } else if (type === 'd') {
+            out += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${h / 2}" fill="#0d0d0f"/>` +
+                `<rect x="${x + 4}" y="${y + h * 0.28}" width="${w * 0.36}" height="${h * 0.44}" rx="${h * 0.22}" fill="#ffffff"/>` +
+                `<circle cx="${x + w * 0.62}" cy="${y + h / 2}" r="${h * 0.22}" fill="#7b7b82"/>` +
+                `<circle cx="${x + w * 0.8}" cy="${y + h / 2}" r="${h * 0.22}" fill="#7b7b82"/>`;
         } else if (type === 'q') {
             out += `<rect x="${x}" y="${y}" width="2" height="${h}" fill="#E50914"/>` + lines(x + 6, y, w - 6, h, '#8a8c9c');
         } else if (type === 'b') {
@@ -3425,6 +3467,142 @@ function insertTemplate(id) {
     updateLiveStats();
     showToast('Modèle ajouté : glissez vos images, double-cliquez sur le texte pour le modifier.', 'success', { duration: 5000 });
     safeScrollIntoView(block);
+}
+
+/* ---------------------------------- Carrousel ---------------------------------- */
+const VAFM_CAR_ICONS = {
+    prev: '<svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>',
+    next: '<svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>',
+    add: '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+    del: '<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>'
+};
+
+function initVafmCarousels(root) {
+    (root || document).querySelectorAll('.vafm-carousel').forEach(setupVafmCarousel);
+}
+
+function setupVafmCarousel(car) {
+    const track = car.querySelector('.vafm-carousel-track');
+    if (!track) return;
+
+    // Reconstruction idempotente : on repart d'une interface propre.
+    car.querySelectorAll('.vafm-car-ui').forEach(el => el.remove());
+    if (car._vafmScroll) track.removeEventListener('scroll', car._vafmScroll);
+
+    const isAdmin = Boolean(car.closest('.canva-admin-active'));
+    const getSlides = () => Array.from(track.querySelectorAll('.vafm-slot-img'))
+        .filter(s => isAdmin || !s.classList.contains('is-empty'));
+
+    const ui = document.createElement('div');
+    ui.className = 'vafm-car-ui';
+    ui.setAttribute('contenteditable', 'false');
+
+    const mkBtn = (cls, label, icon) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = cls;
+        b.setAttribute('aria-label', label);
+        b.title = label;
+        b.innerHTML = icon;
+        return b;
+    };
+
+    const prev = mkBtn('vafm-car-arrow vafm-car-prev', 'Image précédente', VAFM_CAR_ICONS.prev);
+    const next = mkBtn('vafm-car-arrow vafm-car-next', 'Image suivante', VAFM_CAR_ICONS.next);
+    const bar = document.createElement('div');
+    bar.className = 'vafm-car-bar';
+    const dotsBox = document.createElement('div');
+    dotsBox.className = 'vafm-car-dots';
+    bar.appendChild(dotsBox);
+
+    let addBtn = null, delBtn = null;
+    if (isAdmin) {
+        addBtn = mkBtn('vafm-car-admin vafm-car-add', 'Ajouter une diapositive', VAFM_CAR_ICONS.add);
+        delBtn = mkBtn('vafm-car-admin vafm-car-del', 'Supprimer la diapositive affichée', VAFM_CAR_ICONS.del);
+        bar.appendChild(addBtn);
+        bar.appendChild(delBtn);
+    }
+
+    ui.appendChild(prev);
+    ui.appendChild(next);
+    ui.appendChild(bar);
+    car.appendChild(ui);
+
+    const currentIndex = () => {
+        const list = getSlides();
+        let best = 0, bestDist = Infinity;
+        list.forEach((s, i) => {
+            const d = Math.abs(s.offsetLeft - track.scrollLeft);
+            if (d < bestDist) { bestDist = d; best = i; }
+        });
+        return best;
+    };
+
+    const goTo = (i, smooth = true) => {
+        const list = getSlides();
+        if (!list.length) return;
+        const idx = Math.max(0, Math.min(list.length - 1, i));
+        track.scrollTo({ left: list[idx].offsetLeft, behavior: smooth ? 'smooth' : 'auto' });
+    };
+
+    const renderDots = () => {
+        const list = getSlides();
+        car.classList.toggle('is-single', list.length <= 1);
+        if (dotsBox.children.length !== list.length) {
+            dotsBox.innerHTML = '';
+            list.forEach((_, i) => {
+                const d = document.createElement('button');
+                d.type = 'button';
+                d.className = 'vafm-car-dot';
+                d.setAttribute('aria-label', `Image ${i + 1}`);
+                d.addEventListener('click', () => goTo(i));
+                dotsBox.appendChild(d);
+            });
+        }
+        const cur = currentIndex();
+        Array.from(dotsBox.children).forEach((d, i) => d.classList.toggle('active', i === cur));
+    };
+
+    let raf = null;
+    car._vafmScroll = () => {
+        if (raf) return;
+        raf = requestAnimationFrame(() => { raf = null; renderDots(); });
+    };
+    track.addEventListener('scroll', car._vafmScroll, { passive: true });
+
+    prev.addEventListener('click', () => goTo(currentIndex() - 1));
+    next.addEventListener('click', () => goTo(currentIndex() + 1));
+
+    if (isAdmin) {
+        addBtn.addEventListener('click', () => {
+            const slide = document.createElement('div');
+            slide.className = 'vafm-slot vafm-slot-img is-empty';
+            slide.dataset.slot = 'img';
+            track.appendChild(slide);
+            setupVafmCarousel(car);
+            const n = track.querySelectorAll('.vafm-slot-img').length;
+            requestAnimationFrame(() => {
+                const last = track.querySelectorAll('.vafm-slot-img')[n - 1];
+                if (last) track.scrollTo({ left: last.offsetLeft, behavior: 'smooth' });
+            });
+            if (typeof pushUndoState === 'function') pushUndoState();
+        });
+
+        delBtn.addEventListener('click', () => {
+            const list = getSlides();
+            if (list.length <= 1) {
+                if (typeof showToast === 'function') showToast('Un carrousel garde au moins une diapositive.', 'info');
+                return;
+            }
+            const idx = currentIndex();
+            list[idx].remove();
+            setupVafmCarousel(car);
+            goTo(Math.max(0, idx - 1), false);
+            if (typeof pushUndoState === 'function') pushUndoState();
+        });
+    }
+
+    renderDots();
 }
 
 /* ------------------------------ Cadres image ------------------------------ */
