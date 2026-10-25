@@ -1037,6 +1037,68 @@ async function openArticleView(category, id) {
         .vafm-sb-mobile-top { display: flex; }
         .vafm-sb-fab { display: flex; position: fixed; left: 14px; bottom: 130px; width: 48px; height: 48px; align-items: center; justify-content: center; border-radius: 50%; border: none; background: #E50914; color: #fff; box-shadow: 0 6px 20px rgba(229, 9, 20, 0.45); z-index: 9999998; cursor: pointer; }
     }
+    /* ==========================================================================
+       MOBILE & TACTILE : barre d'outils défilante au doigt, boutons plus grands
+       ========================================================================== */
+    html body .vafm-player-toolbar {
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        justify-content: flex-start !important;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-x: contain;
+        touch-action: pan-x !important;
+    }
+    html body .vafm-player-toolbar::-webkit-scrollbar { display: none !important; }
+    html body .vafm-player-toolbar > * { flex-shrink: 0 !important; }
+
+    /* Fondu sur le bord où il reste des boutons cachés : "glissez pour en voir plus" */
+    .vafm-player-toolbar.tb-more-right:not(.tb-more-left) { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent); }
+    .vafm-player-toolbar.tb-more-left:not(.tb-more-right) { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent); }
+    .vafm-player-toolbar.tb-more-left.tb-more-right { -webkit-mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent); }
+
+    .vafm-sb-fab svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .canva-admin-active .canva-block { touch-action: manipulation; }
+
+    @media screen and (max-width: 1000px) {
+        html body .vafm-player-toolbar {
+            left: 8px !important;
+            right: 8px !important;
+            width: auto !important;
+            max-width: none !important;
+            margin: 0 !important;
+            transform: none !important;
+            border-radius: 18px !important;
+            padding: 7px 12px !important;
+            gap: 6px !important;
+        }
+        html body .vafm-tb-label { display: none !important; }
+        html body .vafm-tb-btn { width: 42px !important; height: 42px !important; border-radius: 10px !important; }
+        html body .vafm-tb-btn svg { width: 20px; height: 20px; }
+        .vafm-sb-fab { bottom: 182px; width: 52px; height: 52px; }
+        .vafm-sb { width: min(390px, 94vw); flex-direction: column; }
+        /* Sur mobile, les sections (Drive / Modèles) deviennent des onglets en haut du tiroir */
+        .vafm-sb .vafm-sb-rail { display: flex; flex-direction: row; width: 100%; flex: 0 0 auto; padding: 10px 12px; gap: 8px; border-right: none; border-bottom: 1px solid #eee; overflow-x: auto; overflow-y: hidden; box-sizing: border-box; }
+        .vafm-sb .vafm-sb-rail-btn { flex: 1 1 0; width: auto; flex-direction: row; justify-content: center; gap: 8px; padding: 11px 14px; }
+        .vafm-sb .vafm-sb-rail-btn svg { width: 20px; height: 20px; }
+        .vafm-sb .vafm-sb-rail-btn .lbl { font-size: 0.92rem; }
+        .vafm-sb-search input, .vafm-modal-input, .canva-admin-active .canva-document input { font-size: 16px !important; }
+        .vafm-sb-chip { padding: 8px 14px; font-size: 0.82rem; }
+        .vafm-sb-tab { padding: 10px 0 12px; font-size: 1rem; }
+        .vafm-sb-import { padding: 14px; font-size: 1rem; }
+        .vafm-drive-grid { column-gap: 10px; }
+        .vafm-drive-item { margin-bottom: 10px; }
+        .vafm-tpl-grid { gap: 14px 12px; }
+        .vafm-tpl-name { font-size: 0.85rem; }
+        .vafm-sb-close { width: 40px; height: 40px; font-size: 1.05rem; }
+        .vafm-car-admin { width: 40px; height: 40px; }
+        .vafm-car-arrow { width: 38px; height: 38px; }
+        .vafm-modal { max-width: calc(100vw - 32px); }
+        .vafm-modal-btn { padding: 12px 18px; font-size: 0.95rem; }
+        .canva-block-mini-toolbar .mini-btn { width: 38px; height: 38px; font-size: 1rem; }
+    }
+
 </style>
 
         <div id="vafm-reading-progress" class="vafm-reading-progress"><div id="vafm-reading-progress-fill" class="vafm-reading-progress-fill"></div></div>
@@ -1182,6 +1244,7 @@ async function openArticleView(category, id) {
         // présents dans le HTML ci-dessus) restent cliquables au lieu de tous se figer.
         try { if (typeof initCanvaInteractions === 'function') initCanvaInteractions(); } catch (e) { console.error('[VAFM] initCanvaInteractions:', e); }
         try { initDynamicTooltips(); } catch (e) { console.error('[VAFM] initDynamicTooltips:', e); }
+        try { initToolbarSwipe(); } catch (e) { console.error('[VAFM] initToolbarSwipe:', e); }
         try { initStudioShortcuts(collectionName, id); } catch (e) { console.error('[VAFM] initStudioShortcuts:', e); }
         try { initStudioSafetyNet(collectionName, id); } catch (e) { console.error('[VAFM] initStudioSafetyNet:', e); }
         try { initStudioSidebar(); } catch (e) { console.error('[VAFM] initStudioSidebar:', e); }
@@ -1244,6 +1307,50 @@ requestAnimationFrame(() => {
 /* ==========================================================================
    POPUPS DYNAMIQUES ET RACCOURCIS CLAVIER
    ========================================================================== */
+function initToolbarSwipe() {
+    const tb = document.querySelector('.vafm-player-toolbar');
+    if (!tb) return;
+
+    if (window._vafmTbResize) window.removeEventListener('resize', window._vafmTbResize);
+
+    const update = () => {
+        const max = tb.scrollWidth - tb.clientWidth;
+        tb.classList.toggle('tb-more-left', tb.scrollLeft > 4);
+        tb.classList.toggle('tb-more-right', max > 4 && tb.scrollLeft < max - 4);
+    };
+
+    tb.addEventListener('scroll', update, { passive: true });
+    window._vafmTbResize = update;
+    window.addEventListener('resize', update);
+    // La largeur disponible change quand la barre latérale s'ouvre ou se replie.
+    if (window.ResizeObserver) new ResizeObserver(update).observe(tb);
+
+    // Molette de souris : fait défiler la barre horizontalement quand elle déborde.
+    tb.addEventListener('wheel', (e) => {
+        if (tb.scrollWidth <= tb.clientWidth) return;
+        if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+            tb.scrollLeft += e.deltaY;
+            e.preventDefault();
+        }
+    }, { passive: false });
+
+    update();
+
+    // Petit coup de pouce visuel (3 premières ouvertures sur mobile) pour montrer qu'on peut glisser.
+    if (window.matchMedia('(max-width: 1000px)').matches && tb.scrollWidth > tb.clientWidth) {
+        let seen = 0;
+        try { seen = Number(localStorage.getItem('vafm_tb_hint') || 0); } catch (_) { /* non bloquant */ }
+        if (seen < 3) {
+            try { localStorage.setItem('vafm_tb_hint', String(seen + 1)); } catch (_) { /* non bloquant */ }
+            setTimeout(() => {
+                tb.scrollTo({ left: 90, behavior: 'smooth' });
+                setTimeout(() => tb.scrollTo({ left: 0, behavior: 'smooth' }), 800);
+            }, 900);
+            showToast('Glissez la barre du bas pour voir tous les outils.', 'info', { duration: 4000 });
+        }
+    }
+}
+
 function initDynamicTooltips() {
     let tooltipEl = document.getElementById('vafm-global-tooltip');
     if (!tooltipEl) {
@@ -1408,7 +1515,11 @@ function initCanvaInteractions() {
         block.addEventListener('mouseenter', () => {
             if (!block.classList.contains('editing')) positionMiniBlockToolbar(block);
         });
-        block.addEventListener('mouseleave', scheduleMiniToolbarHide);
+        block.addEventListener('mouseleave', () => {
+            // Un bloc sélectionné garde sa mini-barre (indispensable au doigt, où il n'y a pas de survol).
+            if (block.classList.contains('selected')) return;
+            scheduleMiniToolbarHide();
+        });
 
         block.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1428,8 +1539,26 @@ function initCanvaInteractions() {
 
         // Bug corrigé : un bloc restait "draggable" même pendant l'édition de texte,
         // ce qui transformait une sélection de texte à la souris en déplacement de bloc.
+        // Tactile : un double-tap déclenche le même comportement qu'un double-clic.
+        let lastTap = { t: 0, x: 0, y: 0 };
+        block.addEventListener('touchend', (e) => {
+            if (e.touches.length || e.changedTouches.length !== 1) return;
+            const tp = e.changedTouches[0];
+            const now = Date.now();
+            if (now - lastTap.t < 350 && Math.hypot(tp.clientX - lastTap.x, tp.clientY - lastTap.y) < 30) {
+                lastTap.t = 0;
+                const target = document.elementFromPoint(tp.clientX, tp.clientY) || e.target;
+                target.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, view: window, clientX: tp.clientX, clientY: tp.clientY }));
+            } else {
+                lastTap = { t: now, x: tp.clientX, y: tp.clientY };
+            }
+        }, { passive: true });
+
         block.addEventListener('dblclick', (e) => {
             e.stopPropagation();
+            const nowD = Date.now();
+            if (block._dblAt && nowD - block._dblAt < 500) return; // évite le doublon tap + dblclick natif
+            block._dblAt = nowD;
             if (block.classList.contains('vafm-tpl')) {
                 handleTemplateDblClick(block, e);
                 return;
@@ -1616,6 +1745,11 @@ function positionMiniBlockToolbar(block) {
 
     bar.classList.add('visible');
     bar.style.display = 'flex';
+
+    // Reste entièrement visible à l'écran (mobile).
+    const maxLeft = window.scrollX + document.documentElement.clientWidth - bar.offsetWidth - 8;
+    const curLeft = parseFloat(bar.style.left) || 0;
+    bar.style.left = `${Math.max(window.scrollX + 8, Math.min(curLeft, maxLeft))}px`;
 }
 
 function scheduleMiniToolbarHide() {
@@ -3845,6 +3979,10 @@ function teardownStudioSidebar() {
     if (fab) fab.remove();
     document.body.classList.remove('vafm-studio-sb');
     document.documentElement.style.removeProperty('--vafm-sb-w');
+    if (window._vafmTbResize) {
+        window.removeEventListener('resize', window._vafmTbResize);
+        window._vafmTbResize = null;
+    }
     document.querySelectorAll('.vafm-shift-fixed, .vafm-shift-flow').forEach(el => el.classList.remove('vafm-shift-fixed', 'vafm-shift-flow'));
     if (_driveState) { _driveState.reqId++; _driveState = null; }
     disarmImageSlot();
@@ -3906,7 +4044,7 @@ function initStudioSidebar() {
             case 'sb-section': {
                 // Comme Canva : recliquer sur la section active replie le panneau.
                 const isActive = btn.classList.contains('active');
-                if (isActive && !sb.classList.contains('panel-closed')) {
+                if (isActive && !sb.classList.contains('panel-closed') && !mq.matches) {
                     sb.classList.add('panel-closed');
                     _sbSetPref('panel', 'closed');
                     syncStudioSidebarOffset();
