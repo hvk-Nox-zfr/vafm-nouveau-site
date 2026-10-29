@@ -1,0 +1,69 @@
+/* ==========================================================================
+   VAFM — Scroll 3D (scroll3d.css)
+   Animations 3D pilotées par le défilement. Le JS (scroll3d.js) écrit
+   uniquement les propriétés individuelles `rotate`, `translate` et `scale` :
+   elles se COMBINENT avec les `transform` / `opacity` déjà utilisés par
+   apple-theme.css et apple-motion.js, sans jamais les écraser.
+   ========================================================================== */
+
+/* Profondeur de la scène : activée par le JS (classe s3d-on) */
+html.s3d-on #content {
+    perspective: 1400px;
+    /* perspective-origin (point de fuite) suivi au scroll par le JS */
+    overflow-x: clip;
+}
+
+/* Grilles de cartes : leur propre perspective pour que les cartes basculent en 3D */
+html.s3d-on .s3d-grid {
+    perspective: 1100px;
+    perspective-origin: 50% 30%;
+}
+
+/* Éléments animés */
+html.s3d-on .s3d-item {
+    transform-origin: var(--s3d-origin, 50% 50%);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+/* will-change uniquement sur ce qui est à l'écran (évite de saturer la mémoire GPU) */
+html.s3d-on .s3d-item.s3d-live {
+    will-change: transform;
+}
+
+/* Les titres de section basculent depuis leur bord bas */
+html.s3d-on .s3d-title {
+    display: inline-block;
+}
+
+/* Barre de progression de lecture (haut de page) */
+#s3d-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    z-index: 100000;
+    pointer-events: none;
+    transform-origin: 0 50%;
+    transform: scaleX(0);
+    background: linear-gradient(90deg, #E50914, #ff8a00);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+#s3d-progress.visible {
+    opacity: 1;
+}
+
+/* Respect des préférences d'accessibilité */
+@media (prefers-reduced-motion: reduce) {
+    html.s3d-on #content,
+    html.s3d-on .s3d-grid {
+        perspective: none;
+    }
+
+    #s3d-progress {
+        display: none;
+    }
+}
