@@ -1,17 +1,20 @@
 /* ==========================================================================
-   VAFM — Présentation 3D au défilement (vafm-intro.js)
+   VAFM — Présentation 3D au défilement (vafm-intro.js) — v3
    --------------------------------------------------------------------------
-   Crée tout en haut de la page d'accueil une scène "produit" façon Apple :
-   un appareil VAFM en 3D tourne, change d'écran (Live → Actus → Dédicaces →
-   Vidéos) puis zoome dans l'écran, pendant que les textes apparaissent.
+   Scène "produit" façon Apple tout en haut de la page d'accueil : un appareil
+   VAFM en 3D tourne, change d'écran (Live → Actus → Dédicaces → Vidéos) puis
+   zoome dans l'écran, pendant que les textes apparaissent. Le hero remonte
+   ensuite par-dessus la scène comme un rideau.
 
-   - Zéro dépendance, zéro image lourde : tout est en CSS 3D + ~10 Ko de JS.
-   - La section est insérée automatiquement au début de #content.
-   - Données réelles : titre en cours (#current-track), actus et dédicaces
-     déjà présentes sur la page (aucune requête réseau supplémentaire).
-   - Accessible : texte lisible, mode "sans animation" si l'utilisateur a
-     demandé de réduire les animations.
-   - Débrayable : ?intro=off dans l'adresse (ou localStorage.vafm_intro='off').
+   Nouveautés v3
+   - Bouton « Passer l'intro » (défilement accéléré jusqu'aux actus).
+   - Mouvement plus fluide : ressort amorti sur le défilement, courbes
+     "smootherstep", trajectoire en arc pendant les rotations.
+   - Entrée cinématique au chargement, textes révélés mot par mot avec masque.
+   - Inclinaison de l'appareil vers la souris, ombre au sol réaliste,
+     projecteur qui suit l'appareil, changement d'écran façon "app switch".
+
+   Zéro dépendance. Débrayable : ?intro=off (ou localStorage.vafm_intro='off').
    ========================================================================== */
 (function () {
     'use strict';
@@ -88,10 +91,25 @@
 
     /* ------------------------------ Utilitaires ------------------------------ */
     function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
-    function ease(u) { return u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2; }
+    // smootherstep : démarrage et arrivée plus doux que l'ease cubique
+    function ease(u) { return u * u * u * (u * (u * 6 - 15) + 10); }
+    function easeOut(u) { return 1 - Math.pow(1 - u, 3); }
+    function easeInOut(u) { return u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2; }
     function lerp(a, b, u) { return a + (b - a) * u; }
     // fenêtre 0 → 1 → 0 avec fondus de longueur f
     function win(p, a, b, f) { return clamp((p - a) / f, 0, 1) * clamp((b - p) / f, 0, 1); }
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+    // Ressort amorti critique (SmoothDamp) : suit la cible sans à-coup, avec inertie
+    function smoothDamp(cur, tgt, vel, smoothTime, dt) {
+        var omega = 2 / smoothTime, x = omega * dt;
+        var ex = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
+        var change = cur - tgt;
+        var temp = (vel.v + omega * change) * dt;
+        vel.v = (vel.v - omega * temp) * ex;
+        return tgt + (change + temp) * ex;
+    }
+
     // N'écrit dans le DOM que si la valeur a changé (réduit fortement le travail par frame)
     function setOp(el, v) {
         var t = v < 0.004 ? '0' : v.toFixed(3);
@@ -103,14 +121,15 @@
         }
     }
     function setTf(el, v) { if (el._t !== v) { el._t = v; el.style.transform = v; } }
-    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    function setVar(el, name, v) { if (el['_v' + name] !== v) { el['_v' + name] = v; el.style.setProperty(name, v); } }
 
+    // Mots enveloppés dans un masque : chaque mot "monte" depuis le bas (révélation façon Apple)
     function headlineHtml(str) {
-        var grad = false, out = '';
+        var out = '';
         str.split('*').forEach(function (seg, idx) {
-            grad = idx % 2 === 1;
+            var grad = idx % 2 === 1;
             seg.split(/\s+/).filter(Boolean).forEach(function (w) {
-                out += '<span class="vi-w' + (grad ? ' grad' : '') + '">' + esc(w) + '</span> ';
+                out += '<span class="vi-w' + (grad ? ' grad' : '') + '"><span class="vi-wi">' + esc(w) + '</span></span> ';
             });
         });
         return out;
@@ -151,15 +170,18 @@
         sec.setAttribute('aria-label', 'Présentation de VAFM');
         sec.innerHTML =
             '<div class="vi-track"><div class="vi-stage">' +
+              '<button type="button" class="vi-skip" data-act="skip" aria-label="Passer la présentation et aller aux actualités">' +
+                '<span>Passer l\'intro</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/><polyline points="6 14 12 20 18 14"/></svg></button>' +
               '<div class="vi-bg" aria-hidden="true">' +
                 '<div class="vi-stars"></div>' +
                 '<div class="vi-orb vi-orb-a"></div><div class="vi-orb vi-orb-b"></div><div class="vi-orb vi-orb-c"></div><div class="vi-orb vi-orb-d"></div>' +
+                '<div class="vi-spot"></div>' +
                 '<div class="vi-rings"><div class="vi-ring"></div><div class="vi-ring"></div><div class="vi-ring"></div></div>' +
               '</div>' +
               '<div class="vi-scene" aria-hidden="true">' +
+                '<div class="vi-floor"></div>' +
                 '<div class="vi-device">' + slices +
                   '<div class="vi-back"><img src="' + LOGO + '" alt="" width="200" height="70"></div>' +
-                  '<div class="vi-shadow"></div>' +
                   '<div class="vi-screen">' +
                     // Live
                     '<div class="vi-s vi-s-live">' +
@@ -214,6 +236,7 @@
         var supportsClip = !(window.CSS && CSS.supports) || CSS.supports('overflow-x', 'clip');
         var STATIC = reduce || LITE || !supportsClip;
         var mqMobile = window.matchMedia('(max-width: 760px)');
+        var mqFine = window.matchMedia('(hover: hover) and (pointer: fine)');
 
         var sec = build();
         content.insertBefore(sec, content.firstChild);
@@ -226,15 +249,18 @@
         var glare = sec.querySelector('.vi-glare');
         var stars = sec.querySelector('.vi-stars');
         var rings = sec.querySelector('.vi-rings');
+        var spot = sec.querySelector('.vi-spot');
+        var floor = sec.querySelector('.vi-floor');
         var orbs = [].slice.call(sec.querySelectorAll('.vi-orb'));
         var screens = SCREENS.map(function (s) { return sec.querySelector('.' + s.cls); });
         var texts = [].slice.call(sec.querySelectorAll('.vi-t'));
-        var words = texts.map(function (t) { return [].slice.call(t.querySelectorAll('.vi-w')); });
+        var words = texts.map(function (t) { return [].slice.call(t.querySelectorAll('.vi-wi')); });
         var tInner = texts.map(function (t) { return t.querySelector('.vi-ti'); });
         var chipEls = [].slice.call(sec.querySelectorAll('.vi-chip'));
         var stepEls = [].slice.call(sec.querySelectorAll('.vi-step'));
         var scene = sec.querySelector('.vi-scene');
         var cover = sec.querySelector('.vi-cover');
+        var skipBtn = sec.querySelector('.vi-skip');
         var next = sec.nextElementSibling;   // le hero : il remontera par-dessus la scène
         if (next && !STATIC) next.classList.add('vi-next'); else next = null;
         var dim = sec.querySelector('.vi-dim');
@@ -252,7 +278,7 @@
             M.stageH = stage.offsetHeight || window.innerHeight;
             M.dw = device.offsetWidth || 600;
             M.dh = device.offsetHeight || 450;
-            M.trackH = track.offsetHeight;
+            M.cover = Math.max(M.sw / (M.dw * 0.95), (M.sh + 2 * (M.stageH - M.sh)) / (M.dh * 0.95)) * 1.03;
             M.cw = chipEls.map(function (c) { return c.offsetWidth || 120; });
             M.ovl = next ? M.stageH : 0;
             if (next) {
@@ -261,51 +287,90 @@
             }
             M.trackH = track.offsetHeight;
             M.dist = Math.max(1, M.trackH - M.stageH - M.ovl);
-            M.cover = Math.max(M.sw / (M.dw * 0.95), (M.sh + 2 * (M.stageH - M.sh)) / (M.dh * 0.95)) * 1.03;
         }
 
+        // Interpolation de la pose : smootherstep + trajectoire en arc pendant les grandes rotations
         function pose(p) {
             var i = 0;
             while (i < KEYS.length - 2 && p > KEYS[i + 1].t) i++;
             var a = KEYS[i], b = KEYS[i + 1];
-            var u = ease(clamp((p - a.t) / (b.t - a.t), 0, 1));
+            var raw = clamp((p - a.t) / (b.t - a.t), 0, 1);
+            var u = ease(raw);
             var sa = a.s === 'cover' ? M.cover : a.s;
             var sb = b.s === 'cover' ? M.cover : b.s;
+            var dRy = Math.abs(b.ry - a.ry);
+            var arc = dRy > 40 ? Math.sin(Math.PI * raw) : 0;   // 0 → 1 → 0 pendant la rotation
+            var dir = b.ry > a.ry ? 1 : -1;
             return {
-                rx: lerp(a.rx, b.rx, u), ry: lerp(a.ry, b.ry, u), rz: lerp(a.rz, b.rz, u),
-                x: lerp(a.x, b.x, u), y: lerp(a.y, b.y, u), z: lerp(a.z, b.z, u), s: lerp(sa, sb, u)
+                rx: lerp(a.rx, b.rx, u) - arc * 4,
+                ry: lerp(a.ry, b.ry, u),
+                rz: lerp(a.rz, b.rz, u) + arc * dir * -3,
+                x: lerp(a.x, b.x, u),
+                y: lerp(a.y, b.y, u) - arc * 3,
+                z: lerp(a.z, b.z, u) + arc * Math.min(dRy, 200) * 0.85,   // l'appareil "s'avance" en tournant
+                s: lerp(sa, sb, u) + arc * 0.025
             };
         }
 
         /* ------------------------------ Rendu ------------------------------ */
-        function render(p, t, q) {
+        var PX = 0, PY = 0;       // inclinaison souris lissée
+        var MX = 0, MY = 0;       // position souris brute (-1 → 1)
+
+        function render(p, t, q, entr, dt) {
             q = q || 0;
             var mob = mqMobile.matches;
             var P = pose(p);
-            var zoomK = 1 - clamp((p - 0.9) / 0.1, 0, 1); // le flottement s'éteint pendant le zoom final
+            var zoomK = 1 - clamp((p - 0.9) / 0.1, 0, 1); // flottement + souris s'éteignent pendant le zoom final
+
+            // entrée cinématique au chargement (déploiement depuis le fond)
+            var ent = entr == null ? 1 : easeOut(entr);
+            var entZ = (1 - ent) * -260, entS = 0.9 + 0.1 * ent, entY = (1 - ent) * 5;
+
+            // inclinaison vers la souris (bureau)
+            if (mqFine.matches) {
+                var kk = 1 - Math.exp(-(dt || 0.016) * 5);
+                PX += (MX - PX) * kk; PY += (MY - PY) * kk;
+            } else { PX = PY = 0; }
+
             var fl = Math.sin(t / 1300) * zoomK;
             var X = mob ? 0 : P.x / 100 * M.sw;
-            var Y = P.y / 100 * M.sh + (mob ? M.sh * 0.17 : 0) + fl * 5;
+            var Y = (P.y + entY) / 100 * M.sh + (mob ? M.sh * 0.17 : 0) + fl * 5;
             var rz = P.rz + fl * 0.5;
-            var rx = P.rx + Math.cos(t / 1700) * 0.6 * zoomK;
+            var rx = P.rx + Math.cos(t / 1700) * 0.6 * zoomK - PY * 2.6 * zoomK;
+            var ry = P.ry + PX * 4.2 * zoomK;
+            var S = P.s * entS;
 
-            device.style.transform = 'translate3d(' + X.toFixed(1) + 'px,' + Y.toFixed(1) + 'px,' + P.z.toFixed(1) + 'px) ' +
-                'rotateX(' + rx.toFixed(2) + 'deg) rotateY(' + P.ry.toFixed(2) + 'deg) rotateZ(' + rz.toFixed(2) + 'deg) scale(' + P.s.toFixed(4) + ')';
+            setTf(device, 'translate3d(' + X.toFixed(1) + 'px,' + Y.toFixed(1) + 'px,' + (P.z + entZ).toFixed(1) + 'px) ' +
+                'rotateX(' + rx.toFixed(2) + 'deg) rotateY(' + ry.toFixed(2) + 'deg) rotateZ(' + rz.toFixed(2) + 'deg) scale(' + S.toFixed(4) + ')');
+            setOp(scene, ent);
 
             // reflet qui glisse selon l'angle
-            var ang = ((P.ry % 360) + 360) % 360;
-            glare.style.transform = 'translateX(' + ((ang - 180) / 180 * 38).toFixed(1) + '%)';
+            var ang = (((ry % 360) + 360) % 360);
+            setTf(glare, 'translateX(' + ((ang - 180) / 180 * 38).toFixed(1) + '%)');
 
-            // écrans
+            // ombre au sol : suit l'appareil, se resserre quand il est de profil
+            var face = Math.abs(Math.cos(ry * Math.PI / 180));
+            var fy = Y + M.dh * S * 0.5 * Math.cos(rx * Math.PI / 180) + 34;
+            var fx = 0.3 + 0.7 * face;
+            setTf(floor, 'translate3d(' + X.toFixed(1) + 'px,' + fy.toFixed(1) + 'px,0) scale(' + (S * fx).toFixed(3) + ',' + S.toFixed(3) + ')');
+            setOp(floor, (0.75 * clamp(1 - (P.s - 1.1) * 3, 0, 1)) * ent * zoomK);
+
+            // projecteur derrière l'appareil
+            setTf(spot, 'translate3d(' + (X * 0.9).toFixed(1) + 'px,' + (Y * 0.6).toFixed(1) + 'px,0)');
+            setOp(spot, win(p, 0.10, 0.93, 0.08) * 0.9);
+
+            // écrans : changement façon "app switch" (léger zoom + fondu) + variable d'avancement pour les sous-éléments
             for (var i = 0; i < screens.length; i++) {
                 var w = SCREENS[i].win;
                 var op = clamp((p - (w[0] - 0.02)) / 0.04, 0, 1) * clamp((w[1] + 0.02 - p) / 0.04, 0, 1);
                 if (i === 0 && p < w[1]) op = clamp((w[1] + 0.02 - p) / 0.04, 0, 1);
                 if (i === 3 && p > w[0]) op = clamp((p - (w[0] - 0.02)) / 0.04, 0, 1);
                 setOp(screens[i], op);
+                setVar(screens[i], '--so', op.toFixed(2));
+                setTf(screens[i], op >= 0.995 ? '' : 'scale(' + (0.955 + 0.045 * op).toFixed(4) + ')');
             }
 
-            // textes
+            // textes : fondu global + mots qui montent derrière un masque
             for (var k = 0; k < texts.length; k++) {
                 var st = STEPS[k];
                 var f = 0.035;
@@ -313,16 +378,16 @@
                 var outP = clamp((st.win[1] - p) / f, 0, 1);
                 var a = inP * outP * (1 - clamp(q * 2.2, 0, 1));
                 var el = texts[k];
-                setOp(el, a);
+                var drive = k === 0 ? Math.min(inP, entr == null ? 1 : clamp((entr - 0.12) / 0.7, 0, 1)) : inP;
+                setOp(el, k === 0 ? a * clamp(drive * 6, 0, 1) : a);
                 if (st.cta) { var pe = a > 0.6 ? 'auto' : 'none'; if (el._pe !== pe) { el._pe = pe; el.style.pointerEvents = pe; } }
                 if (a <= 0.001) continue;
-                var shiftY = (1 - inP) * 46 - (1 - outP) * 34;
+                var shiftY = (1 - drive) * 46 - (1 - outP) * 34;
                 setTf(tInner[k], 'translate3d(0,' + shiftY.toFixed(1) + 'px,0)');
                 var ws = words[k];
                 for (var wi = 0; wi < ws.length; wi++) {
-                    var wp = clamp(inP * 1.7 - wi * 0.16, 0, 1);
-                    setOp(ws[wi], wp);
-                    setTf(ws[wi], 'translate3d(0,' + ((1 - wp) * 0.45).toFixed(3) + 'em,0)');
+                    var wp = easeOut(clamp(drive * 1.9 - wi * 0.17, 0, 1));
+                    setTf(ws[wi], 'translate3d(0,' + ((1 - wp) * 108).toFixed(1) + '%,0)');
                 }
             }
 
@@ -332,23 +397,21 @@
             var o2 = win(p, 0.34, 0.62, 0.08) + win(p, 0.74, 0.92, 0.06) * 0.8;
             var o3 = win(p, 0.54, 0.80, 0.08);
             var os = [o0, o1, o2, o3];
-            for (var oi = 0; oi < orbs.length; oi++) {
-                setOp(orbs[oi], clamp(os[oi], 0, 1));
-            }
-            setTf(stars, 'translate3d(0,' + (-p * 70).toFixed(0) + 'px,0)');
+            for (var oi = 0; oi < orbs.length; oi++) setOp(orbs[oi], clamp(os[oi], 0, 1) * 0.9);
+            setTf(stars, 'translate3d(' + (PX * -8).toFixed(1) + 'px,' + (-p * 70).toFixed(0) + 'px,0)');
             setOp(rings, win(p, 0.14, 0.40, 0.06) * 0.9);
 
-            // bulles flottantes
+            // bulles flottantes (parallaxe avec la souris selon leur profondeur)
             for (var ci = 0; ci < CHIPS.length; ci++) {
                 var c = CHIPS[ci], ce = chipEls[ci];
                 var ca = win(p, c.win[0], c.win[1], 0.04);
                 if (mob && !c.m) ca = 0;
                 if (ca <= 0.001) { setOp(ce, 0); continue; }
                 var drift = Math.sin(t / 900 + ci * 1.3) * 6 - (p - c.win[0]) * M.sh * 0.35;
-                var cxp = X + c.cx * M.dw * P.s * (mob ? 0.95 : 1);
+                var cxp = X + c.cx * M.dw * P.s * (mob ? 0.95 : 1) + PX * c.z * 0.07;
                 var lim = M.sw / 2 - M.cw[ci] / 2 - 8; // la bulle reste toujours entièrement à l'écran
                 cxp = clamp(cxp, -lim, lim);
-                var cyp = Y + c.cy * M.dh * P.s + drift;
+                var cyp = Y + c.cy * M.dh * P.s + drift + PY * c.z * 0.05;
                 setOp(ce, ca);
                 ce.style.transform = 'translate3d(' + cxp.toFixed(1) + 'px,' + cyp.toFixed(1) + 'px,' + c.z + 'px) translate(-50%,-50%) scale(' + (0.85 + ca * 0.15).toFixed(3) + ')';
             }
@@ -360,30 +423,36 @@
             setOp(dim, clamp((p - 0.915) / 0.06, 0, 1));
             setTf(stage, q > 0.001 ? 'scale(' + (1 - 0.07 * q).toFixed(4) + ')' : '');
             setOp(cover, q * 0.78);
-            setOp(hint, 1 - clamp(p / 0.035, 0, 1));
+            setOp(hint, (1 - clamp(p / 0.035, 0, 1)) * ent);
+            // bouton "Passer" : apparaît après l'entrée, disparaît vers la fin
+            setOp(skipBtn, clamp((entr == null ? 1 : (entr - 0.35) / 0.4), 0, 1) * (1 - clamp((p - 0.86) / 0.05, 0, 1)) * (1 - clamp(q * 3, 0, 1)));
             prog.style.transform = 'scaleX(' + p.toFixed(4) + ')';
         }
 
         /* ------------------------------ Boucle ------------------------------ */
-        var visible = false, raf = 0, last = 0, ps = 0, target = 0, nBad = 0, nTot = 0, degraded = false;
+        var visible = false, raf = 0, last = 0, ps = 0, vel = { v: 0 }, target = 0;
+        var nBad = 0, nTot = 0, degraded = false, bootT = 0;
 
         function frame(now) {
             raf = 0;
             if (!visible) return;
-            var dt = Math.min(0.05, ((now - last) / 1000) || 0.016);
             var raw = (now - last) / 1000;
+            var dt = Math.min(0.05, raw || 0.016);
             last = now;
+            if (!bootT) bootT = now;
 
             var rect = track.getBoundingClientRect();
             target = clamp((M.top - rect.top) / M.dist, 0, 1);
-            ps += (target - ps) * (1 - Math.exp(-dt * 9));
-            if (Math.abs(target - ps) < 0.0004) ps = target;
+            // ressort amorti : suit le scroll avec inertie, sans à-coup à l'arrêt
+            ps = smoothDamp(ps, target, vel, 0.3, dt);
+            if (Math.abs(target - ps) < 0.0003 && Math.abs(vel.v) < 0.002) { ps = target; vel.v = 0; }
 
             var q = 0;
             if (next) q = clamp((M.top + M.stageH - next.getBoundingClientRect().top) / M.stageH, 0, 1);
-            if (q < 0.999) render(ps, now, q);   // scène entièrement recouverte : inutile de la dessiner
+            var entr = clamp((now - bootT - 120) / 1700, 0, 1);
+            if (q < 0.999) render(clamp(ps, 0, 1), now, q, entr, dt);   // scène entièrement recouverte : inutile de la dessiner
 
-            // Qualité adaptative : si ça rame, on retire les décors secondaires (bulles, anneaux, reflet)
+            // Qualité adaptative : si ça rame, on retire les décors secondaires
             if (!degraded && raw < 0.1) {
                 nTot++; if (raw > 0.026) nBad++;
                 if (nTot >= 90) {
@@ -408,7 +477,6 @@
             var tx = sec.querySelector('.vi-t[data-i="0"]');
             texts.forEach(function (t) { t.style.opacity = '0'; });
             tx.style.opacity = '1'; tx.style.visibility = 'visible';
-            words[0].forEach(function (w) { w.style.opacity = '1'; });
             orbs[0].style.opacity = '.8'; orbs[0].style.visibility = 'visible';
             device.style.transform = 'translate3d(0,' + (M.sh * 0.2).toFixed(0) + 'px,0) rotateX(6deg) rotateY(' + (sp.ry - 360).toFixed(1) + 'deg) scale(.82)';
         } else {
@@ -424,29 +492,63 @@
             window.addEventListener('resize', later, { passive: true });
             window.addEventListener('load', later);
             if (window.ResizeObserver) new ResizeObserver(later).observe(content);
-            render(0, 0);
+            render(0, 0, 0, 0, 0.016);
+
+            // inclinaison souris (ordinateur)
+            stage.addEventListener('pointermove', function (e) {
+                if (e.pointerType === 'touch') return;
+                MX = clamp(e.clientX / window.innerWidth * 2 - 1, -1, 1);
+                MY = clamp(e.clientY / window.innerHeight * 2 - 1, -1, 1);
+            }, { passive: true });
+            stage.addEventListener('pointerleave', function () { MX = 0; MY = 0; }, { passive: true });
         }
 
-        /* ------------------------------ Interactions ------------------------------ */
+        /* ------------------------------ Défilement animé ------------------------------ */
+        var scrolling = false;
+        function cancelScroll() { scrolling = false; sec.classList.remove('vi-warp'); }
+
+        // Défilement accéléré, avec courbe douce ; s'arrête dès que l'utilisateur reprend la main.
+        function scrollToY(y, ms) {
+            if (STATIC || !window.requestAnimationFrame) { window.scrollTo({ top: y, behavior: 'smooth' }); return; }
+            var from = window.pageYOffset, dy = y - from;
+            if (Math.abs(dy) < 2) return;
+            var dur = ms || clamp(700 + Math.abs(dy) / 7, 900, 1800);
+            var t0 = performance.now();
+            scrolling = true;
+            if (Math.abs(dy) > 1500) sec.classList.add('vi-warp');   // pendant le "fast-forward", on allège le décor
+            function step(now) {
+                if (!scrolling) return;
+                var u = clamp((now - t0) / dur, 0, 1);
+                window.scrollTo(0, from + dy * easeInOut(u));
+                if (u < 1) requestAnimationFrame(step); else cancelScroll();
+            }
+            requestAnimationFrame(step);
+        }
+        ['wheel', 'touchstart', 'keydown', 'mousedown'].forEach(function (ev) {
+            window.addEventListener(ev, function () { if (scrolling) cancelScroll(); }, { passive: true });
+        });
+
         function scrollToP(p) {
             var rect = track.getBoundingClientRect();
-            var y = rect.top + window.pageYOffset - M.top + p * M.dist;
-            window.scrollTo({ top: y, behavior: 'smooth' });
+            scrollToY(rect.top + window.pageYOffset - M.top + p * M.dist);
+        }
+
+        // Destination du bouton "Passer" : le hero en place (la scène est alors entièrement recouverte)
+        function skipTarget() {
+            var nx = sec.nextElementSibling;
+            return nx ? nx.getBoundingClientRect().top + window.pageYOffset - M.top : 0;
         }
 
         sec.addEventListener('click', function (e) {
             var b = e.target.closest ? e.target.closest('[data-act],[data-step]') : null;
             if (!b) return;
             if (b.hasAttribute('data-step')) { scrollToP(STEP_CENTERS[Number(b.getAttribute('data-step'))]); return; }
-            if (b.getAttribute('data-act') === 'play') {
+            var act = b.getAttribute('data-act');
+            if (act === 'play') {
                 var pb = document.getElementById('playBtn');
                 if (pb) pb.click();
-            } else if (b.getAttribute('data-act') === 'next') {
-                var nx = sec.nextElementSibling;
-                if (nx) {
-                    var y = nx.getBoundingClientRect().top + window.pageYOffset - M.top;
-                    window.scrollTo({ top: y, behavior: 'smooth' });
-                }
+            } else if (act === 'next' || act === 'skip') {
+                scrollToY(skipTarget());
             }
         });
 
@@ -519,7 +621,7 @@
         // Les contenus dynamiques arrivent après le chargement : on réessaie un peu.
         var tries = 0, iv = setInterval(function () { syncAll(); if (++tries > 12) clearInterval(iv); }, 1500);
 
-        window.VAFM_INTRO = { refresh: function () { measure(); syncAll(); } };
+        window.VAFM_INTRO = { refresh: function () { measure(); syncAll(); }, skip: function () { scrollToY(skipTarget()); } };
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

@@ -64,6 +64,21 @@ html.vi-on, html.vi-on body { overflow-x: clip !important; }
 .vi-orb-c { transform: translate(-10vw, 8vh); background: radial-gradient(closest-side, rgba(255, 138, 0, .45), transparent 70%); }
 .vi-orb-d { transform: translate(12vw, -8vh); background: radial-gradient(closest-side, rgba(236, 72, 153, .45), transparent 70%); }
 
+.vi-spot {
+    position: absolute; left: 50%; top: 50%;
+    width: 72vmin; height: 72vmin; margin: -36vmin 0 0 -36vmin; border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(255, 255, 255, .13), rgba(255, 255, 255, .04) 55%, transparent 75%);
+    opacity: 0; visibility: hidden;
+}
+
+.vi-floor {
+    position: absolute; left: 50%; top: 50%;
+    width: calc(var(--dw) * .9); height: calc(var(--dw) * .12);
+    margin: calc(var(--dw) * -.06) 0 0 calc(var(--dw) * -.45);
+    background: radial-gradient(closest-side, rgba(229, 9, 20, .3), rgba(0, 0, 0, .55) 42%, transparent 74%);
+    opacity: 0; visibility: hidden; pointer-events: none;
+}
+
 .vi-rings { position: absolute; left: 50%; top: 52%; width: 0; height: 0; }
 .vi-ring {
     position: absolute; left: 0; top: 0;
@@ -86,12 +101,12 @@ html.vi-on, html.vi-on body { overflow-x: clip !important; }
     position: absolute; inset: 0 0 var(--vi-bot) 0; z-index: 2;
     perspective: 1500px;
     perspective-origin: 50% 46%;
-}
-
-.vi-device {
     --dw: min(50vw, calc((100vh - var(--vi-top)) * .64 * 1.3333));
     --dw: min(50vw, calc((100svh - var(--vi-top)) * .64 * 1.3333));
     --dh: calc(var(--dw) * .75);
+}
+
+.vi-device {
     position: absolute; left: 50%; top: 50%;
     width: var(--dw); height: var(--dh);
     margin: calc(var(--dh) / -2) 0 0 calc(var(--dw) / -2);
@@ -246,6 +261,21 @@ html.vi-on, html.vi-on body { overflow-x: clip !important; }
 .vi-tile:nth-child(3) { background: linear-gradient(135deg, #0ea5e9, #7c3aed); }
 .vi-tile:nth-child(4) { background: linear-gradient(135deg, #ec4899, #f59e0b); }
 
+/* ----------- Changement d'écran "app switch" : les éléments arrivent en cascade ----------- */
+/* --so (0 → 1) est écrit par le JS sur chaque écran ; --k décale chaque élément. */
+.vi-bar, .vi-vinyl, .vi-now, .vi-card, .vi-bubble, .vi-input, .vi-tile {
+    --r: clamp(0, (var(--so) - var(--k, 0) * .12) * 2.4, 1);
+    opacity: var(--r);
+    translate: 0 calc((1 - var(--r)) * 5cqh);
+}
+.vi-bar { --k: 0; }
+.vi-vinyl { --k: 1; } .vi-now { --k: 2; }
+.vi-card:nth-child(1), .vi-tile:nth-child(1), .vi-bubble:nth-child(1) { --k: 1; }
+.vi-card:nth-child(2), .vi-tile:nth-child(2), .vi-bubble:nth-child(2) { --k: 2; }
+.vi-card:nth-child(3), .vi-tile:nth-child(3), .vi-bubble:nth-child(3) { --k: 3; }
+.vi-tile:nth-child(4), .vi-bubble:nth-child(4) { --k: 4; }
+.vi-input { --k: 5; }
+
 /* ------------------------------ Bulles flottantes ------------------------------ */
 .vi-chip {
     position: absolute; left: 50%; top: 50%;
@@ -274,16 +304,20 @@ html.vi-on, html.vi-on body { overflow-x: clip !important; }
 }
 .vi-t.left { left: 6vw; }
 .vi-t.right { right: 6vw; text-align: left; }
-.vi-t.center { left: 50%; width: min(86vw, 900px); text-align: center; transform: translate(-50%, -50%); }
+.vi-t.center { left: 50%; width: min(92vw, 1120px); text-align: center; transform: translate(-50%, -50%); }
 .vi-t.top { top: 14%; }
 .vi-t.hero { top: 6%; transform: translate(-50%, 0); }
 
 .vi-kicker { margin: 0 0 .8em; font-size: clamp(11px, 1.05vw, 15px); font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: var(--vi-orange); }
 .vi-h {
-    margin: 0 0 .45em; font-size: clamp(30px, 4.6vw, 76px); font-weight: 800; line-height: 1.02; letter-spacing: -.03em;
+    margin: 0 0 .45em; font-size: clamp(32px, 5.2vw, 86px); font-weight: 800; line-height: 1.02; letter-spacing: -.038em;
 }
-.vi-h .vi-w { display: inline-block; }
-.vi-h .grad, .vi-h.grad { background: linear-gradient(90deg, #ff3b46, #ff8a00 60%, #ffd166); -webkit-background-clip: text; background-clip: text; color: transparent; }
+/* chaque mot est dans un masque : il "monte" depuis le bas (révélation façon Apple) */
+.vi-h .vi-w { display: inline-block; overflow: hidden; vertical-align: top; padding: .06em .05em .16em; margin: -.06em -.05em -.16em; }
+.vi-h .vi-wi { display: inline-block; transform: translate3d(0, 108%, 0); }
+.vi-h .vi-w.grad .vi-wi { background: linear-gradient(90deg, #ff3b46, #ff8a00 60%, #ffd166); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.vi.vi-static .vi-wi { transform: none; }
+.vi-h.grad { background: linear-gradient(90deg, #ff3b46, #ff8a00 60%, #ffd166); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .vi-p { margin: 0; font-size: clamp(14px, 1.45vw, 21px); line-height: 1.5; color: rgba(255, 255, 255, .72); font-weight: 500; }
 .vi-btns { margin-top: 1.6em; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
 .vi-btn {
@@ -296,6 +330,22 @@ html.vi-on, html.vi-on body { overflow-x: clip !important; }
 .vi-btn.ghost { background: rgba(255, 255, 255, .12); color: #fff; border: 1px solid rgba(255, 255, 255, .3); }
 
 .vi-logo-big { display: block; margin: 0 auto .35em; width: clamp(150px, 22vw, 340px); height: auto; filter: drop-shadow(0 10px 50px rgba(229, 9, 20, .55)); }
+
+/* Bouton "Passer l'intro" */
+.vi-skip {
+    position: absolute; top: 16px; right: 18px; z-index: 7;
+    display: inline-flex; align-items: center; gap: .55em;
+    padding: .65em 1.1em; border-radius: 99px;
+    border: 1px solid rgba(255, 255, 255, .28);
+    background: rgba(255, 255, 255, .1);
+    color: #fff; font: 700 13px/1 inherit; font-family: inherit; letter-spacing: .01em;
+    cursor: pointer; opacity: 0; visibility: hidden;
+    transition: background .2s ease, transform .2s ease, border-color .2s ease;
+}
+.vi-skip:hover { background: rgba(255, 255, 255, .2); border-color: rgba(255, 255, 255, .5); transform: translateY(1px); }
+.vi-skip:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.vi-skip svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; animation: vi-nudge 1.6s ease-in-out infinite; }
+@keyframes vi-nudge { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
 
 /* Indications */
 .vi-hint {
@@ -341,12 +391,13 @@ html.vi-on, html.vi-on body { overflow-x: clip !important; }
 }
 
 /* -------------------- Mode "léger" / sans animation -------------------- */
+.vi.vi-warp .vi-chip, .vi.vi-warp .vi-rings, .vi.vi-warp .vi-glare, .vi.vi-warp .vi-stars, .vi.vi-warp .vi-orb-c, .vi.vi-warp .vi-orb-d { display: none; }
 .vi.vi-lite .vi-chip, .vi.vi-lite .vi-rings, .vi.vi-lite .vi-glare, .vi.vi-lite .vi-stars, .vi.vi-lite .vi-orb-c, .vi.vi-lite .vi-orb-d { display: none; }
 
 .vi.vi-static .vi-track { height: auto; }
 .vi.vi-static .vi-stage { position: relative; top: 0; min-height: calc(100svh - var(--vi-top)); }
 .vi.vi-static .vi-vinyl, .vi.vi-static .vi-eq i, .vi.vi-static .vi-ring, .vi.vi-static .vi-dot, .vi.vi-static .vi-mouse::after { animation: none; }
-.vi.vi-static .vi-hint, .vi.vi-static .vi-steps, .vi.vi-static .vi-prog { display: none; }
+.vi.vi-static .vi-hint, .vi.vi-static .vi-steps, .vi.vi-static .vi-prog, .vi.vi-static .vi-skip { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
     .vi .vi-vinyl, .vi .vi-eq i, .vi .vi-ring, .vi .vi-dot, .vi .vi-mouse::after { animation: none; }
@@ -356,7 +407,7 @@ html.vi-on, html.vi-on body { overflow-x: clip !important; }
 @media screen and (max-width: 760px) {
     .vi { --vi-bot: 92px; }
     .vi-track { height: calc(640vh + var(--vi-overlap, 0px)); }
-    .vi-device {
+    .vi-scene {
         --dw: min(62vw, calc((100vh - var(--vi-top)) * .56 * .5625));
         --dw: min(62vw, calc((100svh - var(--vi-top)) * .56 * .5625));
         --dh: calc(var(--dw) * 1.7778);
@@ -368,6 +419,7 @@ html.vi-on, html.vi-on body { overflow-x: clip !important; }
     .vi-h { font-size: clamp(28px, 9vw, 44px); }
     .vi-p { font-size: 15px; }
     .vi-steps { display: none; }
+    .vi-skip { top: 10px; right: 10px; font-size: 12px; padding: .6em 1em; }
     .vi-chip { font-size: 11px; }
     .vi-logo-big { width: 46vw; }
 
